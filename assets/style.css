@@ -1,0 +1,107 @@
+body {
+    background: #faf6f4;
+    font-family: 'Tajawal', Arial, sans-serif;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 {
+    font-weight: bold;
+    color: #D44759;
+}
+.btn-primary, .btn-success, .btn-danger, .btn-warning {
+    font-weight: bold;
+    border-radius: 2rem;
+}
+.btn-primary {
+    background: #D44759;
+    border: none;
+}
+.btn-primary:hover, .btn-primary:focus {
+    background: #F37D47;
+}
+.btn-success {
+    background: #F37D47;
+    border: none;
+}
+.btn-success:hover, .btn-success:focus {
+    background: #D44759;
+}
+.navbar, .main-navbar {
+    background: #D44759;
+}
+.navbar .navbar-brand,
+.main-navbar .navbar-brand {
+    color: #fff !important;
+    font-weight: bold;
+    font-size: 1.3rem;
+}
+.navbar img,
+.main-navbar img {
+    height: 40px;
+}
+.sidebar {
+    background: #fff;
+    min-height: 100vh;
+    box-shadow: 1px 0 4px #eee;
+}
+.sidebar a {
+    color: #333;
+    display: block;
+    padding: 10px 18px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    transition: background 0.2s;
+    font-size: 1rem;
+}
+.sidebar a.active, .sidebar a:hover {
+    background: #F37D47;
+    color: #fff;
+}
+.card {
+    border-radius: 1.5rem !important;
+    box-shadow: 0 3px 15px #e4e0e0;
+}
+.table th, .table td {
+    vertical-align: middle !important;
+    font-size: 1rem;
+}
+.table thead th {
+    background: #f7d9c4 !important;
+    color: #D44759;
+}
+input[type="text"], input[type="number"], input[type="email"], input[type="date"], textarea, select {
+    border-radius: 1rem !important;
+    font-size: 1.1rem;
+}
+input:focus, textarea:focus, select:focus {
+    border-color: #D44759 !important;
+    box-shadow: 0 0 0 0.15rem #d4475945 !important;
+}
+footer {
+    background: #fff;
+    color: #D44759;
+    letter-spacing: 2px;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+.alert-success {
+    background: #dbffe2;
+    color: #195d35;
+    border-color: #b9efc6;
+    font-weight: bold;
+}
+.alert-danger {
+    background: #ffeaea;
+    color: #d44759;
+    border-color: #ffb3b3;
+    font-weight: bold;
+}
+::-webkit-scrollbar-thumb {
+    background: #F37D47;
+    border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #fff0e5;
+}
+::-webkit-scrollbar {
+    width: 10px;
+}
