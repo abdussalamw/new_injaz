@@ -1,10 +1,10 @@
 <?php
-include 'auth_check.php';
 include 'db_connection.php';
+include 'auth_check.php';
 
 header('Content-Type: application/json');
 
-if (!has_permission('client_view')) {
+if (!has_permission('client_view', $conn)) {
     echo json_encode([]);
     exit;
 }

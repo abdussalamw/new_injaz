@@ -1,8 +1,9 @@
 <?php
-include 'header.php';
+$page_title = 'إضافة طلب جديد';
 include 'db_connection.php';
+include 'header.php';
 
-check_permission('order_add');
+check_permission('order_add', $conn);
 
 // جلب المنتجات
 $products_res = $conn->query("SELECT product_id, name FROM products ORDER BY name");
@@ -44,12 +45,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $remaining_amount = $total_amount - $deposit_amount;
         $created_by = $_SESSION['user_id'] ?? 1; // Fallback to 1 if session not set
         
-        // أتمتة حالة الدفع
-        $payment_status = 'غير مدفوع';
-        if ($total_amount <= 0 || $deposit_amount >= $total_amount) {
+        // أتمتة حالة الدفع حسب المنطق الجديد
+        if ($deposit_amount >= $total_amount && $total_amount > 0) {
             $payment_status = 'مدفوع';
-        } elseif ($deposit_amount > 0) {
+        } elseif ($deposit_amount > 0 && $deposit_amount < $total_amount) {
             $payment_status = 'مدفوع جزئياً';
+        } else { // يشمل حالة المبلغ الإجمالي صفر أو الدفعة صفر
+            $payment_status = 'غير مدفوع';
         }
 
         $designer_id = $_POST['designer_id'];
@@ -95,7 +97,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 <div class="container">
-    <h2 style="color:#D44759;" class="mb-4">إضافة طلب جديد</h2>
     <?php if ($error): ?>
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>

@@ -1,14 +1,15 @@
 <?php
-include 'header.php';
-include 'db_connection.php';
-
 $id = intval($_GET['id'] ?? 0);
+$page_title = "تعديل الطلب #" . $id;
+include 'db_connection.php';
+include 'header.php';
 
-check_permission('order_edit');
+check_permission('order_edit', $conn);
 
-$stmt = $conn->prepare("SELECT o.*, c.company_name, c.contact_person, c.phone 
+$stmt = $conn->prepare("SELECT o.*, c.company_name, c.contact_person, c.phone, e.name as designer_name
                         FROM orders o 
                         JOIN clients c ON o.client_id = c.client_id 
+                        LEFT JOIN employees e ON o.designer_id = e.employee_id
                         WHERE o.order_id=?");
 $stmt->bind_param("i", $id);
 $stmt->execute();
@@ -16,6 +17,20 @@ $result = $stmt->get_result();
 if (!$row = $result->fetch_assoc()) {
     echo "<div class='alert alert-danger'>الطلب غير موجود</div>";
     include 'footer.php'; exit;
+}
+
+// --- تحديد قابلية التعديل ---
+$status = trim($row['status']);
+$user_role = $_SESSION['user_role'] ?? 'guest';
+$is_order_editable = false;
+
+// أي شخص يمكنه التعديل إذا كان الطلب "قيد التصميم"
+if ($status === 'قيد التصميم') {
+    $is_order_editable = true;
+} 
+// المدير يمكنه التعديل إلا إذا كان الطلب "مكتمل" أو "ملغي"
+elseif ($user_role === 'مدير' && !in_array($status, ['مكتمل', 'ملغي'])) {
+    $is_order_editable = true;
 }
 
 // جلب بنود الطلب
@@ -33,6 +48,14 @@ $error = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $post_data = $_POST; // Store submitted data to repopulate form on error
+
+    // *** التحقق من جهة الخادم: لا يمكن تعديل الطلب إلا إذا كان في مرحلة تسمح بذلك ***
+    if (!$is_order_editable) {
+        $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'لا يمكن تعديل هذا الطلب في حالته الحالية.'];
+        header("Location: edit_order.php?id=" . $id);
+        exit;
+    }
+
     $conn->begin_transaction();
     try {
         // 1. تحديث الطلب الرئيسي
@@ -44,12 +67,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $deposit_amount = floatval($_POST['deposit_amount']);
         $remaining_amount = $total_amount - $deposit_amount;
         
-        // أتمتة حالة الدفع
-        $payment_status = 'غير مدفوع';
-        if ($total_amount <= 0 || $deposit_amount >= $total_amount) {
+        // أتمتة حالة الدفع حسب المنطق الجديد
+        if ($deposit_amount >= $total_amount && $total_amount > 0) {
             $payment_status = 'مدفوع';
-        } elseif ($deposit_amount > 0) {
+        } elseif ($deposit_amount > 0 && $deposit_amount < $total_amount) {
             $payment_status = 'مدفوع جزئياً';
+        } else { // يشمل حالة المبلغ الإجمالي صفر أو الدفعة صفر
+            $payment_status = 'غير مدفوع';
         }
 
         $designer_id = $_POST['designer_id'];
@@ -57,15 +81,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             throw new Exception("الرجاء اختيار المسؤول عن التصميم. الحقل إجباري.");
         }
 
+        // بناء الاستعلام بشكل ديناميكي
+        $sql = "UPDATE orders SET total_amount=?, deposit_amount=?, remaining_amount=?, payment_status=?, payment_method=?, due_date=?, priority=?, notes=?";
+        $types = "dddsssss";
+        $params = [$total_amount, $deposit_amount, $remaining_amount, $payment_status, $_POST['payment_method'], $_POST['due_date'], $_POST['priority'], $_POST['notes']];
+
         // فقط المدير يستطيع تغيير المصمم المسؤول
         if ($_SESSION['user_role'] === 'مدير') {
-            $stmt_order = $conn->prepare("UPDATE orders SET designer_id=?, total_amount=?, deposit_amount=?, remaining_amount=?, payment_status=?, payment_method=?, due_date=?, priority=?, notes=? WHERE order_id=?");
-            $stmt_order->bind_param("idddsssssi", $designer_id, $total_amount, $deposit_amount, $remaining_amount, $payment_status, $_POST['payment_method'], $_POST['due_date'], $_POST['priority'], $_POST['notes'], $id);
-        } else {
-            // المستخدمون الآخرون لا يستطيعون تغيير المصمم
-            $stmt_order = $conn->prepare("UPDATE orders SET total_amount=?, deposit_amount=?, remaining_amount=?, payment_status=?, payment_method=?, due_date=?, priority=?, notes=? WHERE order_id=?");
-            $stmt_order->bind_param("dddsssssi", $total_amount, $deposit_amount, $remaining_amount, $payment_status, $_POST['payment_method'], $_POST['due_date'], $_POST['priority'], $_POST['notes'], $id);
+            $sql .= ", designer_id=?";
+            $types .= "i";
+            $params[] = $designer_id;
         }
+        $sql .= " WHERE order_id=?";
+        $types .= "i";
+        $params[] = $id;
+        $stmt_order = $conn->prepare($sql);
+        $stmt_order->bind_param($types, ...$params);
         $stmt_order->execute();
 
         // 2. حذف البنود القديمة
@@ -108,7 +139,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 <div class="container">
-    <h2 style="color:#D44759;" class="mb-4">تعديل طلب</h2>
     <?php if ($error): ?>
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
@@ -170,14 +200,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 <?php endwhile; ?>
                             </select>
                         <?php else: ?>
-                            <?php
-                                $designer_name_display = 'غير محدد';
-                                mysqli_data_seek($designers_res, 0);
-                                while($d_row_display = $designers_res->fetch_assoc()) {
-                                    if ($d_row_display['employee_id'] == $row['designer_id']) { $designer_name_display = htmlspecialchars($d_row_display['name']); break; }
-                                }
-                            ?>
-                            <p class="form-control-plaintext bg-light border rounded-pill px-3"><?= $designer_name_display ?></p>
+                            <p class="form-control-plaintext bg-light border rounded-pill px-3"><?= htmlspecialchars($row['designer_name'] ?? 'غير محدد') ?></p>
+                            <input type="hidden" name="designer_id" value="<?= htmlspecialchars($row['designer_id']) ?>">
                         <?php endif; ?>
                     </div>
 
@@ -209,13 +233,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </fieldset>
 
             <div class="col-12 text-center mt-4">
-                <button class="btn btn-primary px-5" type="submit">حفظ التعديلات</button>
+                <button class="btn px-5 text-white" type="submit" style="background-color:#D44759;">حفظ التعديلات</button>
                 <a href="orders.php" class="btn btn-secondary ms-2">عودة للقائمة</a>
             </div>
         </div>
     </form>
 </div>
 <script>
+// تعطيل الفورم إذا لم يعد الطلب قابلاً للتعديل بناءً على حالته ودور المستخدم
+const isEditable = <?= $is_order_editable ? 'true' : 'false' ?>;
 document.addEventListener('DOMContentLoaded', function() {
     const itemsContainer = document.getElementById('order-items-container');
     const addItemBtn = document.getElementById('add-item-btn');
@@ -306,6 +332,26 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         // Add one empty item if there are no existing items
         addOrderItem();
+    }
+
+    // بعد تحميل كل العناصر، يتم تطبيق حالة التعديل
+    if (!isEditable) {
+        // إضافة رسالة تحذير للمستخدم
+        const warningDiv = document.createElement('div');
+        warningDiv.className = 'alert alert-warning';
+        warningDiv.textContent = 'هذا الطلب في مرحلة متقدمة ولا يمكن تعديله من هذه الشاشة.';
+        orderForm.parentNode.insertBefore(warningDiv, orderForm);
+
+        // تعطيل جميع حقول الإدخال
+        orderForm.querySelectorAll('input, select, textarea').forEach(el => {
+            if (el.type !== 'hidden') el.disabled = true;
+        });
+
+        // إخفاء أزرار الإجراءات وتعطيل زر الحفظ
+        document.getElementById('add-item-btn').style.display = 'none';
+        orderForm.querySelectorAll('.remove-item-btn').forEach(btn => btn.style.display = 'none');
+        const submitButton = orderForm.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
     }
 });
 </script>

@@ -4,26 +4,6 @@ include 'db_connection.php';
 $error = '';
 $success_reset = '';
 
-// --- أداة مؤقتة لتغيير كلمة المرور ---
-if (isset($_POST['reset_password'])) {
-    $reset_user = $_POST['reset_username'];
-    $new_pass = $_POST['new_password'];
-
-    if (!empty($reset_user) && !empty($new_pass)) {
-        $hashed_password = password_hash($new_pass, PASSWORD_DEFAULT);
-        $stmt_reset = $conn->prepare("UPDATE employees SET password = ? WHERE name = ?");
-        $stmt_reset->bind_param("ss", $hashed_password, $reset_user);
-        if ($stmt_reset->execute() && $stmt_reset->affected_rows > 0) {
-            $success_reset = "تم تحديث كلمة مرور المستخدم '" . htmlspecialchars($reset_user) . "' بنجاح.";
-        } else {
-            $error = "لم يتم العثور على المستخدم '" . htmlspecialchars($reset_user) . "' أو حدث خطأ.";
-        }
-    } else {
-        $error = "الرجاء إدخال اسم المستخدم وكلمة المرور الجديدة.";
-    }
-}
-// --- نهاية الأداة المؤقتة ---
-
 if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['reset_password'])) {
     $user = $_POST['username'];
     $pass = $_POST['password'];
@@ -38,6 +18,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['reset_password'])) {
             $_SESSION['user_role'] = $row['role'];
             // مسح أي صلاحيات قديمة مخزنة لضمان تحميل الصلاحيات الجديدة
             unset($_SESSION['user_permissions']); 
+
+            // --- منطق الترحيل التلقائي لصلاحيات المدراء القدامى ---
+            // هذا يضمن أن المدراء الحاليين يحصلون على صلاحياتهم الكاملة في قاعدة البيانات بعد التحديث
+            if ($row['role'] === 'مدير') {
+                // التحقق مما إذا كان هذا المدير لديه أي صلاحيات مسجلة
+                $perm_check_stmt = $conn->prepare("SELECT COUNT(*) FROM employee_permissions WHERE employee_id = ?");
+                $perm_check_stmt->bind_param("i", $row['employee_id']);
+                $perm_check_stmt->execute();
+                $perm_count = $perm_check_stmt->get_result()->fetch_row()[0];
+                $perm_check_stmt->close();
+
+                // إذا لم يكن لديه صلاحيات، فهذا يعني أنه حساب مدير قديم ويجب منحه كل الصلاحيات
+                if ($perm_count == 0) {
+                    include_once 'permissions.php'; // لجلب دالة get_all_permissions
+                    $all_permissions = get_all_permissions();
+                    $stmt_grant = $conn->prepare("INSERT INTO employee_permissions (employee_id, permission_key) VALUES (?, ?)");
+                    foreach ($all_permissions as $group => $permissions) {
+                        foreach (array_keys($permissions) as $perm_key) {
+                            $stmt_grant->bind_param("is", $row['employee_id'], $perm_key);
+                            $stmt_grant->execute();
+                        }
+                    }
+                    $stmt_grant->close();
+                }
+            }
+
             header("Location: index.php"); exit;
         } else {
             $error = "كلمة المرور غير صحيحة.";
@@ -78,22 +84,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['reset_password'])) {
             </div>
             <button class="btn btn-lg w-100 text-white" style="background:#D44759;">دخول</button>
         </form>
-
-        <!-- أداة مؤقتة لتغيير كلمة المرور -->
-        <div class="card shadow-sm rounded-4 p-3 mt-4 bg-light border-warning">
-            <h6 class="text-center text-muted mb-3">أداة مؤقتة لتغيير كلمة المرور</h6>
-            <form method="post">
-                <div class="mb-2">
-                    <label class="form-label small">اسم المستخدم</label>
-                    <input type="text" class="form-control form-control-sm" name="reset_username" required>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label small">كلمة المرور الجديدة</label>
-                    <input type="password" class="form-control form-control-sm" name="new_password" required>
-                </div>
-                <button class="btn btn-sm btn-warning w-100" name="reset_password" type="submit">تحديث كلمة المرور</button>
-            </form>
-        </div>
     </div>
 </div>
 </body>

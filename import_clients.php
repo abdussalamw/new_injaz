@@ -1,9 +1,13 @@
 <?php
-include 'header.php';
+$page_title = 'استيراد عملاء';
 include 'db_connection.php';
+include 'header.php';
 
 $success = false;
 $error = '';
+
+check_permission('client_import', $conn);
+
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
     $file = $_FILES["file"]["tmp_name"];
     if (($handle = fopen($file, "r")) !== FALSE) {
@@ -35,7 +39,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
 }
 ?>
 <div class="container">
-    <h2 style="color:#D44759;" class="mb-4">استيراد عملاء من CSV/Excel</h2>
     <?php if($success): ?><div class="alert alert-success">تم الاستيراد بنجاح!</div><?php endif; ?>
     <?php if($error): ?><div class="alert alert-danger"><?= $error ?></div><?php endif; ?>
     <form method="post" enctype="multipart/form-data">

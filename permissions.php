@@ -34,11 +34,16 @@ function get_all_permissions() {
             'product_edit' => 'تعديل',
             'product_delete' => 'حذف',
         ],
+        'المالية' => [
+            'order_view_financials' => 'عرض كل الطلبات للمتابعة المالية',
+            'order_financial_settle' => 'تسوية الطلبات مالياً (تأكيد الدفع الكامل)',
+        ],
         'الموظفون' => [
             'employee_view' => 'عرض',
             'employee_add' => 'إضافة',
             'employee_edit' => 'تعديل',
             'employee_delete' => 'حذف',
+            'employee_password_reset' => 'إعادة تعيين كلمة المرور',
         ]
     ];
 }
@@ -48,21 +53,12 @@ function get_all_permissions() {
  * @param string $action الصلاحية المطلوبة (مثال: 'client_add')
  * @return bool
  */
-function has_permission($action) {
+function has_permission($action, $conn) {
     $role = $_SESSION['user_role'] ?? 'guest';
     $user_id = $_SESSION['user_id'] ?? 0;
 
-    // المدير له كل الصلاحيات دائماً
-    if ($role === 'مدير') {
-        return true;
-    }
-
     // التحقق من صلاحيات المستخدم من قاعدة البيانات
     if (!isset($_SESSION['user_permissions'])) {
-        // نحتاج للوصول إلى متغير الاتصال بقاعدة البيانات
-        // الطريقة الأفضل هي تمريره كمعامل، ولكن للتبسيط سنستخدم global هنا
-        global $conn; 
-        if (!$conn) { include 'db_connection.php'; } // التأكد من وجود الاتصال
         $stmt = $conn->prepare("SELECT permission_key FROM employee_permissions WHERE employee_id = ?");
         $stmt->bind_param("i", $user_id);
         $stmt->execute();

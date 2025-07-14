@@ -1,66 +1,13 @@
 <?php
-include 'header.php';
+// --- كود مؤقت لإظهار الأخطاء ---
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+// --- نهاية الكود المؤقت ---
+
+$page_title = 'لوحة التحكم';
 include 'db_connection.php';
-
-// دالة لتحديد لون الأولوية
-function get_priority_class($priority) {
-    switch ($priority) {
-        case 'عاجل جداً': return 'border-danger';
-        case 'عالي': return 'border-warning';
-        case 'متوسط': return 'border-info';
-        case 'منخفض': return 'border-secondary';
-        default: return 'border-light';
-    }
-}
-
-// --- الدوال المنسوخة من orders.php لدعم تغيير الحالة ---
-
-// دالة لتحديد لون زر الحالة
-function get_status_class($status) {
-    $classes = [
-        'قيد التصميم' => 'btn-info text-dark',
-        'قيد التنفيذ' => 'btn-primary',
-        'جاهز للتسليم' => 'btn-warning text-dark',
-        'بانتظار الإغلاق' => 'btn-dark',
-        'مكتمل' => 'btn-success',
-        'ملغي' => 'btn-danger'
-    ];
-    return $classes[$status] ?? 'btn-light';
-}
-
-// دالة لتحديد الإجراءات المتاحة بناءً على المرحلة والدور
-function get_next_actions($current_status, $user_role) {
-    $actions = [];
-
-    // المدير يمكنه إلغاء الطلب في أي وقت
-    if ($user_role === 'مدير' && !in_array($current_status, ['مكتمل', 'ملغي'])) {
-        $actions['ملغي'] = 'إلغاء الطلب';
-    }
-
-    switch ($current_status) {
-        case 'قيد التصميم':
-            if (in_array($user_role, ['مدير', 'مصمم'])) {
-                $actions['قيد التنفيذ'] = 'إرسال للتنفيذ';
-            }
-            break;
-        case 'قيد التنفيذ':
-            if (in_array($user_role, ['مدير', 'معمل'])) {
-                $actions['جاهز للتسليم'] = 'إرسال للتسليم والمحاسبة';
-            }
-            break;
-        case 'جاهز للتسليم':
-            if (in_array($user_role, ['مدير', 'محاسب'])) {
-                $actions['بانتظار الإغلاق'] = 'تأكيد التسوية المالية';
-            }
-            break;
-        case 'بانتظار الإغلاق':
-            if ($user_role === 'مدير') {
-                $actions['مكتمل'] = 'إغلاق الطلب (نهائي)';
-            }
-            break;
-    }
-    return $actions;
-}
+include 'header.php';
 
 // العدادات
 $orders_count = $conn->query("SELECT COUNT(*) FROM orders")->fetch_row()[0];
@@ -73,28 +20,35 @@ $employee_stats = [];
 $overall_stats = ['open' => 0, 'closed' => 0, 'total' => 0];
 $top_designers = [];
 
-if (has_permission('dashboard_reports_view')) {
+if (has_permission('dashboard_reports_view', $conn)) {
     // 1. إحصائيات لكل مصمم
     $stmt_employees = $conn->prepare("
         SELECT
             e.employee_id,
             e.name,
             COUNT(o.order_id) AS total_open_tasks,
-            SUM(CASE WHEN o.due_date = CURDATE() THEN 1 ELSE 0 END) AS tasks_due_today,
-            (SELECT COUNT(*)
-             FROM orders o2
-             WHERE o2.designer_id = e.employee_id
-               AND o2.status = 'مكتمل'
-               AND o2.order_date >= DATE_FORMAT(NOW(), '%Y-%m-01')
-            ) AS monthly_closed_tasks
+            SUM(CASE WHEN o.due_date = CURDATE() THEN 1 ELSE 0 END) AS tasks_due_today
         FROM
             employees e
         LEFT JOIN
             orders o ON e.employee_id = o.designer_id AND o.status NOT IN ('مكتمل', 'ملغي')
-        GROUP BY e.employee_id, e.name ORDER BY e.name
+        GROUP BY e.employee_id, e.name
+        ORDER BY e.name
     ");
     $stmt_employees->execute();
     $employee_stats = $stmt_employees->get_result()->fetch_all(MYSQLI_ASSOC);
+
+    // تحسين: جلب المهام المنجزة شهرياً في استعلام منفصل ومحسن
+    $stmt_monthly = $conn->prepare("SELECT designer_id, COUNT(*) as monthly_closed_tasks FROM orders WHERE status = 'مكتمل' AND order_date >= DATE_FORMAT(NOW(), '%Y-%m-01') GROUP BY designer_id");
+    $stmt_monthly->execute();
+    $monthly_results = $stmt_monthly->get_result()->fetch_all(MYSQLI_ASSOC);
+    $monthly_tasks_map = array_column($monthly_results, 'monthly_closed_tasks', 'designer_id');
+
+    // دمج النتائج
+    foreach ($employee_stats as &$stat) {
+        $stat['monthly_closed_tasks'] = $monthly_tasks_map[$stat['employee_id']] ?? 0;
+    }
+    unset($stat); // لكسر المرجع
 
     // 2. إحصائيات إجمالية للمقارنات
     $stmt_overall = $conn->prepare("SELECT SUM(CASE WHEN status = 'مكتمل' THEN 1 ELSE 0 END) as closed_count, SUM(CASE WHEN status NOT IN ('مكتمل', 'ملغي') THEN 1 ELSE 0 END) as open_count FROM orders");
@@ -118,29 +72,28 @@ $sql = "SELECT o.*, c.company_name AS client_name, c.phone as client_phone, e.na
         LEFT JOIN employees e ON o.designer_id = e.employee_id";
 
 $res = null; // تهيئة المتغير
-if (has_permission('order_view_all')) { // المدير
-    $sql .= " WHERE o.status NOT IN ('مكتمل', 'ملغي') GROUP BY o.order_id ORDER BY o.due_date ASC";
+if (has_permission('order_view_all', $conn)) { // المدير
+    $sql .= " WHERE TRIM(o.status) NOT IN ('مكتمل', 'ملغي') GROUP BY o.order_id ORDER BY o.due_date ASC";
     $res = $conn->query($sql);
-} elseif (has_permission('order_view_own')) { // بقية الأدوار
-    $where_clauses = ["o.status NOT IN ('مكتمل', 'ملغي')"];
+} elseif (has_permission('order_view_own', $conn)) { // بقية الأدوار
+    $where_clauses = ["TRIM(o.status) NOT IN ('مكتمل', 'ملغي')"];
     $params = [];
     $types = "";
 
     switch ($user_role) {
         case 'مصمم':
-            // المصمم يرى فقط المهام المسندة إليه في مرحلة التصميم
+            // المصمم يرى كل مهامه المفتوحة التي تم إسنادها إليه
             $where_clauses[] = "o.designer_id = ?";
-            $where_clauses[] = "o.status = 'قيد التصميم'";
             $params[] = $user_id;
             $types .= "i";
             break;
         case 'معمل':
             // المعمل يرى كل المهام في مرحلة التنفيذ
-            $where_clauses[] = "o.status = 'قيد التنفيذ'";
+            $where_clauses[] = "TRIM(o.status) = 'قيد التنفيذ'";
             break;
         case 'محاسب':
             // المحاسب يرى كل المهام في مرحلة التسليم
-            $where_clauses[] = "o.status = 'جاهز للتسليم'";
+            $where_clauses[] = "TRIM(o.status) = 'جاهز للتسليم'";
             break;
         default:
             // كإجراء احتياطي، إذا كان للمستخدم دور آخر، فلن يرى أي طلبات
@@ -159,12 +112,11 @@ if (has_permission('order_view_all')) { // المدير
 }
 
 // تحديد العنوان بناءً على الصلاحية
-$dashboard_title = has_permission('order_view_own') && !has_permission('order_view_all') ? 'المهام الموكلة إليك' : 'أحدث المهام النشطة';
+$dashboard_title = has_permission('order_view_own', $conn) && !has_permission('order_view_all', $conn) ? 'المهام الموكلة إليك' : 'أحدث المهام النشطة';
 ?>
 <div class="container">
     <div id="status-update-feedback" class="mb-3"></div>
-    <h1 class="mb-4" style="color:#D44759;">لوحة التحكم</h1>
-    <?php if (has_permission('dashboard_reports_view')): ?>
+    <?php if (has_permission('dashboard_reports_view', $conn)): ?>
     <div class="row g-4 mb-5">
         <div class="col-6 col-lg-3">
             <div class="card shadow-sm rounded-3 overflow-hidden">
@@ -304,7 +256,7 @@ $dashboard_title = has_permission('order_view_own') && !has_permission('order_vi
                         <div class="d-flex justify-content-between">
                             <h5 class="card-title"><?= htmlspecialchars($row['products_summary']) ?></h5>
                             <?php if ($row['designer_name']): ?>
-                                <span class="badge bg-info-subtle text-info-emphasis rounded-pill"><?= htmlspecialchars($row['designer_name']) ?></span>
+                                <span class="badge bg-info-subtle text-info-emphasis rounded-pill" title="المصمم المسؤول"><?= htmlspecialchars($row['designer_name']) ?></span>
                             <?php else: ?>
                                 <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill"><?= htmlspecialchars($row['status']) ?></span>
                             <?php endif; ?>
@@ -318,11 +270,11 @@ $dashboard_title = has_permission('order_view_own') && !has_permission('order_vi
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
                                 <?php
-                                    $current_status = $row['status'];
-                                    $actions = get_next_actions($current_status, $user_role);
+                                    $current_status = trim($row['status']); // تنظيف القيمة من أي مسافات إضافية
+                                    $actions = get_next_actions($row, $user_role, $user_id, $conn);
                                 ?>
                                 <div class="dropdown">
-                                    <button class="btn btn-sm dropdown-toggle <?= get_status_class($current_status) ?>" type="button" data-bs-toggle="dropdown" aria-expanded="false" <?= !has_permission('order_edit_status') || empty($actions) ? 'disabled' : '' ?>>
+                                    <button class="btn btn-sm dropdown-toggle <?= get_status_class($current_status) ?>" type="button" data-bs-toggle="dropdown" aria-expanded="false" <?= !has_permission('order_edit_status', $conn) || empty($actions) ? 'disabled' : '' ?>>
                                         <?= htmlspecialchars($current_status) ?>
                                     </button>
                                     <ul class="dropdown-menu">
@@ -352,48 +304,4 @@ $dashboard_title = has_permission('order_view_own') && !has_permission('order_vi
         <?php endif; ?>
     </div>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const feedbackDiv = document.getElementById('status-update-feedback');
-    const tasksContainer = document.querySelector('.row.g-4'); // The container for the cards
-
-    if (tasksContainer) {
-        tasksContainer.addEventListener('click', function(e) {
-            if (e.target && e.target.classList.contains('status-change-btn')) {
-                e.preventDefault();
-
-                const orderId = e.target.dataset.orderId;
-                const newStatus = e.target.dataset.status;
-
-                if (!confirm(`هل أنت متأكد من تغيير حالة الطلب #${orderId} إلى "${newStatus}"؟`)) {
-                    return;
-                }
-
-                feedbackDiv.innerHTML = `<div class="alert alert-info">جاري تحديث الحالة...</div>`;
-
-                // The AJAX handler is in orders.php
-                fetch('orders.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order_id: orderId, status: newStatus })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        feedbackDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
-                        setTimeout(() => window.location.reload(), 1500);
-                    } else {
-                        feedbackDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
-                        setTimeout(() => { feedbackDiv.innerHTML = ''; }, 4000);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    feedbackDiv.innerHTML = `<div class="alert alert-danger">حدث خطأ في الشبكة.</div>`;
-                });
-            }
-        });
-    }
-});
-</script>
 <?php include 'footer.php'; ?>

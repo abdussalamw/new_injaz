@@ -1,14 +1,14 @@
 <?php
-include 'header.php';
+$page_title = 'المنتجات';
 include 'db_connection.php';
+include 'header.php';
 
-check_permission('product_view');
+check_permission('product_view', $conn);
 
 $res = $conn->query("SELECT * FROM products ORDER BY name");
 ?>
 <div class="container">
-    <h2 style="color:#D44759;" class="mb-4">المنتجات</h2>
-    <?php if (has_permission('product_add')): ?>
+    <?php if (has_permission('product_add', $conn)): ?>
         <a href="add_product.php" class="btn btn-success mb-3">إضافة منتج جديد</a>
     <?php endif; ?>
     <table class="table table-bordered table-striped text-center">
@@ -31,10 +31,10 @@ $res = $conn->query("SELECT * FROM products ORDER BY name");
                 <td><?= htmlspecialchars($row['default_material']) ?></td>
                 <td><?= htmlspecialchars($row['default_details']) ?></td>
                 <td>
-                    <?php if (has_permission('product_edit')): ?>
+                    <?php if (has_permission('product_edit', $conn)): ?>
                         <a href="edit_product.php?id=<?= $row['product_id'] ?>" class="btn btn-sm btn-primary">تعديل</a>
                     <?php endif; ?>
-                    <?php if (has_permission('product_delete')): ?>
+                    <?php if (has_permission('product_delete', $conn)): ?>
                         <a href="delete_product.php?id=<?= $row['product_id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('هل أنت متأكد من الحذف؟')">حذف</a>
                     <?php endif; ?>
                 </td>

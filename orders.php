@@ -2,11 +2,12 @@
 // --- AJAX Handler for Status Update ---
 // هذا الجزء من الكود سيعمل فقط عند إرسال طلب تحديث الحالة
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    include 'auth_check.php';
     include 'db_connection.php';
+    include 'auth_check.php';
+    include 'helpers.php'; // نحتاج للدوال المساعدة هنا
 
     header('Content-Type: application/json');
-    check_permission('order_edit_status');
+    check_permission('order_edit_status', $conn);
 
     // --- بداية منطق التحقق من سير العمل ---
     $data = json_decode(file_get_contents('php://input'), true);
@@ -23,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => false, 'message' => 'الطلب غير موجود.']);
         exit;
     }
-    $current_status = $current_order['status'];
+    $current_status = trim($current_order['status']); // تنظيف القيمة من أي مسافات إضافية
 
     // التحقق من صلاحية الانتقال للمرحلة التالية
     $allowed_actions = get_next_actions($current_status, $user_role);
@@ -46,65 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 // --- نهاية معالج AJAX ---
 
-// دالة لتحديد لون زر الحالة
-function get_status_class($status) {
-    $classes = [
-        'قيد التصميم' => 'btn-info text-dark',
-        'قيد التنفيذ' => 'btn-primary',
-        'جاهز للتسليم' => 'btn-warning text-dark',
-        'بانتظار الإغلاق' => 'btn-dark',
-        'مكتمل' => 'btn-success',
-        'ملغي' => 'btn-danger'
-    ];
-    return $classes[$status] ?? 'btn-light';
-}
-
-// دالة لتحديد لون حالة الدفع
-function get_payment_status_class($status) {
-    switch ($status) {
-        case 'مدفوع': return 'bg-success';
-        case 'مدفوع جزئياً': return 'bg-warning text-dark';
-        case 'غير مدفوع': return 'bg-danger';
-        default: return 'bg-secondary';
-    }
-}
-
-// دالة لتحديد الإجراءات المتاحة بناءً على المرحلة والدور
-function get_next_actions($current_status, $user_role) {
-    $actions = [];
-    
-    // المدير يمكنه إلغاء الطلب في أي وقت
-    if ($user_role === 'مدير' && !in_array($current_status, ['مكتمل', 'ملغي'])) {
-        $actions['ملغي'] = 'إلغاء الطلب';
-    }
-
-    switch ($current_status) {
-        case 'قيد التصميم':
-            if (in_array($user_role, ['مدير', 'مصمم'])) {
-                $actions['قيد التنفيذ'] = 'إرسال للتنفيذ';
-            }
-            break;
-        case 'قيد التنفيذ':
-            if (in_array($user_role, ['مدير', 'معمل'])) {
-                $actions['جاهز للتسليم'] = 'إرسال للتسليم والمحاسبة';
-            }
-            break;
-        case 'جاهز للتسليم':
-            if (in_array($user_role, ['مدير', 'محاسب'])) {
-                $actions['بانتظار الإغلاق'] = 'تأكيد التسوية المالية';
-            }
-            break;
-        case 'بانتظار الإغلاق':
-            if ($user_role === 'مدير') {
-                $actions['مكتمل'] = 'إغلاق الطلب (نهائي)';
-            }
-            break;
-    }
-    return $actions;
-}
-
-include 'header.php'; // هذا السطر سيتم الوصول إليه فقط في العرض العادي للصفحة
+$page_title = 'الطلبات';
 include 'db_connection.php';
+include 'header.php'; // هذا السطر سيتم الوصول إليه فقط في العرض العادي للصفحة
 
 // استعلام الطلبات مع أسماء العملاء والمنتجات والمصمم
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -118,10 +63,10 @@ $sql = "SELECT o.*, c.company_name AS client_name, e.name AS designer_name,
         LEFT JOIN employees e ON o.designer_id = e.employee_id ";
 
 $res = null; // تهيئة المتغير
-if (has_permission('order_view_all')) { // المدير
+if (has_permission('order_view_all', $conn)) { // المدير
     $sql .= " GROUP BY o.order_id ORDER BY FIELD(o.status, 'قيد التصميم', 'قيد التنفيذ', 'جاهز للتسليم', 'بانتظار الإغلاق', 'مكتمل', 'ملغي'), o.due_date ASC";
     $res = $conn->query($sql);
-} elseif (has_permission('order_view_own')) { // بقية الأدوار
+} elseif (has_permission('order_view_own', $conn)) { // بقية الأدوار
     $where_clauses = [];
     $params = [];
     $types = "";
@@ -129,16 +74,18 @@ if (has_permission('order_view_all')) { // المدير
 
     switch ($user_role) {
         case 'مصمم':
+            // في صفحة الطلبات، المصمم يرى كل الطلبات المسندة إليه بغض النظر عن حالتها
             $where_clauses[] = "o.designer_id = ?";
-            $where_clauses[] = "o.status = 'قيد التصميم'";
             $params[] = $user_id;
             $types .= "i";
             break;
         case 'معمل':
-            $where_clauses[] = "o.status = 'قيد التنفيذ'";
+            // المعمل يرى كل الطلبات التي وصلت لمرحلة التنفيذ وما بعدها
+            $where_clauses[] = "TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم', 'بانتظار الإغلاق', 'مكتمل')";
             break;
         case 'محاسب':
-            $where_clauses[] = "o.status = 'جاهز للتسليم'";
+            // المحاسب يرى كل الطلبات التي وصلت لمرحلة التسليم وما بعدها
+            $where_clauses[] = "TRIM(o.status) IN ('جاهز للتسليم', 'بانتظار الإغلاق', 'مكتمل')";
             break;
         default:
             // كإجراء احتياطي، إذا كان للمستخدم دور آخر، فلن يرى أي طلبات
@@ -157,13 +104,12 @@ if (has_permission('order_view_all')) { // المدير
         $res = $stmt->get_result();
     }
 } else {
-    check_permission('order_view_all'); // سيؤدي إلى إظهار رسالة "غير مصرح لك"
+    check_permission('order_view_all', $conn); // سيؤدي إلى إظهار رسالة "غير مصرح لك"
 }
 ?>
 <div class="container">
     <div id="status-update-feedback" class="mb-3"></div>
-    <h2 style="color:#D44759;" class="mb-4">الطلبات</h2>
-    <?php if (has_permission('order_add')): ?><a href="add_order.php" class="btn btn-success mb-3">إضافة طلب جديد</a><?php endif; ?>
+    <?php if (has_permission('order_add', $conn)): ?><a href="add_order.php" class="btn btn-success mb-3">إضافة طلب جديد</a><?php endif; ?>
     <table class="table table-bordered table-striped text-center">
         <thead class="table-light">
             <tr>
@@ -187,12 +133,12 @@ if (has_permission('order_view_all')) { // المدير
                 <td><?= htmlspecialchars($row['designer_name']) ?></td>
                 <td style="min-width: 150px;">
                     <?php
-                        $current_status = $row['status'];
-                        $user_role = $_SESSION['user_role'] ?? 'guest';
-                        $actions = get_next_actions($current_status, $user_role);
+                        $current_status = trim($row['status']); // تنظيف القيمة من أي مسافات إضافية
+                        $user_role = $_SESSION['user_role'] ?? 'guest'; // user_id is already defined above
+                        $actions = get_next_actions($row, $user_role, $user_id, $conn);
                     ?>
                     <div class="dropdown">
-                        <button class="btn btn-sm dropdown-toggle w-100 <?= get_status_class($current_status) ?>" type="button" data-bs-toggle="dropdown" aria-expanded="false" <?= !has_permission('order_edit_status') || empty($actions) ? 'disabled' : '' ?>>
+                        <button class="btn btn-sm dropdown-toggle w-100 <?= get_status_class($current_status) ?>" type="button" data-bs-toggle="dropdown" aria-expanded="false" <?= !has_permission('order_edit_status', $conn) || empty($actions) ? 'disabled' : '' ?>>
                             <?= htmlspecialchars($current_status) ?>
                         </button>
                         <ul class="dropdown-menu">
@@ -202,16 +148,14 @@ if (has_permission('order_view_all')) { // المدير
                         </ul>
                     </div>
                 </td>
-                <td>
-                    <span class="badge <?= get_payment_status_class($row['payment_status']) ?>"><?= htmlspecialchars($row['payment_status']) ?></span>
-                </td>
+                <td style="min-width: 120px;"><?= get_payment_status_display($row['payment_status'], $row['total_amount'], $row['deposit_amount']) ?></td>
                 <td><?= number_format($row['total_amount'],2) ?></td>
                 <td><?= date('Y-m-d', strtotime($row['order_date'])) ?></td>
                 <td>
-                    <?php if (has_permission('order_edit')): ?>
+                    <?php if (has_permission('order_edit', $conn)): ?>
                         <a href="edit_order.php?id=<?= $row['order_id'] ?>" class="btn btn-sm btn-primary">تعديل</a>
                     <?php endif; ?>
-                    <?php if (has_permission('order_delete')): ?>
+                    <?php if (has_permission('order_delete', $conn)): ?>
                         <a href="delete_order.php?id=<?= $row['order_id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('هل أنت متأكد من الحذف؟')">حذف</a>
                     <?php endif; ?>
                 </td>
@@ -220,44 +164,4 @@ if (has_permission('order_view_all')) { // المدير
         </tbody>
     </table>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const feedbackDiv = document.getElementById('status-update-feedback');
-    const tableBody = document.querySelector('.table tbody');
-
-    if (tableBody) {
-        tableBody.addEventListener('click', function(e) {
-            if (e.target && e.target.classList.contains('status-change-btn')) {
-                e.preventDefault();
-
-                const orderId = e.target.dataset.orderId;
-                const newStatus = e.target.dataset.status;
-
-                if (!confirm(`هل أنت متأكد من تغيير حالة الطلب #${orderId} إلى "${newStatus}"؟`)) {
-                    return;
-                }
-
-                feedbackDiv.innerHTML = `<div class="alert alert-info">جاري تحديث الحالة...</div>`;
-
-                fetch('orders.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order_id: orderId, status: newStatus })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        feedbackDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
-                        setTimeout(() => window.location.reload(), 1500);
-                    } else {
-                        feedbackDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
-                        setTimeout(() => { feedbackDiv.innerHTML = ''; }, 4000);
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-            }
-        });
-    }
-});
-</script>
 <?php include 'footer.php'; ?>

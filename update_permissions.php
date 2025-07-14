@@ -1,11 +1,11 @@
 <?php
-include 'auth_check.php';
 include 'db_connection.php';
+include 'auth_check.php';
 
 header('Content-Type: application/json');
 
 // التأكد من أن المدير فقط هو من يستطيع تغيير الصلاحيات
-if (($_SESSION['user_role'] ?? '') !== 'مدير') {
+if (!has_permission('employee_edit', $conn)) {
     echo json_encode(['success' => false, 'message' => 'غير مصرح لك.']);
     exit;
 }
@@ -32,11 +32,10 @@ if ($has_permission) {
 }
 
 if ($stmt->execute()) {
-    // ملاحظة: هذا السطر يقوم بمسح صلاحيات المدير (المستخدم الحالي) من الجلسة،
-    // مما يجبر النظام على إعادة تحميلها في طلبه القادم.
-    // الموظف الذي تم تعديل صلاحياته سيحتاج لتسجيل الخروج والدخول مجدداً لتطبيق التغييرات.
-    unset($_SESSION['user_permissions']);
-    echo json_encode(['success' => true, 'message' => 'تم تحديث الصلاحية بنجاح.']);
+    // مسح صلاحيات المدير الحالي من الجلسة لضمان إعادة تحميلها
+    // في حال قام بتعديل صلاحيات تؤثر على رؤيته للنظام
+    if (isset($_SESSION['user_permissions'])) unset($_SESSION['user_permissions']);
+    echo json_encode(['success' => true, 'message' => 'تم تحديث الصلاحية بنجاح. يجب على الموظف تسجيل الخروج والدخول مجدداً لتطبيق التغييرات.']);
 } else {
     echo json_encode(['success' => false, 'message' => 'حدث خطأ في قاعدة البيانات.']);
 }

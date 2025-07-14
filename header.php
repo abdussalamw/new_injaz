@@ -1,11 +1,13 @@
 <?php
 include_once 'auth_check.php';
+include_once 'helpers.php';
 ?>
+<?php $page_title = $page_title ?? 'إنجاز الإعلامية'; // تعيين عنوان افتراضي في حال لم يتم تحديده ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>إنجاز الإعلامية</title>
+    <title><?= htmlspecialchars($page_title) ?> - إنجاز الإعلامية</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Bootstrap RTL -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
@@ -42,24 +44,25 @@ include_once 'auth_check.php';
   <div class="row">
     <nav class="col-md-2 sidebar py-4 d-none d-md-block">
       <ul class="nav flex-column">
-        <?php if (has_permission('dashboard_view')): // صلاحية افتراضية للجميع ?>
+        <?php if (has_permission('dashboard_view', $conn)): // صلاحية افتراضية للجميع ?>
             <li class="nav-item"><a class="nav-link<?= basename($_SERVER['PHP_SELF'])=='index.php'?' active':'' ?>" href="index.php">لوحة التحكم</a></li>
         <?php endif; ?>
-        <?php if (has_permission('order_view_all') || has_permission('order_view_own')): ?>
+        <?php if (has_permission('order_view_all', $conn) || has_permission('order_view_own', $conn)): ?>
             <li class="nav-item"><a class="nav-link<?= basename($_SERVER['PHP_SELF'])=='orders.php'?' active':'' ?>" href="orders.php">الطلبات</a></li>
         <?php endif; ?>
-        <?php if (has_permission('client_view')): ?>
+        <?php if (has_permission('client_view', $conn)): ?>
             <li class="nav-item"><a class="nav-link<?= basename($_SERVER['PHP_SELF'])=='clients.php'?' active':'' ?>" href="clients.php">العملاء</a></li>
         <?php endif; ?>
-        <?php if (has_permission('product_view')): ?>
+        <?php if (has_permission('product_view', $conn)): ?>
             <li class="nav-item"><a class="nav-link<?= basename($_SERVER['PHP_SELF'])=='products.php'?' active':'' ?>" href="products.php">المنتجات</a></li>
         <?php endif; ?>
-        <?php if (has_permission('employee_view')): ?>
+        <?php if (has_permission('employee_view', $conn)): ?>
             <li class="nav-item"><a class="nav-link<?= basename($_SERVER['PHP_SELF'])=='employees.php'?' active':'' ?>" href="employees.php">الموظفون</a></li>
         <?php endif; ?>
       </ul>
     </nav>
     <main class="col-md-10 ms-sm-auto px-md-4 pt-4">
+    <h1 class="mb-4" style="color:#D44759;"><?= htmlspecialchars($page_title) ?></h1>
     <?php if(isset($_SESSION['flash_message'])): ?>
         <div class="alert alert-<?= $_SESSION['flash_message']['type'] ?> alert-dismissible fade show" role="alert">
             <?= $_SESSION['flash_message']['message'] ?>

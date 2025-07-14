@@ -1,9 +1,10 @@
 <?php
-include 'header.php';
-include 'db_connection.php';
 $id = intval($_GET['id'] ?? 0);
+$page_title = "تعديل بيانات العميل #" . $id;
+include 'db_connection.php';
+include 'header.php';
 
-check_permission('client_edit');
+check_permission('client_edit', $conn);
 
 $stmt = $conn->prepare("SELECT * FROM clients WHERE client_id=?");
 $stmt->bind_param("i", $id);
@@ -39,7 +40,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 <div class="container">
-    <h2 style="color:#D44759;" class="mb-4">تعديل بيانات العميل</h2>
     <form method="post">
         <div class="row g-3">
             <div class="col-md-4">

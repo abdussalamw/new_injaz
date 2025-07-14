@@ -1,14 +1,14 @@
 <?php
-include 'header.php';
+$page_title = 'الموظفون';
 include 'db_connection.php';
+include 'header.php';
 
-check_permission('employee_view');
+check_permission('employee_view', $conn);
 
 $res = $conn->query("SELECT * FROM employees ORDER BY role, name");
 ?>
 <div class="container">
-    <h2 style="color:#D44759;" class="mb-4">الموظفون</h2>
-    <?php if (has_permission('employee_add')): ?>
+    <?php if (has_permission('employee_add', $conn)): ?>
         <a href="add_employee.php" class="btn btn-success mb-3">إضافة موظف جديد</a>
     <?php endif; ?>
     <table class="table table-bordered table-striped text-center">
@@ -31,10 +31,10 @@ $res = $conn->query("SELECT * FROM employees ORDER BY role, name");
                 <td><?= htmlspecialchars($row['phone']) ?></td>
                 <td><?= htmlspecialchars($row['email']) ?></td>
                 <td>
-                    <?php if (has_permission('employee_edit')): ?>
+                    <?php if (has_permission('employee_edit', $conn)): ?>
                         <a href="edit_employee.php?id=<?= $row['employee_id'] ?>" class="btn btn-sm btn-primary">تعديل</a>
                     <?php endif; ?>
-                    <?php if (has_permission('employee_delete')): ?>
+                    <?php if (has_permission('employee_delete', $conn)): ?>
                         <a href="delete_employee.php?id=<?= $row['employee_id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('هل أنت متأكد من الحذف؟')">حذف</a>
                     <?php endif; ?>
                 </td>

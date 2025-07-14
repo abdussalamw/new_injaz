@@ -8,6 +8,26 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <!-- Bootstrap JS (ضروري لبعض مكونات الواجهة مثل التنبيهات القابلة للإغلاق) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- نافذة تأكيد الإجراء العامة -->
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="confirmationModalLabel">تأكيد الإجراء</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="confirmationModalBody">
+        هل أنت متأكد من رغبتك في المتابعة؟
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+        <button type="button" class="btn btn-primary" id="confirmActionBtn">تأكيد</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const countdownElements = document.querySelectorAll('.countdown');

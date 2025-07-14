@@ -1,11 +1,11 @@
 <?php
-include 'auth_check.php';
 include 'db_connection.php';
+include 'auth_check.php';
 
 header('Content-Type: application/json');
 
 // التحقق من صلاحية إضافة عميل
-if (!has_permission('client_add')) {
+if (!has_permission('client_add', $conn)) {
     echo json_encode(['success' => false, 'message' => 'ليس لديك الصلاحية لإضافة عميل.']);
     exit;
 }

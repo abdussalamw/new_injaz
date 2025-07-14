@@ -1,8 +1,9 @@
 <?php
-include 'header.php';
+$page_title = 'إضافة موظف جديد';
 include 'db_connection.php';
+include 'header.php';
 
-check_permission('employee_add');
+check_permission('employee_add', $conn);
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $name = $_POST['name'];
@@ -10,21 +11,53 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $phone = $_POST['phone'];
     $email = $_POST['email'];
     // تعيين كلمة مرور افتراضية وتشفيرها
-    $password = password_hash('demo123', PASSWORD_DEFAULT); 
-    $stmt = $conn->prepare("INSERT INTO employees (name, role, phone, email, password) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssss", $name, $role, $phone, $email, $password);
-    
-    if ($stmt->execute()) {
-        $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'تمت إضافة الموظف بنجاح.'];
-    } else {
-        $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'حدث خطأ أثناء إضافة الموظف.'];
+    $password = password_hash('demo123', PASSWORD_DEFAULT);
+
+    $conn->begin_transaction();
+    try {
+        // 1. إضافة الموظف
+        $stmt = $conn->prepare("INSERT INTO employees (name, role, phone, email, password) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssss", $name, $role, $phone, $email, $password);
+        $stmt->execute();
+        $employee_id = $conn->insert_id;
+
+        // 2. تعيين الصلاحيات الافتراضية بناءً على الدور
+        $default_permissions = [];
+        switch ($role) {
+            case 'مدير':
+                // المدير الجديد يحصل على كل الصلاحيات المتاحة في النظام
+                // دالة get_all_permissions() متاحة من خلال ملف header.php
+                $all_perms = get_all_permissions();
+                foreach ($all_perms as $group => $permissions) {
+                    $default_permissions = array_merge($default_permissions, array_keys($permissions));
+                }
+                break;
+            case 'مصمم':
+            case 'معمل':
+            case 'محاسب':
+                $default_permissions = ['dashboard_view', 'order_view_own', 'order_edit_status'];
+                break;
+        }
+
+        if (!empty($default_permissions)) {
+            $stmt_perm = $conn->prepare("INSERT INTO employee_permissions (employee_id, permission_key) VALUES (?, ?)");
+            foreach ($default_permissions as $perm_key) {
+                $stmt_perm->bind_param("is", $employee_id, $perm_key);
+                $stmt_perm->execute();
+            }
+        }
+
+        $conn->commit();
+        $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'تمت إضافة الموظف وتعيين صلاحياته الافتراضية بنجاح.'];
+    } catch (Exception $e) {
+        $conn->rollback();
+        $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'حدث خطأ: ' . $e->getMessage()];
     }
     header("Location: employees.php");
     exit;
 }
 ?>
 <div class="container">
-    <h2 style="color:#D44759;" class="mb-4">إضافة موظف جديد</h2>
     <form method="post">
         <div class="row g-3">
             <div class="col-md-4">

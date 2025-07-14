@@ -1,9 +1,10 @@
 <?php
-include 'header.php';
-include 'db_connection.php';
 $id = intval($_GET['id'] ?? 0);
+$page_title = "تعديل المنتج #" . $id;
+include 'db_connection.php';
+include 'header.php';
 
-check_permission('product_edit');
+check_permission('product_edit', $conn);
 
 $stmt = $conn->prepare("SELECT * FROM products WHERE product_id=?");
 $stmt->bind_param("i", $id);
@@ -31,7 +32,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 <div class="container">
-    <h2 style="color:#D44759;" class="mb-4">تعديل منتج</h2>
     <form method="post">
         <div class="row g-3">
             <div class="col-md-4">

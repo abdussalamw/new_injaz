@@ -1,11 +1,11 @@
 <?php
-include 'auth_check.php';
 include 'db_connection.php';
+include 'auth_check.php';
 
 header('Content-Type: application/json');
 
 // أي مستخدم لديه صلاحية إضافة طلب يمكنه عرض تفاصيل العميل لهذا الغرض
-if (!has_permission('order_add')) {
+if (!has_permission('order_add', $conn)) {
     echo json_encode(['success' => false, 'message' => 'غير مصرح لك.']);
     exit;
 }

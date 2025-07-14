@@ -1,8 +1,9 @@
 <?php
-include 'header.php';
+$page_title = 'العملاء';
 include 'db_connection.php';
+include 'header.php';
 
-check_permission('client_view');
+check_permission('client_view', $conn);
 
 // تصدير العملاء (CSV)
 if (isset($_GET['export'])) {
@@ -19,15 +20,14 @@ if (isset($_GET['export'])) {
 }
 ?>
 <div class="container">
-    <h2 style="color:#D44759;" class="mb-4">العملاء</h2>
     <div class="mb-3">
-        <?php if (has_permission('client_add')): ?>
+        <?php if (has_permission('client_add', $conn)): ?>
             <a href="add_client.php" class="btn btn-success mb-2">إضافة عميل جديد</a>
         <?php endif; ?>
-        <?php if (has_permission('client_export')): ?>
+        <?php if (has_permission('client_export', $conn)): ?>
             <a href="clients.php?export=1" class="btn btn-outline-primary mb-2">تصدير (CSV)</a>
         <?php endif; ?>
-        <?php if (has_permission('client_import')): ?>
+        <?php if (has_permission('client_import', $conn)): ?>
             <a href="import_clients.php" class="btn btn-outline-secondary mb-2">استيراد (CSV)</a>
         <?php endif; ?>
     </div>
@@ -53,10 +53,10 @@ if (isset($_GET['export'])) {
                 <td><?= htmlspecialchars($row['phone']) ?></td>
                 <td><?= htmlspecialchars($row['email']) ?></td>
                 <td>
-                    <?php if (has_permission('client_edit')): ?>
+                    <?php if (has_permission('client_edit', $conn)): ?>
                         <a href="edit_client.php?id=<?= $row['client_id'] ?>" class="btn btn-sm btn-primary">تعديل</a>
                     <?php endif; ?>
-                    <?php if (has_permission('client_delete')): ?>
+                    <?php if (has_permission('client_delete', $conn)): ?>
                         <a href="delete_client.php?id=<?= $row['client_id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('هل أنت متأكد من الحذف؟')">حذف</a>
                     <?php endif; ?>
                 </td>

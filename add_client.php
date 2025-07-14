@@ -1,8 +1,9 @@
 <?php
-include 'header.php';
+$page_title = 'إضافة عميل جديد';
 include 'db_connection.php';
+include 'header.php';
 
-check_permission('client_add');
+check_permission('client_add', $conn);
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $company_name = $_POST['company_name'];
@@ -29,7 +30,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 }
 ?>
 <div class="container">
-    <h2 style="color:#D44759;" class="mb-4">إضافة عميل جديد</h2>
     <form method="post">
         <div class="row g-3">
             <div class="col-md-4">

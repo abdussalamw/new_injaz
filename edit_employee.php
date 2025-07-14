@@ -1,9 +1,10 @@
 <?php
-include 'header.php';
-include 'db_connection.php';
 $id = intval($_GET['id'] ?? 0);
+$page_title = "تعديل بيانات الموظف";
+include 'db_connection.php';
+include 'header.php';
 
-check_permission('employee_edit');
+check_permission('employee_edit', $conn);
 
 $stmt = $conn->prepare("SELECT * FROM employees WHERE employee_id=?");
 $stmt->bind_param("i", $id);
@@ -15,7 +16,7 @@ if (!$row = $result->fetch_assoc()) {
 }
 
 if (isset($_POST['reset_password'])) {
-    check_permission('employee_password_reset');
+    check_permission('employee_password_reset', $conn);
     $password = password_hash('demo123', PASSWORD_DEFAULT);
     $stmt_reset = $conn->prepare("UPDATE employees SET password = ? WHERE employee_id = ?");
     $stmt_reset->bind_param("si", $password, $id);
@@ -35,16 +36,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['reset_password'])) {
     $email = $_POST['email'];
     $password = $_POST['password'];
 
-    // تحديث كلمة المرور فقط إذا تم إدخال قيمة جديدة
-    if (!empty($password)) {
-        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-        $stmt2 = $conn->prepare("UPDATE employees SET name=?, role=?, phone=?, email=?, password=? WHERE employee_id=?");
-        $stmt2->bind_param("sssssi", $name, $role, $phone, $email, $hashed_password, $id);
-    } else {
-        $stmt2 = $conn->prepare("UPDATE employees SET name=?, role=?, phone=?, email=? WHERE employee_id=?");
-        $stmt2->bind_param("ssssi", $name, $role, $phone, $email, $id);
-    }
+    // بناء الاستعلام بشكل ديناميكي
+    $sql = "UPDATE employees SET name=?, role=?, phone=?, email=? ";
+    $types = "ssss";
+    $params = [$name, $role, $phone, $email];
 
+    if (!empty($password)) {
+        $sql .= ", password=? ";
+        $types .= "s";
+        $params[] = password_hash($password, PASSWORD_DEFAULT);
+    }
+    $sql .= " WHERE employee_id=?";
+    $types .= "i";
+    $params[] = $id;
+    $stmt2 = $conn->prepare($sql);
+    $stmt2->bind_param($types, ...$params);
     if ($stmt2->execute()) {
         $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'تم تعديل بيانات الموظف بنجاح.'];
     } else {
@@ -55,7 +61,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['reset_password'])) {
 }
 ?>
 <div class="container">
-    <h2 style="color:#D44759;" class="mb-4">تعديل موظف</h2>
     <form method="post">
         <div class="row g-3">
             <div class="col-md-4">
@@ -94,7 +99,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['reset_password'])) {
         <a href="employees.php" class="btn btn-secondary mt-3">عودة للقائمة</a>
     </form>
 
-    <?php if (has_permission('employee_password_reset')): ?>
+    <?php if (has_permission('employee_password_reset', $conn)): ?>
     <hr class="my-4">
     <h4 style="color:#D44759;" class="mb-3">إدارة كلمة المرور</h4>
     <form method="post">
@@ -104,8 +109,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['reset_password'])) {
 
     <?php 
     // عرض قسم الصلاحيات فقط إذا كان المستخدم الحالي هو "مدير"
-    // والموظف الذي يتم تعديله ليس "مدير"
-    if (($_SESSION['user_role'] ?? '') === 'مدير' && $row['role'] !== 'مدير'): ?>
+    // ولا يقوم بتعديل ملفه الشخصي (لمنع قفل الحساب عن طريق الخطأ)
+    if (($_SESSION['user_role'] ?? '') === 'مدير' && $id !== ($_SESSION['user_id'] ?? 0)): ?>
     <hr class="my-4">
     <h4 style="color:#D44759;" class="mb-3">صلاحيات الموظف</h4>
     <div id="permissions-container">
@@ -172,7 +177,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    feedbackDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                    const actionText = isChecked ? 'تم منح صلاحية' : 'تم سحب صلاحية';
+                    feedbackDiv.innerHTML = `<div class="alert alert-success">${actionText} "${this.nextElementSibling.textContent}".</div>`;
                 } else {
                     feedbackDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
                     // إعادة المفتاح إلى حالته السابقة عند الفشل

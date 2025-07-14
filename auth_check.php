@@ -12,8 +12,8 @@ if (!isset($_SESSION['user_id']) && basename($_SERVER['PHP_SELF']) !== 'login.ph
  * دالة مختصرة للتحقق من الصلاحية وإيقاف التنفيذ في حال عدم وجودها
  * @param string $action الصلاحية المطلوبة
  */
-function check_permission($action) {
-    if (!has_permission($action)) {
+function check_permission($action, $conn) {
+    if (!has_permission($action, $conn)) {
         // يمكنك إنشاء صفحة خاصة لعرض رسالة "غير مصرح لك"
         die('<div class="container"><div class="alert alert-danger mt-4">ليس لديك الصلاحية للوصول إلى هذه الصفحة أو تنفيذ هذا الإجراء.</div></div>');
     }
