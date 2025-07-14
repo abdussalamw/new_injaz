@@ -20,6 +20,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $contact_person = $_POST['contact_person'];
     $phone = $_POST['phone'];
     $email = $_POST['email'];
+
+    if (empty($phone)) {
+        $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'رقم الجوال حقل إجباري.'];
+        header("Location: edit_client.php?id=" . $id);
+        exit;
+    }
+
     $stmt2 = $conn->prepare("UPDATE clients SET company_name=?, contact_person=?, phone=?, email=? WHERE client_id=?");
     $stmt2->bind_param("ssssi", $company_name, $contact_person, $phone, $email, $id);
     if ($stmt2->execute()) {
@@ -45,7 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
             <div class="col-md-4">
                 <label class="form-label">الجوال</label>
-                <input type="text" class="form-control" name="phone" value="<?= htmlspecialchars($row['phone']) ?>">
+                <input type="text" class="form-control" name="phone" value="<?= htmlspecialchars($row['phone']) ?>" required>
             </div>
             <div class="col-md-4">
                 <label class="form-label">البريد الإلكتروني</label>

@@ -9,6 +9,7 @@ if (session_status() == PHP_SESSION_NONE) session_start();
 function get_all_permissions() {
     return [
         'عام' => [
+            'dashboard_reports_view' => 'عرض الإحصائيات والتقارير',
             'dashboard_view' => 'عرض لوحة التحكم',
         ],
         'الطلبات' => [

@@ -13,30 +13,147 @@ function get_priority_class($priority) {
     }
 }
 
+// --- الدوال المنسوخة من orders.php لدعم تغيير الحالة ---
+
+// دالة لتحديد لون زر الحالة
+function get_status_class($status) {
+    $classes = [
+        'قيد التصميم' => 'btn-info text-dark',
+        'قيد التنفيذ' => 'btn-primary',
+        'جاهز للتسليم' => 'btn-warning text-dark',
+        'بانتظار الإغلاق' => 'btn-dark',
+        'مكتمل' => 'btn-success',
+        'ملغي' => 'btn-danger'
+    ];
+    return $classes[$status] ?? 'btn-light';
+}
+
+// دالة لتحديد الإجراءات المتاحة بناءً على المرحلة والدور
+function get_next_actions($current_status, $user_role) {
+    $actions = [];
+
+    // المدير يمكنه إلغاء الطلب في أي وقت
+    if ($user_role === 'مدير' && !in_array($current_status, ['مكتمل', 'ملغي'])) {
+        $actions['ملغي'] = 'إلغاء الطلب';
+    }
+
+    switch ($current_status) {
+        case 'قيد التصميم':
+            if (in_array($user_role, ['مدير', 'مصمم'])) {
+                $actions['قيد التنفيذ'] = 'إرسال للتنفيذ';
+            }
+            break;
+        case 'قيد التنفيذ':
+            if (in_array($user_role, ['مدير', 'معمل'])) {
+                $actions['جاهز للتسليم'] = 'إرسال للتسليم والمحاسبة';
+            }
+            break;
+        case 'جاهز للتسليم':
+            if (in_array($user_role, ['مدير', 'محاسب'])) {
+                $actions['بانتظار الإغلاق'] = 'تأكيد التسوية المالية';
+            }
+            break;
+        case 'بانتظار الإغلاق':
+            if ($user_role === 'مدير') {
+                $actions['مكتمل'] = 'إغلاق الطلب (نهائي)';
+            }
+            break;
+    }
+    return $actions;
+}
+
 // العدادات
 $orders_count = $conn->query("SELECT COUNT(*) FROM orders")->fetch_row()[0];
 $clients_count = $conn->query("SELECT COUNT(*) FROM clients")->fetch_row()[0];
 $employees_count = $conn->query("SELECT COUNT(*) FROM employees")->fetch_row()[0];
 $products_count = $conn->query("SELECT COUNT(*) FROM products")->fetch_row()[0];
 
+// --- إحصائيات وتقارير للمدراء ---
+$employee_stats = [];
+$overall_stats = ['open' => 0, 'closed' => 0, 'total' => 0];
+$top_designers = [];
+
+if (has_permission('dashboard_reports_view')) {
+    // 1. إحصائيات لكل مصمم
+    $stmt_employees = $conn->prepare("
+        SELECT
+            e.employee_id,
+            e.name,
+            COUNT(o.order_id) AS total_open_tasks,
+            SUM(CASE WHEN o.due_date = CURDATE() THEN 1 ELSE 0 END) AS tasks_due_today,
+            (SELECT COUNT(*)
+             FROM orders o2
+             WHERE o2.designer_id = e.employee_id
+               AND o2.status = 'مكتمل'
+               AND o2.order_date >= DATE_FORMAT(NOW(), '%Y-%m-01')
+            ) AS monthly_closed_tasks
+        FROM
+            employees e
+        LEFT JOIN
+            orders o ON e.employee_id = o.designer_id AND o.status NOT IN ('مكتمل', 'ملغي')
+        GROUP BY e.employee_id, e.name ORDER BY e.name
+    ");
+    $stmt_employees->execute();
+    $employee_stats = $stmt_employees->get_result()->fetch_all(MYSQLI_ASSOC);
+
+    // 2. إحصائيات إجمالية للمقارنات
+    $stmt_overall = $conn->prepare("SELECT SUM(CASE WHEN status = 'مكتمل' THEN 1 ELSE 0 END) as closed_count, SUM(CASE WHEN status NOT IN ('مكتمل', 'ملغي') THEN 1 ELSE 0 END) as open_count FROM orders");
+    $stmt_overall->execute();
+    $overall_res = $stmt_overall->get_result()->fetch_assoc();
+    $overall_stats['closed'] = $overall_res['closed_count'] ?? 0;
+    $overall_stats['open'] = $overall_res['open_count'] ?? 0;
+    $overall_stats['total'] = $overall_stats['closed'] + $overall_stats['open'];
+}
+
 // جلب الطلبات حسب دور المستخدم
 $user_id = $_SESSION['user_id'] ?? 0; // استخدام ?? لتجنب الخطأ
 $user_role = $_SESSION['user_role'] ?? 'guest'; // استخدام ?? لتجنب الخطأ
 
-$sql = "SELECT o.*, c.company_name as client_name, c.phone as client_phone, e.name as designer_name,
-        (SELECT p.name FROM order_items oi JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id LIMIT 1) as product_name
+$sql = "SELECT o.*, c.company_name AS client_name, c.phone as client_phone, e.name AS designer_name, 
+        COALESCE(GROUP_CONCAT(p.name SEPARATOR ', '), 'لا يوجد منتجات') as products_summary
         FROM orders o
         JOIN clients c ON o.client_id = c.client_id
+        LEFT JOIN order_items oi ON o.order_id = oi.order_id
+        LEFT JOIN products p ON oi.product_id = p.product_id
         LEFT JOIN employees e ON o.designer_id = e.employee_id";
 
 $res = null; // تهيئة المتغير
-if (has_permission('order_view_all')) {
-    $sql .= " WHERE o.status NOT IN ('مكتمل', 'ملغي') ORDER BY o.due_date ASC LIMIT 10";
+if (has_permission('order_view_all')) { // المدير
+    $sql .= " WHERE o.status NOT IN ('مكتمل', 'ملغي') GROUP BY o.order_id ORDER BY o.due_date ASC";
     $res = $conn->query($sql);
-} elseif (has_permission('order_view_own')) {
-    $sql .= " WHERE o.designer_id = ? AND o.status NOT IN ('مكتمل', 'ملغي') ORDER BY o.due_date ASC";
+} elseif (has_permission('order_view_own')) { // بقية الأدوار
+    $where_clauses = ["o.status NOT IN ('مكتمل', 'ملغي')"];
+    $params = [];
+    $types = "";
+
+    switch ($user_role) {
+        case 'مصمم':
+            // المصمم يرى فقط المهام المسندة إليه في مرحلة التصميم
+            $where_clauses[] = "o.designer_id = ?";
+            $where_clauses[] = "o.status = 'قيد التصميم'";
+            $params[] = $user_id;
+            $types .= "i";
+            break;
+        case 'معمل':
+            // المعمل يرى كل المهام في مرحلة التنفيذ
+            $where_clauses[] = "o.status = 'قيد التنفيذ'";
+            break;
+        case 'محاسب':
+            // المحاسب يرى كل المهام في مرحلة التسليم
+            $where_clauses[] = "o.status = 'جاهز للتسليم'";
+            break;
+        default:
+            // كإجراء احتياطي، إذا كان للمستخدم دور آخر، فلن يرى أي طلبات
+            // لتجنب عرض بيانات غير صحيحة.
+            $where_clauses[] = "1=0"; // شرط لا يتحقق أبداً
+            break;
+    }
+    
+    $sql .= " WHERE " . implode(" AND ", $where_clauses) . " GROUP BY o.order_id ORDER BY o.due_date ASC";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $user_id);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
     $stmt->execute();
     $res = $stmt->get_result();
 }
@@ -45,37 +162,138 @@ if (has_permission('order_view_all')) {
 $dashboard_title = has_permission('order_view_own') && !has_permission('order_view_all') ? 'المهام الموكلة إليك' : 'أحدث المهام النشطة';
 ?>
 <div class="container">
+    <div id="status-update-feedback" class="mb-3"></div>
     <h1 class="mb-4" style="color:#D44759;">لوحة التحكم</h1>
+    <?php if (has_permission('dashboard_reports_view')): ?>
     <div class="row g-4 mb-5">
-        <div class="col-md-3">
-            <div class="card shadow-sm rounded-3 text-center p-3" style="background:#F37D47;color:#fff;">
-                <div style="font-size:40px">📦</div>
-                <div class="fs-5 mb-1">إجمالي الطلبات</div>
-                <div class="fs-3"><?= $orders_count ?></div>
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm rounded-3 overflow-hidden">
+                <div class="card-body p-0 d-flex align-items-center">
+                    <div class="p-3 text-white" style="background-color: #F37D47;">
+                        <i class="bi bi-box-seam" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <div class="px-3">
+                        <div class="text-muted">إجمالي الطلبات</div>
+                        <div class="fs-4 fw-bold"><?= $orders_count ?></div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm rounded-3 text-center p-3" style="background:#D44759;color:#fff;">
-                <div style="font-size:40px">👥</div>
-                <div class="fs-5 mb-1">العملاء</div>
-                <div class="fs-3"><?= $clients_count ?></div>
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm rounded-3 overflow-hidden">
+                <div class="card-body p-0 d-flex align-items-center">
+                    <div class="p-3 text-white" style="background-color: #D44759;">
+                        <i class="bi bi-people-fill" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <div class="px-3">
+                        <div class="text-muted">العملاء</div>
+                        <div class="fs-4 fw-bold"><?= $clients_count ?></div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm rounded-3 text-center p-3" style="background:#644D4D;color:#fff;">
-                <div style="font-size:40px">🧑‍💻</div>
-                <div class="fs-5 mb-1">الموظفون</div>
-                <div class="fs-3"><?= $employees_count ?></div>
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm rounded-3 overflow-hidden">
+                <div class="card-body p-0 d-flex align-items-center">
+                    <div class="p-3 text-white" style="background-color: #644D4D;">
+                        <i class="bi bi-person-badge" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <div class="px-3">
+                        <div class="text-muted">الموظفون</div>
+                        <div class="fs-4 fw-bold"><?= $employees_count ?></div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm rounded-3 text-center p-3" style="background:#fabb46;color:#fff;">
-                <div style="font-size:40px">🎨</div>
-                <div class="fs-5 mb-1">المنتجات</div>
-                <div class="fs-3"><?= $products_count ?></div>
+        <div class="col-6 col-lg-3">
+            <div class="card shadow-sm rounded-3 overflow-hidden">
+                <div class="card-body p-0 d-flex align-items-center">
+                    <div class="p-3 text-white" style="background-color: #fabb46;">
+                        <i class="bi bi-palette-fill" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <div class="px-3">
+                        <div class="text-muted">المنتجات</div>
+                        <div class="fs-4 fw-bold"><?= $products_count ?></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- قسم الإحصائيات والتقارير الجديد -->
+    <div class="mb-5">
+        <h4 style="color:#D44759;" class="mt-4 mb-3">ملخص أداء الموظفين</h4>
+        <div class="row g-4">
+            <?php if (!empty($employee_stats)): ?>
+                <?php foreach ($employee_stats as $stat): ?>
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body text-center d-flex flex-column">
+                            <h5 class="card-title mb-4"><?= htmlspecialchars($stat['name']) ?></h5>
+                            <div class="row my-auto">
+                                <div class="col-4 border-end">
+                                    <i class="bi bi-folder2-open fs-2 text-primary"></i>
+                                    <div class="fw-bold fs-3"><?= $stat['total_open_tasks'] ?></div>
+                                    <div class="text-muted small">مفتوحة</div>
+                                </div>
+                                <div class="col-4 border-end">
+                                    <i class="bi bi-calendar-day fs-2 text-warning"></i>
+                                    <div class="fw-bold fs-3"><?= $stat['tasks_due_today'] ?? 0 ?></div>
+                                    <div class="text-muted small">تسليم اليوم</div>
+                                </div>
+                                <div class="col-4">
+                                    <i class="bi bi-check2-circle fs-2 text-success"></i>
+                                    <div class="fw-bold fs-3"><?= $stat['monthly_closed_tasks'] ?></div>
+                                    <div class="text-muted small">منجز شهرياً</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="col-12"><div class="alert alert-info">لا يوجد موظفون لعرض إحصائياتهم.</div></div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="mb-5">
+        <h4 style="color:#D44759;" class="mt-4 mb-3">مقارنات الأداء</h4>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header fw-bold">حالة الطلبات الإجمالية</div>
+                    <div class="card-body d-flex flex-column justify-content-center">
+                        <?php $closed_percentage = ($overall_stats['total'] > 0) ? ($overall_stats['closed'] / $overall_stats['total']) * 100 : 0; ?>
+                        <p class="mb-2"><strong>الإجمالي:</strong> <?= $overall_stats['total'] ?> طلب (لا يشمل الملغاة)</p>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: <?= $closed_percentage ?>%" title="مكتمل: <?= $overall_stats['closed'] ?>">مكتمل (<?= round($closed_percentage) ?>%)</div>
+                            <div class="progress-bar bg-info text-dark" role="progressbar" style="width: <?= 100 - $closed_percentage ?>%" title="مفتوح: <?= $overall_stats['open'] ?>">مفتوح (<?= round(100 - $closed_percentage) ?>%)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header fw-bold">الموظفون الأكثر إنجازاً (هذا الشهر)</div>
+                    <div class="card-body">
+                        <?php
+                        usort($employee_stats, fn($a, $b) => $b['monthly_closed_tasks'] <=> $a['monthly_closed_tasks']);
+                        ?>
+                        <ol class="list-group list-group-numbered">
+                            <?php foreach (array_slice($employee_stats, 0, 5) as $stat): ?>
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="ms-2 me-auto"><?= htmlspecialchars($stat['name']) ?></div>
+                                    <span class="badge bg-success rounded-pill"><?= $stat['monthly_closed_tasks'] ?> مهمة</span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
     <h4 style="color:#D44759;" class="mt-4 mb-3"><?= $dashboard_title ?></h4>
     <div class="row g-4">
         <?php if($res && $res->num_rows > 0): ?>
@@ -84,7 +302,7 @@ $dashboard_title = has_permission('order_view_own') && !has_permission('order_vi
                 <div class="card h-100 shadow-sm <?= get_priority_class($row['priority']) ?>" style="border-width: 4px; border-style: solid; border-top:0; border-right:0; border-bottom:0;">
                     <div class="card-body d-flex flex-column">
                         <div class="d-flex justify-content-between">
-                            <h5 class="card-title"><?= htmlspecialchars($row['product_name']) ?></h5>
+                            <h5 class="card-title"><?= htmlspecialchars($row['products_summary']) ?></h5>
                             <?php if ($row['designer_name']): ?>
                                 <span class="badge bg-info-subtle text-info-emphasis rounded-pill"><?= htmlspecialchars($row['designer_name']) ?></span>
                             <?php else: ?>
@@ -99,8 +317,23 @@ $dashboard_title = has_permission('order_view_own') && !has_permission('order_vi
                                 <span class="fs-5">جاري حساب الوقت المنقضي...</span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
-                                <a href="edit_order.php?id=<?= $row['order_id'] ?>" class="btn btn-sm btn-outline-primary">عرض التفاصيل</a>
-                                <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $row['client_phone']) ?>" target="_blank" class="btn btn-success btn-sm">
+                                <?php
+                                    $current_status = $row['status'];
+                                    $actions = get_next_actions($current_status, $user_role);
+                                ?>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm dropdown-toggle <?= get_status_class($current_status) ?>" type="button" data-bs-toggle="dropdown" aria-expanded="false" <?= !has_permission('order_edit_status') || empty($actions) ? 'disabled' : '' ?>>
+                                        <?= htmlspecialchars($current_status) ?>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <?php foreach ($actions as $next_status => $action_label): ?>
+                                            <li><a class="dropdown-item status-change-btn" href="#" data-order-id="<?= $row['order_id'] ?>" data-status="<?= $next_status ?>"><?= htmlspecialchars($action_label) ?></a></li>
+                                        <?php endforeach; ?>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="edit_order.php?id=<?= $row['order_id'] ?>">عرض التفاصيل</a></li>
+                                    </ul>
+                                </div>
+                                <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $row['client_phone']) ?>" target="_blank" class="btn btn-sm" style="background-color: #25D366; color: white;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-whatsapp" viewBox="0 0 16 16">
                                         <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
                                     </svg>
@@ -119,4 +352,48 @@ $dashboard_title = has_permission('order_view_own') && !has_permission('order_vi
         <?php endif; ?>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const feedbackDiv = document.getElementById('status-update-feedback');
+    const tasksContainer = document.querySelector('.row.g-4'); // The container for the cards
+
+    if (tasksContainer) {
+        tasksContainer.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('status-change-btn')) {
+                e.preventDefault();
+
+                const orderId = e.target.dataset.orderId;
+                const newStatus = e.target.dataset.status;
+
+                if (!confirm(`هل أنت متأكد من تغيير حالة الطلب #${orderId} إلى "${newStatus}"؟`)) {
+                    return;
+                }
+
+                feedbackDiv.innerHTML = `<div class="alert alert-info">جاري تحديث الحالة...</div>`;
+
+                // The AJAX handler is in orders.php
+                fetch('orders.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId, status: newStatus })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        feedbackDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        feedbackDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                        setTimeout(() => { feedbackDiv.innerHTML = ''; }, 4000);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    feedbackDiv.innerHTML = `<div class="alert alert-danger">حدث خطأ في الشبكة.</div>`;
+                });
+            }
+        });
+    }
+});
+</script>
 <?php include 'footer.php'; ?>

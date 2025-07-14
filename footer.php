@@ -4,6 +4,8 @@
 <footer class="text-center py-4 mt-5" style="background:#fff;color:#D44759;">
     &copy; <?= date('Y') ?> إنجاز الإعلامية — جميع الحقوق محفوظة.
 </footer>
+<!-- Chart.js for creating charts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <!-- Bootstrap JS (ضروري لبعض مكونات الواجهة مثل التنبيهات القابلة للإغلاق) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>

@@ -26,19 +26,46 @@ $order_items = $items_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // جلب المنتجات والمصممين للقوائم المنسدلة
 $products_res = $conn->query("SELECT product_id, name FROM products ORDER BY name");
-$designers_res = $conn->query("SELECT employee_id, name FROM employees WHERE role='مصمم'");
+$designers_res = $conn->query("SELECT employee_id, name, role FROM employees WHERE role IN ('مصمم', 'مدير') ORDER BY role, name");
+$products_array = $products_res->fetch_all(MYSQLI_ASSOC);
+
+$error = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $post_data = $_POST; // Store submitted data to repopulate form on error
     $conn->begin_transaction();
     try {
         // 1. تحديث الطلب الرئيسي
-        $total_amount = $_POST['total_amount'];
-        $deposit_amount = $_POST['deposit_amount'];
+        $total_amount = floatval($_POST['total_amount']);
+        // التحقق من أن المبلغ الإجمالي هو رقم صالح
+        if (!isset($_POST['total_amount']) || !is_numeric($_POST['total_amount']) || $total_amount < 0) {
+            throw new Exception("المبلغ الإجمالي حقل إجباري ويجب أن يكون رقماً موجباً.");
+        }
+        $deposit_amount = floatval($_POST['deposit_amount']);
         $remaining_amount = $total_amount - $deposit_amount;
-        $designer_id = !empty($_POST['designer_id']) ? $_POST['designer_id'] : null;
+        
+        // أتمتة حالة الدفع
+        $payment_status = 'غير مدفوع';
+        if ($total_amount <= 0 || $deposit_amount >= $total_amount) {
+            $payment_status = 'مدفوع';
+        } elseif ($deposit_amount > 0) {
+            $payment_status = 'مدفوع جزئياً';
+        }
 
-        $stmt_order = $conn->prepare("UPDATE orders SET designer_id=?, total_amount=?, deposit_amount=?, remaining_amount=?, payment_method=?, due_date=?, priority=?, notes=? WHERE order_id=?");
-        $stmt_order->bind_param("idddssssi", $designer_id, $total_amount, $deposit_amount, $remaining_amount, $_POST['payment_method'], $_POST['due_date'], $_POST['priority'], $_POST['notes'], $id);
+        $designer_id = $_POST['designer_id'];
+        if (empty($designer_id) || !filter_var($designer_id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) {
+            throw new Exception("الرجاء اختيار المسؤول عن التصميم. الحقل إجباري.");
+        }
+
+        // فقط المدير يستطيع تغيير المصمم المسؤول
+        if ($_SESSION['user_role'] === 'مدير') {
+            $stmt_order = $conn->prepare("UPDATE orders SET designer_id=?, total_amount=?, deposit_amount=?, remaining_amount=?, payment_status=?, payment_method=?, due_date=?, priority=?, notes=? WHERE order_id=?");
+            $stmt_order->bind_param("idddsssssi", $designer_id, $total_amount, $deposit_amount, $remaining_amount, $payment_status, $_POST['payment_method'], $_POST['due_date'], $_POST['priority'], $_POST['notes'], $id);
+        } else {
+            // المستخدمون الآخرون لا يستطيعون تغيير المصمم
+            $stmt_order = $conn->prepare("UPDATE orders SET total_amount=?, deposit_amount=?, remaining_amount=?, payment_status=?, payment_method=?, due_date=?, priority=?, notes=? WHERE order_id=?");
+            $stmt_order->bind_param("dddsssssi", $total_amount, $deposit_amount, $remaining_amount, $payment_status, $_POST['payment_method'], $_POST['due_date'], $_POST['priority'], $_POST['notes'], $id);
+        }
         $stmt_order->execute();
 
         // 2. حذف البنود القديمة
@@ -50,8 +77,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt_item = $conn->prepare("INSERT INTO order_items (order_id, product_id, quantity, item_notes) VALUES (?, ?, ?, ?)");
         if (!empty($_POST['products']) && is_array($_POST['products'])) {
             foreach ($_POST['products'] as $product) {
-                if (empty($product['product_id'])) {
-                    throw new Exception("الرجاء اختيار منتج صالح لجميع البنود المضافة.");
+                // التحقق من أن معرّف المنتج هو رقم صحيح أكبر من صفر
+                if (!isset($product['product_id']) || !filter_var($product['product_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) {
+                    throw new Exception("الرجاء اختيار منتج صالح لجميع البنود المضافة. قد يكون أحد المنتجات غير محدد.");
+                }
+                // التحقق من أن الكمية هي رقم صحيح أكبر من صفر
+                if (!isset($product['quantity']) || !filter_var($product['quantity'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) {
+                    throw new Exception("الرجاء إدخال كمية صحيحة (رقم أكبر من صفر) لجميع البنود.");
                 }
                 $stmt_item->bind_param("iiss", $id, $product['product_id'], $product['quantity'], $product['item_notes']);
                 $stmt_item->execute();
@@ -62,19 +94,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         $conn->commit();
         $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'تم تعديل الطلب بنجاح!'];
-        header("Location: edit_order.php?id=" . $id);
+        header("Location: orders.php");
         exit;
 
     } catch (Exception $e) {
         $conn->rollback();
-        $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'حدث خطأ: ' . $e->getMessage()];
-        header("Location: edit_order.php?id=" . $id);
-        exit;
+        // On error, set the error message and let the page render again with the submitted data.
+        $error = $e->getMessage();
+        // Repopulate main order data and items from the submitted POST data
+        $row = array_merge($row, $post_data);
+        $order_items = $post_data['products'] ?? [];
     }
 }
 ?>
 <div class="container">
     <h2 style="color:#D44759;" class="mb-4">تعديل طلب</h2>
+    <?php if ($error): ?>
+        <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+    <?php endif; ?>
     <form method="post" id="order-form">
         <div class="row g-3">
             <!-- Client Info Section (Read-only) -->
@@ -109,48 +146,64 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <fieldset class="border p-3 rounded">
                 <legend class="float-none w-auto px-2 h6">التفاصيل المالية والإدارية</legend>
                 <div class="row g-3">
-                    <div class="col-md-3">
+                    <!-- Row 1 -->
+                    <div class="col-md-4">
                         <label class="form-label">تاريخ التسليم</label>
-                        <input type="date" name="due_date" class="form-control" value="<?= htmlspecialchars($row['due_date']) ?>" required>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">الأولوية</label>
-                        <select name="priority" class="form-select">
-                            <option value="عاجل جداً" <?= $row['priority'] == 'عاجل جداً' ? 'selected' : '' ?>>عاجل جداً</option>
-                            <option value="عالي" <?= $row['priority'] == 'عالي' ? 'selected' : '' ?>>عالي</option>
-                            <option value="متوسط" <?= $row['priority'] == 'متوسط' ? 'selected' : '' ?>>متوسط</option>
-                            <option value="منخفض" <?= $row['priority'] == 'منخفض' ? 'selected' : '' ?>>منخفض</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">المبلغ الإجمالي (شامل الضريبة)</label>
-                        <input type="number" name="total_amount" class="form-control" min="0" step="0.01" value="<?= htmlspecialchars($row['total_amount']) ?>" required>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">الدفعة المقدمة</label>
-                        <input type="number" name="deposit_amount" class="form-control" min="0" step="0.01" value="<?= htmlspecialchars($row['deposit_amount']) ?>">
+                        <input type="date" name="due_date" class="form-control" value="<?= htmlspecialchars($row['due_date'] ?? '') ?>" required>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">طريقة الدفع</label>
-                        <select name="payment_method" class="form-select">
-                            <option value="نقدي" <?= $row['payment_method'] == 'نقدي' ? 'selected' : '' ?>>نقدي</option>
-                            <option value="تحويل بنكي" <?= $row['payment_method'] == 'تحويل بنكي' ? 'selected' : '' ?>>تحويل بنكي</option>
-                            <option value="فوري" <?= $row['payment_method'] == 'فوري' ? 'selected' : '' ?>>فوري</option>
-                            <option value="غيره" <?= $row['payment_method'] == 'غيره' ? 'selected' : '' ?>>غيره</option>
+                        <label class="form-label">الأولوية</label>
+                        <select name="priority" class="form-select">
+                            <option value="عاجل جداً" <?= ($row['priority'] ?? '') == 'عاجل جداً' ? 'selected' : '' ?>>عاجل جداً</option>
+                            <option value="عالي" <?= ($row['priority'] ?? '') == 'عالي' ? 'selected' : '' ?>>عالي</option>
+                            <option value="متوسط" <?= ($row['priority'] ?? '') == 'متوسط' ? 'selected' : '' ?>>متوسط</option>
+                            <option value="منخفض" <?= ($row['priority'] ?? '') == 'منخفض' ? 'selected' : '' ?>>منخفض</option>
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">المسؤول عن التصميم</label>
-                        <select name="designer_id" class="form-select">
-                            <option value="">غير محدد</option>
-                            <?php while($d_row = $designers_res->fetch_assoc()): ?>
-                                <option value="<?= $d_row['employee_id'] ?>" <?= $row['designer_id'] == $d_row['employee_id'] ? 'selected' : '' ?>><?= htmlspecialchars($d_row['name']) ?></option>
-                            <?php endwhile; ?>
+                        <?php if ($_SESSION['user_role'] === 'مدير'): ?>
+                            <select name="designer_id" class="form-select" required>
+                                <option value="">اختر المسؤول...</option>
+                                <?php mysqli_data_seek($designers_res, 0); while($d_row = $designers_res->fetch_assoc()): ?>
+                                    <option value="<?= $d_row['employee_id'] ?>" <?= ($row['designer_id'] ?? 0) == $d_row['employee_id'] ? 'selected' : '' ?>><?= htmlspecialchars($d_row['name']) ?> (<?= htmlspecialchars($d_row['role']) ?>)</option>
+                                <?php endwhile; ?>
+                            </select>
+                        <?php else: ?>
+                            <?php
+                                $designer_name_display = 'غير محدد';
+                                mysqli_data_seek($designers_res, 0);
+                                while($d_row_display = $designers_res->fetch_assoc()) {
+                                    if ($d_row_display['employee_id'] == $row['designer_id']) { $designer_name_display = htmlspecialchars($d_row_display['name']); break; }
+                                }
+                            ?>
+                            <p class="form-control-plaintext bg-light border rounded-pill px-3"><?= $designer_name_display ?></p>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Row 2 -->
+                    <div class="col-md-4">
+                        <label class="form-label">المبلغ الإجمالي (شامل الضريبة)</label>
+                        <input type="number" name="total_amount" class="form-control" min="0" step="0.01" value="<?= htmlspecialchars($row['total_amount'] ?? '0') ?>" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">الدفعة المقدمة</label>
+                        <input type="number" name="deposit_amount" class="form-control" min="0" step="0.01" value="<?= htmlspecialchars($row['deposit_amount'] ?? '0') ?>">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">طريقة الدفع</label>
+                        <select name="payment_method" class="form-select" required>
+                            <option value="نقدي" <?= ($row['payment_method'] ?? '') == 'نقدي' ? 'selected' : '' ?>>نقدي</option>
+                            <option value="تحويل بنكي" <?= ($row['payment_method'] ?? '') == 'تحويل بنكي' ? 'selected' : '' ?>>تحويل بنكي</option>
+                            <option value="فوري" <?= ($row['payment_method'] ?? '') == 'فوري' ? 'selected' : '' ?>>فوري</option>
+                            <option value="غيره" <?= ($row['payment_method'] ?? '') == 'غيره' ? 'selected' : '' ?>>غيره</option>
                         </select>
                     </div>
+
+                    <!-- Row 3 -->
                     <div class="col-12">
                         <label class="form-label">ملاحظات عامة على الطلب</label>
-                        <textarea name="notes" class="form-control" rows="2"><?= htmlspecialchars($row['notes']) ?></textarea>
+                        <textarea name="notes" class="form-control" rows="2"><?= htmlspecialchars($row['notes'] ?? '') ?></textarea>
                     </div>
                 </div>
             </fieldset>
@@ -167,15 +220,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const itemsContainer = document.getElementById('order-items-container');
     const addItemBtn = document.getElementById('add-item-btn');
     let itemCounter = 0;
-    const existingItems = <?= json_encode($order_items) ?>;
-    const productsOptions = `<?php
-        mysqli_data_seek($products_res, 0); // Reset pointer
-        $options = "<option value=\\\"\\\">اختر المنتج...</option>";
-        while($p_row = $products_res->fetch_assoc()) {
-            $options .= "<option value=\\\"{$p_row['product_id']}\\\">" . htmlspecialchars($p_row['name']) . "</option>";
-        }
-        echo addslashes($options);
-    ?>`;
+    <?php
+    // Sanitize item notes for safe injection into JavaScript/HTML
+    $safe_order_items = array_map(function($item) {
+        $item['item_notes'] = htmlspecialchars($item['item_notes'] ?? '', ENT_QUOTES, 'UTF-8');
+        return $item;
+    }, $order_items);
+    ?>
+    const existingItems = <?= json_encode($safe_order_items) ?> || [];
+    const products = <?= json_encode($products_array) ?> || [];
+    let productsOptions = '<option value="">اختر المنتج...</option>';
+
+    if (products.length > 0) {
+        products.forEach(p => {
+            // ننشئ عنصر option لضمان التعامل مع الأسماء التي تحتوي على رموز خاصة بشكل آمن
+            const tempOption = document.createElement('option');
+            tempOption.value = p.product_id;
+            tempOption.textContent = p.name; // يضبط النص بشكل آمن
+            productsOptions += tempOption.outerHTML;
+        });
+    }
 
     function addOrderItem(item = null) {
         const itemQty = item ? item.quantity : 1;
@@ -218,11 +282,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Client-side validation before submitting the form
     const orderForm = document.getElementById('order-form');
     orderForm.addEventListener('submit', function(e) {
+        // Remove previous error states
+        itemsContainer.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+
         const productSelects = itemsContainer.querySelectorAll('.product-select');
         let allProductsSelected = true;
         productSelects.forEach(select => {
             if (select.value === '') {
                 allProductsSelected = false;
+                select.classList.add('is-invalid'); // Highlight the invalid select
             }
         });
 
