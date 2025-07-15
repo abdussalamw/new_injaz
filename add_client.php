@@ -11,8 +11,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $contact_person = $_POST['contact_person'];
     $email = $_POST['email'];
 
-    if (empty($phone)) {
-        $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'رقم الجوال حقل إجباري.'];
+    // التحقق من صحة رقم الجوال السعودي
+    if (empty($phone) || !preg_match('/^05[0-9]{8}$/', $phone)) {
+        $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'الرجاء إدخال رقم جوال سعودي صحيح (10 أرقام تبدأ بـ 05).'];
         header("Location: add_client.php");
         exit;
     }

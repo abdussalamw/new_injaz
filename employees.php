@@ -5,7 +5,37 @@ include 'header.php';
 
 check_permission('employee_view', $conn);
 
-$res = $conn->query("SELECT * FROM employees ORDER BY role, name");
+// --- Sorting Logic ---
+$sort_column_key = $_GET['sort'] ?? 'name';
+$sort_order = $_GET['order'] ?? 'ASC';
+
+$column_map = [
+    'employee_id' => 'employee_id',
+    'name' => 'name',
+    'role' => 'role',
+    'email' => 'email'
+];
+$allowed_sort_columns = array_keys($column_map);
+if (!in_array($sort_column_key, $allowed_sort_columns)) {
+    $sort_column_key = 'name';
+}
+if (strtoupper($sort_order) !== 'ASC' && strtoupper($sort_order) !== 'DESC') {
+    $sort_order = 'ASC';
+}
+$sort_column_sql = $column_map[$sort_column_key];
+
+function generate_sort_link($column_key, $display_text, $current_sort_key, $current_order) {
+    $next_order = ($current_sort_key === $column_key && strtoupper($current_order) === 'ASC') ? 'DESC' : 'ASC';
+    $query_params = $_GET;
+    $query_params['sort'] = $column_key;
+    $query_params['order'] = $next_order;
+    $url = 'employees.php?' . http_build_query($query_params);
+    $icon = ($current_sort_key === $column_key) ? ((strtoupper($current_order) === 'ASC') ? ' <i class="bi bi-sort-up"></i>' : ' <i class="bi bi-sort-down"></i>') : '';
+    return '<a href="' . htmlspecialchars($url) . '" class="text-decoration-none text-dark">' . htmlspecialchars($display_text) . $icon . '</a>';
+}
+// --- End Sorting Logic ---
+
+$res = $conn->query("SELECT * FROM employees ORDER BY $sort_column_sql $sort_order");
 ?>
 <div class="container">
     <?php if (has_permission('employee_add', $conn)): ?>
@@ -14,11 +44,11 @@ $res = $conn->query("SELECT * FROM employees ORDER BY role, name");
     <table class="table table-bordered table-striped text-center">
         <thead class="table-light">
             <tr>
-                <th>#</th>
-                <th>الاسم</th>
-                <th>الدور</th>
+                <th><?= generate_sort_link('employee_id', '#', $sort_column_key, $sort_order) ?></th>
+                <th><?= generate_sort_link('name', 'الاسم', $sort_column_key, $sort_order) ?></th>
+                <th><?= generate_sort_link('role', 'الدور', $sort_column_key, $sort_order) ?></th>
                 <th>الجوال</th>
-                <th>البريد</th>
+                <th><?= generate_sort_link('email', 'البريد', $sort_column_key, $sort_order) ?></th>
                 <th>إجراءات</th>
             </tr>
         </thead>

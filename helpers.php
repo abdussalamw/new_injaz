@@ -22,15 +22,13 @@ function get_priority_class($priority) {
  */
 function get_status_class($status) {
     $classes = [
-        'قيد التصميم' => 'btn-info text-dark',
-        'قيد التنفيذ' => 'btn-primary',
-        'جاهز للتسليم' => 'btn-secondary',
-        'بانتظار التسوية المالية' => 'btn-warning text-dark',
-        'بانتظار الإغلاق النهائي' => 'btn-dark',
-        'مكتمل' => 'btn-success',
-        'ملغي' => 'btn-danger'
+        'قيد التصميم' => 'status-design',
+        'قيد التنفيذ' => 'status-execution',
+        'جاهز للتسليم' => 'status-ready',
+        'مكتمل' => 'status-completed',
+        'ملغي' => 'status-cancelled',
     ];
-    return $classes[trim($status)] ?? 'btn-light';
+    return $classes[trim($status)] ?? 'status-default';
 }
 
 /**
@@ -40,25 +38,42 @@ function get_status_class($status) {
  * @param float $deposit_amount
  * @return string
  */
-function get_payment_status_display($payment_status, $total_amount, $deposit_amount) {
-    if ($payment_status === 'مدفوع') {
-        return '<div class="progress" style="height: 20px;" title="مدفوع بالكامل"><div class="progress-bar bg-success" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">مدفوع</div></div>';
+function get_payment_status_display($payment_status_from_db, $total_amount, $deposit_amount) {
+    // إعادة حساب الحالة بشكل فوري لضمان العرض الصحيح دائماً، بغض النظر عن القيمة المخزنة
+    // هذا يحل مشكلة الطلبات القديمة التي لم يتم تحديث حالتها
+    $recalculated_status = '';
+    if ($total_amount <= 0) {
+        $recalculated_status = 'غير مدفوع';
+    } elseif ($deposit_amount >= $total_amount) {
+        $recalculated_status = 'مدفوع';
+    } elseif ($deposit_amount > 0) {
+        $recalculated_status = 'مدفوع جزئياً';
+    } else {
+        $recalculated_status = 'غير مدفوع';
     }
 
-    if ($payment_status === 'غير مدفوع') {
+    if ($recalculated_status === 'مدفوع') {
+        return '<div class="progress" style="height: 20px;" title="مدفوع بالكامل"><div class="progress-bar bg-success" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">مدفوع: ' . number_format($total_amount, 2) . '</div></div>';
+    }
+
+    if ($recalculated_status === 'غير مدفوع') {
         // تمييز الطلبات المجانية في التلميح
         $title = $total_amount <= 0 ? 'غير مدفوع (إجمالي صفر)' : 'غير مدفوع';
-        return '<div class="progress" style="height: 20px;" title="' . $title . '"><div class="progress-bar bg-danger" role="progressbar" style="width: 100%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">غير مدفوع</div></div>';
+        return '<div class="progress" style="height: 20px;" title="' . $title . '"><div class="progress-bar bg-danger" role="progressbar" style="width: 100%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">المتبقي: ' . number_format($total_amount, 2) . '</div></div>';
     }
 
-    if ($payment_status === 'مدفوع جزئياً') {
-        // بما أن المنطق في صفحات الإضافة والتعديل يضمن أن المبلغ الإجمالي أكبر من صفر هنا، يمكننا القسمة بأمان
-        $paid_percentage = ($deposit_amount / $total_amount) * 100;
+    if ($recalculated_status === 'مدفوع جزئياً') {
+        $paid_percentage = ($deposit_amount / $total_amount) * 100; // آمن لأننا تأكدنا أن المبلغ الإجمالي أكبر من صفر
         $remaining_percentage = 100 - $paid_percentage;
-        return '<div class="progress" style="height: 20px;" title="مدفوع جزئياً: ' . number_format($paid_percentage, 0) . '%"><div class="progress-bar bg-success" role="progressbar" style="width: ' . $paid_percentage . '%;" aria-valuenow="' . $paid_percentage . '" aria-valuemin="0" aria-valuemax="100"></div><div class="progress-bar bg-warning" role="progressbar" style="width: ' . $remaining_percentage . '%;" aria-valuenow="' . $remaining_percentage . '" aria-valuemin="0" aria-valuemax="100"></div></div>';
+        $remaining_amount = $total_amount - $deposit_amount;
+        return '<div class="progress" style="height: 20px;" title="مدفوع جزئياً: ' . number_format($paid_percentage, 0) . '%">'
+             . '<div class="progress-bar bg-success" role="progressbar" style="width: ' . $paid_percentage . '%;" aria-valuenow="' . $paid_percentage . '" aria-valuemin="0" aria-valuemax="100">' . number_format($deposit_amount, 2) . '</div>'
+             . '<div class="progress-bar bg-warning text-dark" role="progressbar" style="width: ' . $remaining_percentage . '%;" aria-valuenow="' . $remaining_percentage . '" aria-valuemin="0" aria-valuemax="100">' . number_format($remaining_amount, 2) . '</div>'
+             . '</div>';
     }
 
-    return '<span class="badge bg-secondary">' . htmlspecialchars($payment_status) . '</span>';
+    // كحل احتياطي، في حال لم تنجح أي من الحالات أعلاه
+    return '<span class="badge bg-secondary">' . htmlspecialchars($payment_status_from_db) . '</span>';
 }
 
 /**
@@ -78,7 +93,7 @@ function get_next_actions($order, $user_role, $user_id, $conn) {
 
     // الإجراءات لا تعتمد دائماً على الحالة، بل على الأحداث (Milestones)
     // 1. تأكيد الدفع (للمحاسب والمدير)
-    if (!$is_paid && in_array($user_role, ['مدير', 'محاسب'])) {
+    if (!$is_paid && has_permission('order_financial_settle', $conn)) {
         $actions['confirm_payment'] = ['label' => 'تأكيد الدفع الكامل', 'class' => 'btn-success', 'icon' => 'bi-cash-coin'];
     }
 
@@ -97,13 +112,31 @@ function get_next_actions($order, $user_role, $user_id, $conn) {
     if ($status !== 'مكتمل' && $status !== 'ملغي') {
         switch ($status) {
             case 'قيد التصميم':
-                if ((in_array($user_role, ['مدير', 'مصمم'])) && $is_designer) {
-                    $status_changes['قيد التنفيذ'] = 'إرسال للتنفيذ';
+                // المدير يستطيع إرسال أي طلب، والمصمم يرسل فقط الطلبات المسندة إليه
+                if ($user_role === 'مدير' || ($user_role === 'مصمم' && $is_designer)) {
+                    $status_changes['قيد التنفيذ'] = [
+                        'label' => 'إرسال للتنفيذ',
+                        'confirm_message' => 'تأكد بأنك قمت بمراجعة جميع التصاميم المطلوبة وإرسالها للمعمل للتنفيذ؟'
+                    ];
                 }
                 break;
             case 'قيد التنفيذ':
                 if (in_array($user_role, ['مدير', 'معمل'])) {
-                    $status_changes['جاهز للتسليم'] = 'تحديد كـ "جاهز للتسليم"';
+                    // التحقق من وجود رقم جوال للعميل قبل عرض إجراء الواتساب
+                    $client_phone = trim($order['client_phone'] ?? '');
+                    if (!empty($client_phone)) {
+                        $status_changes['جاهز للتسليم'] = [
+                            'label' => 'تحديد كـ "جاهز للتسليم"',
+                            'confirm_message' => 'هل أنت متأكد من أن الطلب جاهز بالكامل للتسليم للعميل؟ سيتم إرسال إشعار للعميل عبر واتساب.',
+                            'whatsapp_action' => true
+                        ];
+                    } else {
+                        // إذا لم يكن هناك رقم، يتم عرض الإجراء بدون ميزة الواتساب
+                        $status_changes['جاهز للتسليم'] = [
+                            'label' => 'تحديد كـ "جاهز للتسليم"',
+                            'confirm_message' => 'هل أنت متأكد؟ (لا يمكن إرسال واتساب لعدم وجود رقم جوال للعميل)'
+                        ];
+                    }
                 }
                 break;
         }
@@ -119,4 +152,150 @@ function get_next_actions($order, $user_role, $user_id, $conn) {
     }
 
     return $actions;
+}
+
+/**
+ * Helper function to format seconds into a human-readable string.
+ * @param int $seconds
+ * @return string
+ */
+function format_duration($seconds) {
+    if ($seconds < 0) {
+        $seconds = 0;
+    }
+    if ($seconds < 60) {
+        return "أقل من دقيقة";
+    }
+
+    $days = floor($seconds / 86400);
+    $seconds %= 86400;
+    $hours = floor($seconds / 3600);
+    $seconds %= 3600;
+    $minutes = floor($seconds / 60);
+
+    $parts = [];
+    if ($days > 0) {
+        $parts[] = $days . " يوم";
+    }
+    if ($hours > 0) {
+        $parts[] = $hours . " ساعة";
+    }
+    if ($minutes > 0 && $days == 0) { // عرض الدقائق فقط إذا لم تكن هناك أيام
+        $parts[] = $minutes . " دقيقة";
+    }
+
+    return empty($parts) ? "لحظات" : implode(' و ', array_slice($parts, 0, 2));
+}
+
+/**
+ * Generates an HTML progress bar representing the order's lifecycle timeline.
+ * @param array $order The order data row from the database.
+ * @return string HTML for the timeline bar.
+ */
+function generate_timeline_bar($order) {
+    try {
+        $order_date = new DateTime($order['order_date']);
+        $now = new DateTime();
+        $stages = [];
+
+        // --- معالجة الطلبات القديمة التي لا تحتوي على توقيتات ---
+        if ($order['status'] === 'قيد التنفيذ' && empty($order['design_completed_at'])) {
+            $duration = $now->getTimestamp() - $order_date->getTimestamp();
+            $label = 'إجمالي الوقت: ' . format_duration($duration);
+            $title = 'بيانات المراحل غير متوفرة لهذا الطلب القديم';
+            return '<div class="progress" style="height: 18px; font-size: 0.7rem;">'
+                 . '<div class="progress-bar bg-secondary" role="progressbar" style="width: 100%;" title="' . htmlspecialchars($title) . '">' . htmlspecialchars($label) . '</div>'
+                 . '</div>';
+        }
+
+        // --- المنطق الطبيعي للطلبات الجديدة ---
+
+        // Stage 1: Design
+        if (!empty($order['design_completed_at'])) {
+            // Design is complete
+            $design_end = new DateTime($order['design_completed_at']);
+            $duration = $design_end->getTimestamp() - $order_date->getTimestamp();
+            if ($duration > 0) {
+                $stages[] = ['label' => 'تصميم: ' . format_duration($duration), 'duration' => $duration, 'class' => 'bg-info', 'title' => 'مرحلة التصميم: ' . format_duration($duration)];
+            }
+        } elseif ($order['status'] === 'قيد التصميم') {
+            // Design is the current, active stage
+            $duration = $now->getTimestamp() - $order_date->getTimestamp();
+            if ($duration > 0) {
+                $stages[] = ['label' => 'تصميم (حالي): ' . format_duration($duration), 'duration' => $duration, 'class' => 'bg-info', 'title' => 'المرحلة الحالية (تصميم): ' . format_duration($duration)];
+            }
+        }
+
+        // Stage 2: Execution
+        // This stage can only be processed if the design stage is complete.
+        if (!empty($order['design_completed_at'])) {
+            $design_end = new DateTime($order['design_completed_at']);
+
+            if (!empty($order['execution_completed_at'])) {
+                // Execution is complete
+                $exec_end = new DateTime($order['execution_completed_at']);
+                $duration = $exec_end->getTimestamp() - $design_end->getTimestamp();
+                if ($duration > 0) {
+                    $stages[] = ['label' => 'تنفيذ: ' . format_duration($duration), 'duration' => $duration, 'class' => 'bg-primary', 'title' => 'مرحلة التنفيذ: ' . format_duration($duration)];
+                }
+            } elseif ($order['status'] === 'قيد التنفيذ') {
+                // Execution is the current, active stage
+                $duration = $now->getTimestamp() - $design_end->getTimestamp();
+                if ($duration > 0) {
+                    $stages[] = ['label' => 'تنفيذ (حالي): ' . format_duration($duration), 'duration' => $duration, 'class' => 'bg-primary', 'title' => 'المرحلة الحالية (تنفيذ): ' . format_duration($duration)];
+                }
+            }
+        }
+
+        if (empty($stages)) {
+            return ''; // No relevant stages to show
+        }
+
+        // The total duration for percentage calculation is the sum of durations of visible stages
+        $total_visible_duration = array_sum(array_column($stages, 'duration'));
+        if ($total_visible_duration <= 0) {
+            return '';
+        }
+
+        $html = '<div class="progress" style="height: 18px; font-size: 0.7rem;">';
+        $stage_count = count($stages);
+        foreach ($stages as $stage) {
+            $percentage = ($stage['duration'] / $total_visible_duration) * 100;
+            // إضافة فاصل بصري بين المراحل
+            $border_style = ($stage_count > 1 && $percentage < 99) ? 'border-left: 2px solid white;' : '';
+            // عرض الشريط فقط إذا كانت النسبة معقولة
+            if ($percentage > 1) {
+                $html .= '<div class="progress-bar ' . $stage['class'] . '" role="progressbar" style="width: ' . $percentage . '%;' . $border_style . '" title="' . htmlspecialchars($stage['title']) . '">' . htmlspecialchars($stage['label']) . '</div>';
+            }
+        }
+        $html .= '</div>';
+        return $html;
+    } catch (Exception $e) {
+        // Log error if needed: error_log($e->getMessage());
+        return ''; // Return empty string on date errors
+    }
+}
+
+/**
+ * Formats a Saudi phone number for a WhatsApp link.
+ * @param string $phone_number The 10-digit phone number (e.g., 05xxxxxxxx).
+ * @param string $message Optional message to include in the link.
+ * @return string The formatted WhatsApp URL.
+ */
+function format_whatsapp_link($phone_number, $message = '') {
+    if (empty($phone_number)) {
+        return '#'; // Return a non-functional link if no number
+    }
+    // Remove all non-numeric characters
+    $cleaned_phone = preg_replace('/[^0-9]/', '', $phone_number);
+    // Get the last 9 digits (to remove leading 0 if present)
+    $saudi_number = substr($cleaned_phone, -9);
+    // Prepend the country code
+    $international_number = '966' . $saudi_number;
+    
+    $url = 'https://wa.me/' . $international_number;
+    if (!empty($message)) {
+        $url .= '?text=' . urlencode($message);
+    }
+    return $url;
 }

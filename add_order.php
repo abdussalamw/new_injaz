@@ -29,6 +29,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             if (empty($company_name) || empty($phone)) {
                 throw new Exception("اسم المؤسسة ورقم الجوال حقلان إجباريان للعميل الجديد.");
             }
+            // التحقق من صحة رقم الجوال السعودي
+            if (!preg_match('/^05[0-9]{8}$/', $phone)) {
+                throw new Exception("الرجاء إدخال رقم جوال سعودي صحيح للعميل الجديد (10 أرقام تبدأ بـ 05).");
+            }
             $stmt_new_client = $conn->prepare("INSERT INTO clients (company_name, contact_person, phone) VALUES (?, ?, ?)");
             $stmt_new_client->bind_param("sss", $company_name, $contact_person, $phone);
             $stmt_new_client->execute();
@@ -42,6 +46,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             throw new Exception("المبلغ الإجمالي حقل إجباري ويجب أن يكون رقماً موجباً.");
         }
         $deposit_amount = floatval($_POST['deposit_amount']);
+
+        // **إصلاح منطقي:** إذا كان المبلغ الإجمالي صفراً، يجب أن تكون الدفعة المقدمة صفراً أيضاً
+        if ($total_amount <= 0) {
+            $deposit_amount = 0;
+        }
+
         $remaining_amount = $total_amount - $deposit_amount;
         $created_by = $_SESSION['user_id'] ?? 1; // Fallback to 1 if session not set
         
@@ -60,7 +70,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         $stmt_order = $conn->prepare("INSERT INTO orders (client_id, designer_id, total_amount, deposit_amount, remaining_amount, payment_status, payment_method, due_date, status, priority, notes, created_by, order_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'قيد التصميم', ?, ?, ?, NOW())");
-        $stmt_order->bind_param("iidddssssssi", $client_id, $designer_id, $total_amount, $deposit_amount, $remaining_amount, $payment_status, $_POST['payment_method'], $_POST['due_date'], $_POST['priority'], $_POST['notes'], $created_by);
+        $stmt_order->bind_param("iidddsssssi", $client_id, $designer_id, $total_amount, $deposit_amount, $remaining_amount, $payment_status, $_POST['payment_method'], $_POST['due_date'], $_POST['priority'], $_POST['notes'], $created_by);
         $stmt_order->execute();
         $order_id = $conn->insert_id;
 

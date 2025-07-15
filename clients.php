@@ -5,6 +5,36 @@ include 'header.php';
 
 check_permission('client_view', $conn);
 
+// --- Sorting Logic ---
+$sort_column_key = $_GET['sort'] ?? 'company_name';
+$sort_order = $_GET['order'] ?? 'ASC';
+
+$column_map = [
+    'client_id' => 'client_id',
+    'company_name' => 'company_name',
+    'contact_person' => 'contact_person',
+    'email' => 'email'
+];
+$allowed_sort_columns = array_keys($column_map);
+if (!in_array($sort_column_key, $allowed_sort_columns)) {
+    $sort_column_key = 'company_name';
+}
+if (strtoupper($sort_order) !== 'ASC' && strtoupper($sort_order) !== 'DESC') {
+    $sort_order = 'ASC';
+}
+$sort_column_sql = $column_map[$sort_column_key];
+
+function generate_sort_link($column_key, $display_text, $current_sort_key, $current_order) {
+    $next_order = ($current_sort_key === $column_key && strtoupper($current_order) === 'ASC') ? 'DESC' : 'ASC';
+    $query_params = $_GET;
+    $query_params['sort'] = $column_key;
+    $query_params['order'] = $next_order;
+    $url = 'clients.php?' . http_build_query($query_params);
+    $icon = ($current_sort_key === $column_key) ? ((strtoupper($current_order) === 'ASC') ? ' <i class="bi bi-sort-up"></i>' : ' <i class="bi bi-sort-down"></i>') : '';
+    return '<a href="' . htmlspecialchars($url) . '" class="text-decoration-none text-dark">' . htmlspecialchars($display_text) . $icon . '</a>';
+}
+// --- End Sorting Logic ---
+
 // تصدير العملاء (CSV)
 if (isset($_GET['export'])) {
     header('Content-Type: text/csv; charset=utf-8');
@@ -34,17 +64,17 @@ if (isset($_GET['export'])) {
     <table class="table table-bordered table-striped text-center">
         <thead class="table-light">
             <tr>
-                <th>#</th>
-                <th>اسم المؤسسة</th>
-                <th>الشخص المسؤول</th>
+                <th><?= generate_sort_link('client_id', '#', $sort_column_key, $sort_order) ?></th>
+                <th><?= generate_sort_link('company_name', 'اسم المؤسسة', $sort_column_key, $sort_order) ?></th>
+                <th><?= generate_sort_link('contact_person', 'الشخص المسؤول', $sort_column_key, $sort_order) ?></th>
                 <th>الجوال</th>
-                <th>البريد الإلكتروني</th>
+                <th><?= generate_sort_link('email', 'البريد الإلكتروني', $sort_column_key, $sort_order) ?></th>
                 <th>إجراءات</th>
             </tr>
         </thead>
         <tbody>
             <?php
-            $res = $conn->query("SELECT * FROM clients ORDER BY company_name");
+            $res = $conn->query("SELECT * FROM clients ORDER BY $sort_column_sql $sort_order");
             while($row = $res->fetch_assoc()): ?>
             <tr>
                 <td><?= $row['client_id'] ?></td>

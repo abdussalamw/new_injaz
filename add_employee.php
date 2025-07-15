@@ -34,8 +34,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 break;
             case 'مصمم':
             case 'معمل':
+                $default_permissions = ['dashboard_view', 'order_view_own'];
+                break;
             case 'محاسب':
-                $default_permissions = ['dashboard_view', 'order_view_own', 'order_edit_status'];
+                // المحاسب يحتاج صلاحية عرض مهامه، وصلاحية التسوية المالية
+                // وصلاحية عرض كل الطلبات للمتابعة
+                $default_permissions = ['dashboard_view', 'order_view_own', 'order_financial_settle'];
                 break;
         }
 

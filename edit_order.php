@@ -65,6 +65,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             throw new Exception("المبلغ الإجمالي حقل إجباري ويجب أن يكون رقماً موجباً.");
         }
         $deposit_amount = floatval($_POST['deposit_amount']);
+
+        // **إصلاح منطقي:** إذا كان المبلغ الإجمالي صفراً، يجب أن تكون الدفعة المقدمة صفراً أيضاً
+        if ($total_amount <= 0) {
+            $deposit_amount = 0;
+        }
+
         $remaining_amount = $total_amount - $deposit_amount;
         
         // أتمتة حالة الدفع حسب المنطق الجديد

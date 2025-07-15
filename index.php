@@ -59,26 +59,55 @@ if (has_permission('dashboard_reports_view', $conn)) {
     $overall_stats['total'] = $overall_stats['closed'] + $overall_stats['open'];
 }
 
+// --- جلب البيانات اللازمة للفلاتر ---
+$employees_res = $conn->query("SELECT employee_id, name FROM employees ORDER BY name");
+$employees_list = $employees_res->fetch_all(MYSQLI_ASSOC);
+
+// --- استلام قيم الفلاتر من GET ---
+$filter_status = $_GET['status'] ?? '';
+$filter_employee = $_GET['employee'] ?? '';
+$filter_payment = $_GET['payment'] ?? '';
+
+
 // جلب الطلبات حسب دور المستخدم
 $user_id = $_SESSION['user_id'] ?? 0; // استخدام ?? لتجنب الخطأ
 $user_role = $_SESSION['user_role'] ?? 'guest'; // استخدام ?? لتجنب الخطأ
 
 $sql = "SELECT o.*, c.company_name AS client_name, c.phone as client_phone, e.name AS designer_name, 
-        COALESCE(GROUP_CONCAT(p.name SEPARATOR ', '), 'لا يوجد منتجات') as products_summary
+        COALESCE(GROUP_CONCAT(p.name SEPARATOR ', '), 'لا يوجد منتجات') as products_summary,
+        o.design_completed_at, o.execution_completed_at
         FROM orders o
         JOIN clients c ON o.client_id = c.client_id
         LEFT JOIN order_items oi ON o.order_id = oi.order_id
         LEFT JOIN products p ON oi.product_id = p.product_id
         LEFT JOIN employees e ON o.designer_id = e.employee_id";
 
-$res = null; // تهيئة المتغير
+$where_clauses = [];
+$params = [];
+$types = "";
+
 if (has_permission('order_view_all', $conn)) { // المدير
-    $sql .= " WHERE TRIM(o.status) NOT IN ('مكتمل', 'ملغي') GROUP BY o.order_id ORDER BY o.due_date ASC";
-    $res = $conn->query($sql);
+    $where_clauses[] = "TRIM(o.status) NOT IN ('مكتمل', 'ملغي')";
+
+    // تطبيق الفلاتر
+    if (!empty($filter_status)) {
+        $where_clauses[] = "o.status = ?";
+        $params[] = $filter_status;
+        $types .= "s";
+    }
+    if (!empty($filter_employee)) {
+        $where_clauses[] = "o.designer_id = ?";
+        $params[] = $filter_employee;
+        $types .= "i";
+    }
+    if (!empty($filter_payment)) {
+        $where_clauses[] = "o.payment_status = ?";
+        $params[] = $filter_payment;
+        $types .= "s";
+    }
+
 } elseif (has_permission('order_view_own', $conn)) { // بقية الأدوار
     $where_clauses = ["TRIM(o.status) NOT IN ('مكتمل', 'ملغي')"];
-    $params = [];
-    $types = "";
 
     switch ($user_role) {
         case 'مصمم':
@@ -88,12 +117,13 @@ if (has_permission('order_view_all', $conn)) { // المدير
             $types .= "i";
             break;
         case 'معمل':
-            // المعمل يرى كل المهام في مرحلة التنفيذ
-            $where_clauses[] = "TRIM(o.status) = 'قيد التنفيذ'";
+            // المعمل يرى كل المهام في مرحلة التنفيذ أو الجاهزة للتسليم
+            $where_clauses[] = "TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم')";
             break;
         case 'محاسب':
-            // المحاسب يرى كل المهام في مرحلة التسليم
-            $where_clauses[] = "TRIM(o.status) = 'جاهز للتسليم'";
+            // المحاسب يرى كل المهام التي لم يتم تأكيد تسويتها المالية بعد
+            // ويستثني الطلبات التي إجماليها صفر
+            $where_clauses[] = "o.payment_settled_at IS NULL AND o.total_amount > 0";
             break;
         default:
             // كإجراء احتياطي، إذا كان للمستخدم دور آخر، فلن يرى أي طلبات
@@ -101,23 +131,93 @@ if (has_permission('order_view_all', $conn)) { // المدير
             $where_clauses[] = "1=0"; // شرط لا يتحقق أبداً
             break;
     }
-    
-    $sql .= " WHERE " . implode(" AND ", $where_clauses) . " GROUP BY o.order_id ORDER BY o.due_date ASC";
-    $stmt = $conn->prepare($sql);
-    if (!empty($params)) {
-        $stmt->bind_param($types, ...$params);
-    }
-    $stmt->execute();
-    $res = $stmt->get_result();
+} else {
+    // No permissions to view any tasks
+    $where_clauses[] = "1=0";
 }
+
+if (!empty($where_clauses)) {
+    $sql .= " WHERE " . implode(" AND ", $where_clauses);
+}
+
+$sql .= " GROUP BY o.order_id ORDER BY o.due_date ASC";
+
+$stmt = $conn->prepare($sql);
+if (!empty($params)) {
+    $stmt->bind_param($types, ...$params);
+}
+$stmt->execute();
+$res = $stmt->get_result();
 
 // تحديد العنوان بناءً على الصلاحية
 $dashboard_title = has_permission('order_view_own', $conn) && !has_permission('order_view_all', $conn) ? 'المهام الموكلة إليك' : 'أحدث المهام النشطة';
+
+// تحديد أي تبويب يجب أن يكون نشطاً بشكل افتراضي
+$default_active_tab = 'Tasks'; // الافتراضي هو المهام
+if (has_permission('dashboard_reports_view', $conn)) {
+    $default_active_tab = 'StatsReports'; // إذا كان مديراً، الافتراضي هو الإحصائيات
+}
 ?>
+<style>
+    /* حاوية التبويبات الرئيسية */
+    .tab-container {
+        width: 100%;
+        background-color: #fff;
+        border-radius: 8px;
+        overflow: hidden; /* لإخفاء الزوايا الحادة للأبناء */
+    }
+
+    /* شريط أزرار التبويبات */
+    .tab-buttons {
+        overflow: hidden;
+        border-bottom: 1px solid #dee2e6;
+        background-color: #f8f9fa;
+    }
+
+    /* تصميم أزرار التبويبات */
+    .tab-buttons button {
+        background-color: inherit;
+        float: right; /* ليتناسب مع التخطيط من اليمين لليسار */
+        border: none;
+        outline: none;
+        cursor: pointer;
+        padding: 14px 16px;
+        transition: background-color 0.3s, color 0.3s;
+        font-size: 17px;
+        color: #495057;
+    }
+
+    /* تغيير لون الخلفية عند مرور الماوس */
+    .tab-buttons button:hover {
+        background-color: #e9ecef;
+    }
+
+    /* تصميم الزر النشط (التبويب المفتوح حالياً) */
+    .tab-buttons button.active {
+        background-color: #fff;
+        font-weight: bold;
+        color: #D44759;
+        border-top: 2px solid #D44759;
+    }
+
+    /* تصميم محتوى التبويب */
+    .tab-content { display: none; padding: 20px; }
+</style>
 <div class="container">
     <div id="status-update-feedback" class="mb-3"></div>
-    <?php if (has_permission('dashboard_reports_view', $conn)): ?>
-    <div class="row g-4 mb-5">
+    <div class="tab-container shadow-sm">
+        <!-- أزرار التبويبات -->
+        <div class="tab-buttons">
+            <?php if (has_permission('dashboard_reports_view', $conn)): ?>
+                <button class="tab-link <?= $default_active_tab === 'StatsReports' ? 'active' : '' ?>" onclick="openTab(event, 'StatsReports')">الاحصاءات والتقارير</button>
+            <?php endif; ?>
+            <button class="tab-link <?= $default_active_tab === 'Tasks' ? 'active' : '' ?>" onclick="openTab(event, 'Tasks')">المهام</button>
+        </div>
+
+        <?php if (has_permission('dashboard_reports_view', $conn)): ?>
+        <!-- محتوى تبويب الاحصاءات والتقارير -->
+        <div id="StatsReports" class="tab-content" style="<?= $default_active_tab === 'StatsReports' ? 'display: block;' : '' ?>">
+            <div class="row g-4 mb-5">
         <div class="col-6 col-lg-3">
             <div class="card shadow-sm rounded-3 overflow-hidden">
                 <div class="card-body p-0 d-flex align-items-center">
@@ -170,32 +270,32 @@ $dashboard_title = has_permission('order_view_own', $conn) && !has_permission('o
                 </div>
             </div>
         </div>
-    </div>
+            </div>
 
-    <!-- قسم الإحصائيات والتقارير الجديد -->
-    <div class="mb-5">
+            <!-- قسم الإحصائيات والتقارير الجديد -->
+            <div class="mb-5">
         <h4 style="color:#D44759;" class="mt-4 mb-3">ملخص أداء الموظفين</h4>
-        <div class="row g-4">
+        <div class="row g-4 row-cols-1 row-cols-md-3 row-cols-xl-5">
             <?php if (!empty($employee_stats)): ?>
                 <?php foreach ($employee_stats as $stat): ?>
-                <div class="col-md-6 col-lg-4">
+                <div class="col">
                     <div class="card h-100 shadow-sm">
-                        <div class="card-body text-center d-flex flex-column">
-                            <h5 class="card-title mb-4"><?= htmlspecialchars($stat['name']) ?></h5>
+                        <div class="card-body text-center d-flex flex-column p-2">
+                            <h6 class="card-title mb-3 fw-bold"><?= htmlspecialchars($stat['name']) ?></h6>
                             <div class="row my-auto">
                                 <div class="col-4 border-end">
-                                    <i class="bi bi-folder2-open fs-2 text-primary"></i>
-                                    <div class="fw-bold fs-3"><?= $stat['total_open_tasks'] ?></div>
+                                    <i class="bi bi-folder2-open fs-4 text-primary"></i>
+                                    <div class="fw-bold fs-5"><?= $stat['total_open_tasks'] ?></div>
                                     <div class="text-muted small">مفتوحة</div>
                                 </div>
                                 <div class="col-4 border-end">
-                                    <i class="bi bi-calendar-day fs-2 text-warning"></i>
-                                    <div class="fw-bold fs-3"><?= $stat['tasks_due_today'] ?? 0 ?></div>
+                                    <i class="bi bi-calendar-day fs-4 text-warning"></i>
+                                    <div class="fw-bold fs-5"><?= $stat['tasks_due_today'] ?? 0 ?></div>
                                     <div class="text-muted small">تسليم اليوم</div>
                                 </div>
                                 <div class="col-4">
-                                    <i class="bi bi-check2-circle fs-2 text-success"></i>
-                                    <div class="fw-bold fs-3"><?= $stat['monthly_closed_tasks'] ?></div>
+                                    <i class="bi bi-check2-circle fs-4 text-success"></i>
+                                    <div class="fw-bold fs-5"><?= $stat['monthly_closed_tasks'] ?></div>
                                     <div class="text-muted small">منجز شهرياً</div>
                                 </div>
                             </div>
@@ -207,9 +307,9 @@ $dashboard_title = has_permission('order_view_own', $conn) && !has_permission('o
                 <div class="col-12"><div class="alert alert-info">لا يوجد موظفون لعرض إحصائياتهم.</div></div>
             <?php endif; ?>
         </div>
-    </div>
+            </div>
 
-    <div class="mb-5">
+            <div class="mb-5">
         <h4 style="color:#D44759;" class="mt-4 mb-3">مقارنات الأداء</h4>
         <div class="row g-4">
             <div class="col-md-6">
@@ -244,48 +344,129 @@ $dashboard_title = has_permission('order_view_own', $conn) && !has_permission('o
                 </div>
             </div>
         </div>
-    </div>
-    <?php endif; ?>
-    <h4 style="color:#D44759;" class="mt-4 mb-3"><?= $dashboard_title ?></h4>
-    <div class="row g-4">
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- محتوى تبويب المهام -->
+        <div id="Tasks" class="tab-content" style="<?= $default_active_tab === 'Tasks' ? 'display: block;' : '' ?>">
+            <?php if (has_permission('order_view_all', $conn)): ?>
+            <!-- نموذج الفلترة -->
+            <form method="GET" id="filter-form" class="row g-3 align-items-center mb-4 p-3 border rounded bg-light filter-form">
+        <div class="col-md-auto">
+            <label for="status_filter" class="form-label">فلترة حسب الحالة</label>
+            <select name="status" id="status_filter" class="form-select form-select-sm">
+                <option value="">الكل</option>
+                <option value="قيد التصميم" <?= $filter_status == 'قيد التصميم' ? 'selected' : '' ?>>قيد التصميم</option>
+                <option value="قيد التنفيذ" <?= $filter_status == 'قيد التنفيذ' ? 'selected' : '' ?>>قيد التنفيذ</option>
+                <option value="جاهز للتسليم" <?= $filter_status == 'جاهز للتسليم' ? 'selected' : '' ?>>جاهز للتسليم</option>
+            </select>
+        </div>
+
+        <div class="col-md-auto">
+            <label for="employee_filter" class="form-label">فلترة حسب الموظف</label>
+            <select name="employee" id="employee_filter" class="form-select form-select-sm">
+                <option value="">الكل</option>
+                <?php foreach ($employees_list as $employee): ?>
+                    <option value="<?= $employee['employee_id'] ?>" <?= $filter_employee == $employee['employee_id'] ? 'selected' : '' ?>><?= htmlspecialchars($employee['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
+        <div class="col-md-auto">
+            <label for="payment_filter" class="form-label">فلترة حسب الدفع</label>
+            <select name="payment" id="payment_filter" class="form-select form-select-sm">
+                <option value="">الكل</option>
+                <option value="مدفوع" <?= $filter_payment == 'مدفوع' ? 'selected' : '' ?>>مدفوع</option>
+                <option value="مدفوع جزئياً" <?= $filter_payment == 'مدفوع جزئياً' ? 'selected' : '' ?>>مدفوع جزئياً</option>
+                <option value="غير مدفوع" <?= $filter_payment == 'غير مدفوع' ? 'selected' : '' ?>>غير مدفوع</option>
+            </select>
+        </div>
+
+        <div class="col-md-auto align-self-end">
+            <?php if (!empty($filter_status) || !empty($filter_employee) || !empty($filter_payment)): ?>
+                <a href="index.php" class="btn btn-sm btn-outline-secondary">إلغاء الفلترة</a>
+            <?php endif; ?>
+        </div>
+            </form>
+            <?php endif; ?>
+
+            <h4 style="color:#D44759;" class="mt-4 mb-3"><?= $dashboard_title ?></h4>
+            <div class="row g-4">
         <?php if($res && $res->num_rows > 0): ?>
             <?php while($row = $res->fetch_assoc()): ?>
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 shadow-sm <?= get_priority_class($row['priority']) ?>" style="border-width: 4px; border-style: solid; border-top:0; border-right:0; border-bottom:0;">
                     <div class="card-body d-flex flex-column">
-                        <div class="d-flex justify-content-between">
+                        <?php if ($user_role === 'محاسب'): ?>
+                            <h5 class="card-title mb-1"><?= htmlspecialchars($row['products_summary']) ?></h5>
+                            <h6 class="card-subtitle mb-2 text-muted">للعميل: <?= htmlspecialchars($row['client_name']) ?></h6>
+                            
+                            <div class="mb-3">
+                                <small class="text-muted d-block mb-1">حالة الدفع</small>
+                                <?= get_payment_status_display($row['payment_status'], $row['total_amount'], $row['deposit_amount']) ?>
+                            </div>
+                        <?php else: ?>
                             <h5 class="card-title"><?= htmlspecialchars($row['products_summary']) ?></h5>
-                            <?php if ($row['designer_name']): ?>
-                                <span class="badge bg-info-subtle text-info-emphasis rounded-pill" title="المصمم المسؤول"><?= htmlspecialchars($row['designer_name']) ?></span>
-                            <?php else: ?>
-                                <span class="badge bg-primary-subtle text-primary-emphasis rounded-pill"><?= htmlspecialchars($row['status']) ?></span>
-                            <?php endif; ?>
-                        </div>
-                        <h6 class="card-subtitle mb-2 text-muted">للعميل: <?= htmlspecialchars($row['client_name']) ?></h6>
-                        <p class="card-text small">الأولوية: <span class="fw-bold"><?= htmlspecialchars($row['priority']) ?></span></p>
+                            <h6 class="card-subtitle mb-2 text-muted">للعميل: <?= htmlspecialchars($row['client_name']) ?></h6>
+                            <p class="card-text small">المصمم: <span class="fw-bold"><?= htmlspecialchars($row['designer_name'] ?? 'غير محدد') ?></span></p>
+                        <?php endif; ?>
                         
+                        <?php if (has_permission('dashboard_reports_view', $conn)): ?>
+                            <div class="mb-3">
+                                <small class="text-muted d-block mb-1" style="font-size: 0.8rem;">الجدول الزمني للمراحل</small>
+                                <?= generate_timeline_bar($row) ?>
+                            </div>
+                            <div class="mb-3">
+                                <small class="text-muted d-block mb-1" style="font-size: 0.8rem;">حالة الدفع</small>
+                                <?= get_payment_status_display($row['payment_status'], $row['total_amount'], $row['deposit_amount']) ?>
+                            </div>
+                        <?php endif; ?>
                         <div class="mt-auto">
                             <div class="countdown p-2 rounded text-center bg-light mb-3" data-order-date="<?= $row['order_date'] ?>">
                                 <span class="fs-5">جاري حساب الوقت المنقضي...</span>
                             </div>
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap">
                                 <?php
-                                    $current_status = trim($row['status']); // تنظيف القيمة من أي مسافات إضافية
                                     $actions = get_next_actions($row, $user_role, $user_id, $conn);
                                 ?>
-                                <div class="dropdown">
-                                    <button class="btn btn-sm dropdown-toggle <?= get_status_class($current_status) ?>" type="button" data-bs-toggle="dropdown" aria-expanded="false" <?= !has_permission('order_edit_status', $conn) || empty($actions) ? 'disabled' : '' ?>>
-                                        <?= htmlspecialchars($current_status) ?>
-                                    </button>
-                                    <ul class="dropdown-menu">
-                                        <?php foreach ($actions as $next_status => $action_label): ?>
-                                            <li><a class="dropdown-item status-change-btn" href="#" data-order-id="<?= $row['order_id'] ?>" data-status="<?= $next_status ?>"><?= htmlspecialchars($action_label) ?></a></li>
-                                        <?php endforeach; ?>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="edit_order.php?id=<?= $row['order_id'] ?>">عرض التفاصيل</a></li>
-                                    </ul>
+                                <div class="d-flex flex-wrap justify-content-start">
+                                    <a href="edit_order.php?id=<?= $row['order_id'] ?>" class="btn btn-sm btn-outline-secondary mb-1 me-1"><i class="bi bi-pencil-square"></i> تفاصيل</a>
+                                    <?php foreach ($actions as $action_key => $action_details): ?>
+                                        <?php if ($action_key === 'change_status'): ?>
+                                            <div class="btn-group mb-1 me-1">
+                                                <button type="button" class="btn btn-sm <?= htmlspecialchars($action_details['class']) ?> dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <?= htmlspecialchars($action_details['label']) ?>
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                <?php foreach ($action_details['options'] as $next_status => $status_details): ?>
+                                                        <li><a class="dropdown-item action-btn" href="#" 
+                                                               data-action="change_status" 
+                                                               data-value="<?= htmlspecialchars($next_status) ?>" 
+                                                               data-order-id="<?= $row['order_id'] ?>"
+                                                            data-confirm-message="<?= htmlspecialchars($status_details['confirm_message']) ?>"
+                                                            <?php if (isset($status_details['whatsapp_action']) && $status_details['whatsapp_action']): ?>
+                                                                data-whatsapp-phone="<?= htmlspecialchars($row['client_phone']) ?>"
+                                                                data-whatsapp-order-id="<?= $row['order_id'] ?>"
+                                                            <?php endif; ?>
+                                                            >
+                                                            <?= htmlspecialchars($status_details['label']) ?>
+                                                            </a>
+                                                        </li>
+                                                    <?php endforeach; ?>
+                                                </ul>
+                                            </div>
+                                        <?php else: ?>
+                                            <button class="btn btn-sm <?= htmlspecialchars($action_details['class']) ?> action-btn mb-1 me-1" 
+                                                    data-action="<?= htmlspecialchars($action_key) ?>" 
+                                                    data-order-id="<?= $row['order_id'] ?>"
+                                                    data-confirm-message="هل أنت متأكد من '<?= htmlspecialchars($action_details['label']) ?>'؟">
+                                                <i class="bi <?= htmlspecialchars($action_details['icon']) ?>"></i> <?= htmlspecialchars($action_details['label']) ?>
+                                            </button>
+                                        <?php endif; ?>
+                                    <?php endforeach; ?>
                                 </div>
-                                <a href="https://wa.me/<?= preg_replace('/[^0-9]/', '', $row['client_phone']) ?>" target="_blank" class="btn btn-sm" style="background-color: #25D366; color: white;">
+                                <a href="<?= format_whatsapp_link($row['client_phone']) ?>" target="_blank" class="btn btn-sm" style="background-color: #25D366; color: white;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-whatsapp" viewBox="0 0 16 16">
                                         <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
                                     </svg>
@@ -302,6 +483,35 @@ $dashboard_title = has_permission('order_view_own', $conn) && !has_permission('o
                 <div class="alert alert-info text-center">لا توجد مهام لعرضها حالياً.</div>
             </div>
         <?php endif; ?>
-    </div>
+            </div>
+        </div>
+    </div> <!-- نهاية حاوية التبويبات -->
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+    const filterForm = document.getElementById('filter-form');
+    if (filterForm) {
+        const filterSelects = filterForm.querySelectorAll('select');
+        filterSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        });
+    }
+    });
+
+    function openTab(evt, tabName) {
+        let i, tabContent, tabLinks;
+        tabContent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabContent.length; i++) {
+            tabContent[i].style.display = "none";
+        }
+        tabLinks = document.getElementsByClassName("tab-link");
+        for (i = 0; i < tabLinks.length; i++) {
+            tabLinks[i].className = tabLinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+</script>
 <?php include 'footer.php'; ?>
