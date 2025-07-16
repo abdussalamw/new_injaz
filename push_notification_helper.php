@@ -1,4 +1,5 @@
 <?php
+
 require __DIR__ . '/vendor/autoload.php';
 use Minishlink\WebPush\WebPush;
 use Minishlink\WebPush\Subscription;
@@ -25,7 +26,7 @@ function send_push_notification($subscription_data, $payload) {
         'authToken' => $subscription_data['auth'],
     ]);
 
-    $webPush->queuePush($subscription, json_encode($payload));
+    $webPush->queueNotification($subscription, json_encode($payload));
     
     // إرسال جميع الإشعارات في قائمة الانتظار
     foreach ($webPush->flush() as $report) {

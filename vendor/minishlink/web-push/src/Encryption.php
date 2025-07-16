@@ -235,10 +235,23 @@ class Encryption
 
     private static function createLocalKeyObject(): array
     {
-        $keyResource = openssl_pkey_new([
-            'curve_name'       => 'prime256v1',
+        $keyOptions = [
+            'curve_name' => 'prime256v1',
             'private_key_type' => OPENSSL_KEYTYPE_EC,
-        ]);
+        ];
+
+        // --- بداية التعديل لحل مشكلة XAMPP ---
+        // هذا الحل يستهدف مشكلة شائعة في ويندوز حيث لا تجد PHP ملف إعدادات OpenSSL
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            $openssl_conf_path = 'C:\xampp\apache\conf\openssl.cnf';
+            if (!file_exists($openssl_conf_path)) {
+                // إذا كان المسار غير صحيح، نعطي رسالة خطأ واضحة للمطور
+                throw new \RuntimeException('OpenSSL config not found at: ' . $openssl_conf_path . '. Please verify the path is correct for your XAMPP installation.');
+            }
+            $keyOptions['config'] = $openssl_conf_path;
+        }
+
+        $keyResource = openssl_pkey_new($keyOptions);
         if (!$keyResource) {
             throw new \RuntimeException('Unable to create the local key.');
         }

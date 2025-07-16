@@ -83,7 +83,12 @@ function get_payment_status_display($payment_status_from_db, $total_amount, $dep
  * @param int $user_id
  * @return array
  */
-function get_next_actions($order, $user_role, $user_id, $conn) {
+function get_next_actions($order, $user_role, $user_id, $conn, $context = 'dashboard') {
+    // إذا كان السياق هو صفحة الطلبات، لا تعرض أي أزرار إجراءات على الإطلاق.
+    if ($context === 'orders_page') {
+        return [];
+    }
+
     $actions = [];
     $status = trim($order['status'] ?? '');
     $is_delivered = !empty($order['delivered_at']);
@@ -142,10 +147,10 @@ function get_next_actions($order, $user_role, $user_id, $conn) {
         }
     }
 
-    // دمج إجراءات تغيير الحالة في مصفوفة الإجراءات
+    // دمج إجراءات تغيير الحالة في مصفوفة الإجراءات (يظهر في البطاقات فقط)
     if (!empty($status_changes)) {
         $actions['change_status'] = [
-            'label' => $status, // The button label is the current status
+            'label' => $status, // نص الزر هو اسم الحالة الحالية
             'class' => get_status_class($status),
             'options' => $status_changes
         ];

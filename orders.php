@@ -161,13 +161,13 @@ $res = $stmt->get_result();
                     <td><?= htmlspecialchars($row['client_name']) ?></td>
                     <td><?= htmlspecialchars($row['products_summary']) ?></td>
                     <td><?= htmlspecialchars($row['designer_name']) ?></td>
-                    <td><span class="badge <?= get_status_class($row['status']) ?> p-2"><?= htmlspecialchars($row['status']) ?></span></td>
+                    <td><?= htmlspecialchars($row['status']) ?></td>
                     <td style="min-width: 120px;"><?= get_payment_status_display($row['payment_status'], $row['total_amount'], $row['deposit_amount']) ?></td>
                     <td><?= number_format($row['total_amount'],2) ?></td>
                     <td><?= date('Y-m-d', strtotime($row['order_date'])) ?></td>
                     <td class="table-actions" style="min-width: 250px;">
                         <?php
-                            $actions = get_next_actions($row, $user_role, $user_id, $conn);
+                            $actions = get_next_actions($row, $user_role, $user_id, $conn, 'orders_page');
                         ?>
                         <!-- زر عرض التفاصيل/التعديل -->
                         <a href="edit_order.php?id=<?= $row['order_id'] ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil-square"></i> تفاصيل</a>
@@ -235,6 +235,92 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // --- معالج أزرار الإجراءات الشامل (الحل للمشكلة) ---
+    document.querySelectorAll('.action-btn').forEach(button => {
+        button.addEventListener('click', function (e) {
+            e.preventDefault(); // منع السلوك الافتراضي للرابط
+
+            const btn = this;
+            const orderId = btn.dataset.orderId;
+            const action = btn.dataset.action;
+            const value = btn.dataset.value || null; // للحالات المتغيرة
+            const confirmMessage = btn.dataset.confirmMessage;
+            
+            // بيانات واتساب (إن وجدت)
+            const whatsappPhone = btn.dataset.whatsappPhone;
+            const whatsappOrderId = btn.dataset.whatsappOrderId;
+
+            Swal.fire({
+                title: 'هل أنت متأكد؟',
+                text: confirmMessage,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'نعم, نفّذ الإجراء!',
+                cancelButtonText: 'إلغاء'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    
+                    // إظهار مؤشر التحميل
+                    Swal.fire({
+                        title: 'الرجاء الانتظار...',
+                        text: 'جاري تنفيذ الإجراء.',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    fetch('ajax_order_actions.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            order_id: orderId,
+                            action: action,
+                            value: value
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (whatsappPhone && whatsappOrderId) {
+                                // تم النجاح، جهز رسالة واتساب
+                                const whatsappMessage = `العميل العزيز، تم تحديث حالة طلبكم رقم ${whatsappOrderId}. شكراً لتعاملكم معنا.`;
+                                const encodedMessage = encodeURIComponent(whatsappMessage);
+                                // تعديل الرقم ليتوافق مع المعيار الدولي (966) وحذف الصفر الأول
+                                const internationalPhone = '966' + whatsappPhone.substring(1);
+                                const whatsappUrl = `https://wa.me/${internationalPhone}?text=${encodedMessage}`;
+                                
+                                // أظهر رسالة نجاح ثم افتح واتساب
+                                Swal.fire({
+                                    title: 'تم بنجاح!',
+                                    text: data.message + ' سيتم الآن فتح واتساب.',
+                                    icon: 'success',
+                                    timer: 2500, // انتظر ثانيتين ونصف
+                                    timerProgressBar: true
+                                }).then(() => {
+                                    window.open(whatsappUrl, '_blank');
+                                    location.reload(); // تحديث الصفحة الأصلية
+                                });
+                            } else {
+                                // لا يوجد إجراء واتساب، فقط أظهر نجاح وحدّث الصفحة
+                                Swal.fire('تم بنجاح!', data.message, 'success').then(() => location.reload());
+                            }
+                        } else {
+                            Swal.fire('خطأ!', data.message, 'error');
+                        }
+                    }).catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire('خطأ فني!', 'حدث خطأ غير متوقع. الرجاء مراجعة الـ Console.', 'error');
+                    });
+                }
+            });
+        });
+    });
 });
 </script>
 

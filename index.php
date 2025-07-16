@@ -115,6 +115,8 @@ if (has_permission('order_view_all', $conn)) { // المدير
             $where_clauses[] = "o.designer_id = ?";
             $params[] = $user_id;
             $types .= "i";
+            // تعديل: إظهار المهام التي في مرحلة التصميم فقط للمصمم
+            $where_clauses[] = "TRIM(o.status) = 'قيد التصميم'";
             break;
         case 'معمل':
             // المعمل يرى كل المهام في مرحلة التنفيذ أو الجاهزة للتسليم
@@ -513,5 +515,111 @@ if (has_permission('dashboard_reports_view', $conn)) {
         document.getElementById(tabName).style.display = "block";
         evt.currentTarget.className += " active";
     }
+
+    // فتح تبويب "المهام" بشكل افتراضي عند تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', function() {
+        openTab(event, 'Tasks');
+    });
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const filterForm = document.getElementById('filter-form');
+    if (filterForm) {
+        const filterSelects = filterForm.querySelectorAll('select');
+        filterSelects.forEach(select => {
+            select.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        });
+    }
+
+    // --- معالج أزرار الإجراءات الشامل (الحل للمشكلة) ---
+    document.querySelectorAll('.action-btn').forEach(button => {
+        button.addEventListener('click', function (e) {
+            e.preventDefault(); // منع السلوك الافتراضي للرابط
+
+            const btn = this;
+            const orderId = btn.dataset.orderId;
+            const action = btn.dataset.action;
+            const value = btn.dataset.value || null; // للحالات المتغيرة
+            const confirmMessage = btn.dataset.confirmMessage;
+            
+            // بيانات واتساب (إن وجدت)
+            const whatsappPhone = btn.dataset.whatsappPhone;
+            const whatsappOrderId = btn.dataset.whatsappOrderId;
+
+            Swal.fire({
+                title: 'هل أنت متأكد؟',
+                text: confirmMessage,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'نعم, نفّذ الإجراء!',
+                cancelButtonText: 'إلغاء'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    
+                    // إظهار مؤشر التحميل
+                    Swal.fire({
+                        title: 'الرجاء الانتظار...',
+                        text: 'جاري تنفيذ الإجراء.',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    fetch('ajax_order_actions.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            order_id: orderId,
+                            action: action,
+                            value: value
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (whatsappPhone && whatsappOrderId) {
+                                // تم النجاح، جهز رسالة واتساب
+                                const whatsappMessage = `العميل العزيز، تم تحديث حالة طلبكم رقم ${whatsappOrderId}. شكراً لتعاملكم معنا.`;
+                                const encodedMessage = encodeURIComponent(whatsappMessage);
+                                // تعديل الرقم ليتوافق مع المعيار الدولي (966) وحذف الصفر الأول
+                                const internationalPhone = '966' + whatsappPhone.substring(1);
+                                const whatsappUrl = `https://wa.me/${internationalPhone}?text=${encodedMessage}`;
+                                
+                                // أظهر رسالة نجاح ثم افتح واتساب
+                                Swal.fire({
+                                    title: 'تم بنجاح!',
+                                    text: data.message + ' سيتم الآن فتح واتساب.',
+                                    icon: 'success',
+                                    timer: 2500, // انتظر ثانيتين ونصف
+                                    timerProgressBar: true
+                                }).then(() => {
+                                    window.open(whatsappUrl, '_blank');
+                                    location.reload(); // تحديث الصفحة الأصلية
+                                });
+                            } else {
+                                // لا يوجد إجراء واتساب، فقط أظهر نجاح وحدّث الصفحة
+                                Swal.fire('تم بنجاح!', data.message, 'success').then(() => location.reload());
+                            }
+                        } else {
+                            Swal.fire('خطأ!', data.message, 'error');
+                        }
+                    }).catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire('خطأ فني!', 'حدث خطأ غير متوقع. الرجاء مراجعة الـ Console.', 'error');
+                    });
+                }
+            });
+        });
+    });
+});
 </script>
 <?php include 'footer.php'; ?>
