@@ -97,6 +97,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'تم حفظ الطلب بنجاح! رقم الطلب: ' . $order_id];
         header("Location: orders.php");
         exit;
+        ob_end_flush();
 
     } catch (Exception $e) {
         $conn->rollback();
@@ -104,6 +105,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error = $e->getMessage();
         // The $post_data is already set, so the form will be repopulated.
     }
+
 }
 ?>
 <div class="container">

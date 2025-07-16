@@ -57,6 +57,11 @@ function has_permission($action, $conn) {
     $role = $_SESSION['user_role'] ?? 'guest';
     $user_id = $_SESSION['user_id'] ?? 0;
 
+    // المدير يمتلك كل الصلاحيات دائماً، لا داعي للتحقق من قاعدة البيانات.
+    if ($role === 'مدير') {
+        return true;
+    }
+
     // التحقق من صلاحيات المستخدم من قاعدة البيانات
     if (!isset($_SESSION['user_permissions'])) {
         $stmt = $conn->prepare("SELECT permission_key FROM employee_permissions WHERE employee_id = ?");

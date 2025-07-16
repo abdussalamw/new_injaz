@@ -1,3 +1,4 @@
+<?php ob_start(); ?>
 <?php
 include_once 'auth_check.php';
 include_once 'helpers.php';

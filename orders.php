@@ -3,8 +3,9 @@ $page_title = 'الطلبات';
 include 'db_connection.php';
 include 'header.php';
 
-// --- جلب الموظفين للفلترة ---
-$employees_res = $conn->query("SELECT employee_id, name FROM employees ORDER BY name");
+// --- Fetch employees for filtering ---
+// --- Fetch employees for filtering (designers and managers only) ---
+$employees_res = $conn->query("SELECT employee_id, name FROM employees WHERE role IN ('مصمم', 'مدير') ORDER BY name");
 $employees_list = $employees_res->fetch_all(MYSQLI_ASSOC);
 
 // --- استلام قيم الفلاتر من GET ---
@@ -13,8 +14,8 @@ $filter_employee = $_GET['employee'] ?? '';
 $filter_payment = $_GET['payment'] ?? '';
 
 // --- بناء الاستعلام الأساسي ---
-$sql = "SELECT o.*, c.company_name AS client_name, e.name AS designer_name, 
-        GROUP_CONCAT(DISTINCT p.name SEPARATOR ', ') as products_summary, c.phone AS client_phone
+$sql = "SELECT o.*, c.company_name AS client_name, e.name AS designer_name,
+        COALESCE(GROUP_CONCAT(DISTINCT p.name SEPARATOR ', '), 'لا يوجد منتجات') as products_summary, c.phone AS client_phone
         FROM orders o
         JOIN clients c ON o.client_id = c.client_id
         LEFT JOIN order_items oi ON o.order_id = oi.order_id
@@ -26,7 +27,7 @@ $where_clauses = [];
 $params = [];
 $types = "";
 
-// 1. تطبيق قيود الأدوار أولاً
+// 1. Apply role restrictions first
 $user_id = $_SESSION['user_id'] ?? 0;
 $user_role = $_SESSION['user_role'] ?? 'guest';
 
@@ -39,7 +40,7 @@ if (!has_permission('order_view_all', $conn)) {
             $types .= "i";
             break;
         case 'معمل':
-            $where_clauses[] = "TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم')";
+            $where_clauses[] = "TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم', 'مكتمل')";
             break;
         case 'محاسب':
             $where_clauses[] = "TRIM(o.status) != 'ملغي'";
@@ -50,7 +51,7 @@ if (!has_permission('order_view_all', $conn)) {
     }
 }
 
-// 2. تطبيق الفلاتر التي اختارها المستخدم
+// 2. Apply filters selected by the user
 if (!empty($filter_status)) {
     $where_clauses[] = "o.status = ?";
     $params[] = $filter_status;
@@ -67,12 +68,14 @@ if (!empty($filter_payment)) {
     $types .= "s";
 }
 
-// --- تجميع الاستعلام النهائي ---
+// --- Assemble the final query ---
 if (!empty($where_clauses)) {
     $sql .= " WHERE " . implode(" AND ", $where_clauses);
 }
 
 $sql .= " GROUP BY o.order_id ORDER BY FIELD(o.status, 'قيد التصميم', 'قيد التنفيذ', 'جاهز للتسليم', 'مكتمل', 'ملغي'), o.due_date ASC, o.order_id DESC";
+
+
 
 // --- تنفيذ الاستعلام ---
 $stmt = $conn->prepare($sql);
@@ -81,6 +84,10 @@ if (!empty($params)) {
 }
 $stmt->execute();
 $res = $stmt->get_result();
+?>
+<?php
+// دالة لعرض "لا يوجد منتجات" إذا كان ملخص المنتجات فارغًا
+function display_products_summary($summary) { return empty($summary) ? 'لا يوجد منتجات' : htmlspecialchars($summary); }
 ?>
 <style>
     .filter-form .form-select,
@@ -159,7 +166,7 @@ $res = $stmt->get_result();
                 <tr>
                     <td><?= $row['order_id'] ?></td>
                     <td><?= htmlspecialchars($row['client_name']) ?></td>
-                    <td><?= htmlspecialchars($row['products_summary']) ?></td>
+                    <td><?= display_products_summary($row['products_summary']) ?></td>
                     <td><?= htmlspecialchars($row['designer_name']) ?></td>
                     <td><?= htmlspecialchars($row['status']) ?></td>
                     <td style="min-width: 120px;"><?= get_payment_status_display($row['payment_status'], $row['total_amount'], $row['deposit_amount']) ?></td>
@@ -323,5 +330,3 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
-
-<?php include 'footer.php'; ?>

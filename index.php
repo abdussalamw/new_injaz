@@ -59,8 +59,8 @@ if (has_permission('dashboard_reports_view', $conn)) {
     $overall_stats['total'] = $overall_stats['closed'] + $overall_stats['open'];
 }
 
-// --- جلب البيانات اللازمة للفلاتر ---
-$employees_res = $conn->query("SELECT employee_id, name FROM employees ORDER BY name");
+// --- جلب البيانات اللازمة للفلاتر (المصممون والمدراء فقط) ---
+$employees_res = $conn->query("SELECT employee_id, name FROM employees WHERE role IN ('مصمم', 'مدير') ORDER BY name");
 $employees_list = $employees_res->fetch_all(MYSQLI_ASSOC);
 
 // --- استلام قيم الفلاتر من GET ---
@@ -75,7 +75,7 @@ $user_role = $_SESSION['user_role'] ?? 'guest'; // استخدام ?? لتجنب 
 
 $sql = "SELECT o.*, c.company_name AS client_name, c.phone as client_phone, e.name AS designer_name, 
         COALESCE(GROUP_CONCAT(p.name SEPARATOR ', '), 'لا يوجد منتجات') as products_summary,
-        o.design_completed_at, o.execution_completed_at
+        o.design_completed_at, o.execution_completed_at, c.client_id
         FROM orders o
         JOIN clients c ON o.client_id = c.client_id
         LEFT JOIN order_items oi ON o.order_id = oi.order_id
@@ -120,7 +120,8 @@ if (has_permission('order_view_all', $conn)) { // المدير
             break;
         case 'معمل':
             // المعمل يرى كل المهام في مرحلة التنفيذ أو الجاهزة للتسليم
-            $where_clauses[] = "TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم')";
+            // وتختفي المهمة بعد تأكيد استلام العميل لها
+            $where_clauses[] = "TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم') AND o.delivered_at IS NULL";
             break;
         case 'محاسب':
             // المحاسب يرى كل المهام التي لم يتم تأكيد تسويتها المالية بعد
@@ -213,7 +214,11 @@ if (has_permission('dashboard_reports_view', $conn)) {
             <?php if (has_permission('dashboard_reports_view', $conn)): ?>
                 <button class="tab-link <?= $default_active_tab === 'StatsReports' ? 'active' : '' ?>" onclick="openTab(event, 'StatsReports')">الاحصاءات والتقارير</button>
             <?php endif; ?>
-            <button class="tab-link <?= $default_active_tab === 'Tasks' ? 'active' : '' ?>" onclick="openTab(event, 'Tasks')">المهام</button>
+             <button class="tab-link <?= $default_active_tab === 'Tasks' ? 'active' : '' ?>" onclick="openTab(event, 'Tasks')">المهام</button>
+             
+             <?php if (has_permission('client_balance_report_view', $conn)): ?>
+                <button class="tab-link" onclick="openTab(event, 'CustomReports')">التقارير</button>
+            <?php endif; ?>
         </div>
 
         <?php if (has_permission('dashboard_reports_view', $conn)): ?>
@@ -346,6 +351,143 @@ if (has_permission('dashboard_reports_view', $conn)) {
                 </div>
             </div>
         </div>
+            </div>
+            <!-- الرسوم البيانية -->
+            <div class="mb-5">
+                <h4 style="color:#D44759;" class="mt-4 mb-3">رسوم بيانية</h4>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card shadow-sm">
+                            <div class="card-header fw-bold">المنتجات الأكثر مبيعاً</div>
+                            <div class="card-body">
+                                <canvas id="topProductsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm">
+                            <div class="card-header fw-bold">العملاء</div>
+                            <div class="card-body">
+                                <canvas id="clientsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card shadow-sm">
+                            <div class="card-header fw-bold">الموظفين</div>
+                            <div class="card-body">
+                                <canvas id="employeesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+            // البيانات الخاصة بالمنتجات الأكثر مبيعاً
+            const topProductsData = {
+                labels: ['المنتج 1', 'المنتج 2', 'المنتج 3'], // يجب استبدالها ببيانات حقيقية
+                datasets: [{
+                    label: 'عدد المبيعات',
+                    data: [12, 19, 3], // يجب استبدالها ببيانات حقيقية
+                    backgroundColor: ['#D44759', '#F37D47', '#fabb46'],
+                }]
+            };
+
+            // البيانات الخاصة بالعملاء
+            const clientsData = {
+                labels: ['العميل 1', 'العميل 2', 'العميل 3'], // يجب استبدالها ببيانات حقيقية
+                datasets: [{
+                    label: 'عدد الطلبات',
+                    data: [5, 8, 3], // يجب استبدالها ببيانات حقيقية
+                    backgroundColor: ['#D44759', '#F37D47', '#fabb46'],
+                }]
+            };
+
+            // البيانات الخاصة بالموظفين
+            const employeesData = {
+                labels: ['الموظف 1', 'الموظف 2', 'الموظف 3'], // يجب استبدالها ببيانات حقيقية
+                datasets: [{
+                    label: 'عدد المهام المنجزة',
+                    data: [10, 7, 5], // يجب استبدالها ببيانات حقيقية
+                    backgroundColor: ['#D44759', '#F37D47', '#fabb46'],
+                }]
+            };
+
+            // إنشاء الرسوم البيانية
+            const topProductsChart = new Chart(document.getElementById('topProductsChart'), { type: 'pie', data: topProductsData });
+            const clientsChart = new Chart(document.getElementById('clientsChart'), { type: 'bar', data: clientsData });
+            const employeesChart = new Chart(document.getElementById('employeesChart'), { type: 'line', data: employeesData });
+            </script>
+
+        </div>
+        <?php endif; ?>
+
+        <?php if (has_permission('client_balance_report_view', $conn)): ?>
+        <!-- محتوى تبويب التقارير المخصصة -->
+        <div id="CustomReports" class="tab-content">
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">تقرير أرصدة العملاء المتبقية</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">يعرض هذا التقرير العملاء الذين لديهم مبالغ متبقية (غير مدفوعة بالكامل) على طلباتهم غير الملغية.</p>
+                    <?php
+                    $report_sql = "
+                        SELECT
+                            c.client_id,
+                            c.company_name,
+                            c.phone,
+                            COUNT(o.order_id) as total_orders,
+                            SUM(o.total_amount) as total_billed,
+                            SUM(o.deposit_amount) as total_paid,
+                            (SUM(o.total_amount) - SUM(o.deposit_amount)) as remaining_balance
+                        FROM
+                            clients c
+                        JOIN
+                            orders o ON c.client_id = o.client_id
+                        WHERE
+                            o.status != 'ملغي'
+                        GROUP BY
+                            c.client_id, c.company_name, c.phone
+                        HAVING
+                            remaining_balance > 0.01
+                        ORDER BY
+                            remaining_balance DESC;
+                    ";
+                    $report_result = $conn->query($report_sql);
+                    ?>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped text-center">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>اسم العميل</th>
+                                    <th>الجوال</th>
+                                    <th>إجمالي الفواتير</th>
+                                    <th>إجمالي المدفوع</th>
+                                    <th class="table-danger">المبلغ المتبقي</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if ($report_result && $report_result->num_rows > 0): ?>
+                                    <?php while($report_row = $report_result->fetch_assoc()): ?>
+                                    <tr>
+                                        <td><?= $report_row['client_id'] ?></td>
+                                        <td><a href="edit_client.php?id=<?= $report_row['client_id'] ?>"><?= htmlspecialchars($report_row['company_name']) ?></a></td>
+                                        <td><?= htmlspecialchars($report_row['phone']) ?></td>
+                                        <td><?= number_format($report_row['total_billed'], 2) ?> ر.س</td>
+                                        <td><?= number_format($report_row['total_paid'], 2) ?> ر.س</td>
+                                        <td class="fw-bold"><?= number_format($report_row['remaining_balance'], 2) ?> ر.س</td>
+                                    </tr>
+                                    <?php endwhile; ?>
+                                <?php else: ?>
+                                    <tr><td colspan="6" class="text-center">لا توجد أرصدة متبقية على العملاء حالياً.</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
         <?php endif; ?>
@@ -516,13 +658,10 @@ if (has_permission('dashboard_reports_view', $conn)) {
         evt.currentTarget.className += " active";
     }
 
-    // فتح تبويب "المهام" بشكل افتراضي عند تحميل الصفحة
-    document.addEventListener('DOMContentLoaded', function() {
-        openTab(event, 'Tasks');
-    });
 </script>
 
 <script>
+
 document.addEventListener('DOMContentLoaded', function () {
     const filterForm = document.getElementById('filter-form');
     if (filterForm) {
