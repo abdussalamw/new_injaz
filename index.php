@@ -9,6 +9,45 @@ $page_title = 'لوحة التحكم';
 include 'db_connection.php';
 include 'header.php';
 
+// دالة لجلب بيانات الرسوم البيانية
+function get_chart_data($type, $conn) {
+    switch($type) {
+        case 'top_products':
+            $sql = "SELECT p.name, COUNT(oi.product_id) as sales_count 
+                    FROM products p 
+                    LEFT JOIN order_items oi ON p.product_id = oi.product_id 
+                    LEFT JOIN orders o ON oi.order_id = o.order_id 
+                    WHERE o.status != 'ملغي' OR o.status IS NULL
+                    GROUP BY p.product_id, p.name 
+                    ORDER BY sales_count DESC 
+                    LIMIT 5";
+            break;
+        case 'clients':
+            $sql = "SELECT c.company_name, COUNT(o.order_id) as orders_count 
+                    FROM clients c 
+                    LEFT JOIN orders o ON c.client_id = o.client_id 
+                    WHERE o.status != 'ملغي' OR o.status IS NULL
+                    GROUP BY c.client_id, c.company_name 
+                    ORDER BY orders_count DESC 
+                    LIMIT 5";
+            break;
+        case 'employees':
+            $sql = "SELECT e.name, COUNT(o.order_id) as tasks_count 
+                    FROM employees e 
+                    LEFT JOIN orders o ON e.employee_id = o.designer_id 
+                    WHERE o.status = 'مكتمل'
+                    GROUP BY e.employee_id, e.name 
+                    ORDER BY tasks_count DESC 
+                    LIMIT 5";
+            break;
+        default:
+            return [];
+    }
+    
+    $result = $conn->query($sql);
+    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+}
+
 // العدادات
 $orders_count = $conn->query("SELECT COUNT(*) FROM orders")->fetch_row()[0];
 $clients_count = $conn->query("SELECT COUNT(*) FROM clients")->fetch_row()[0];
@@ -230,9 +269,7 @@ if (has_permission('dashboard_reports_view', $conn)) {
                 <div class="card-body p-0 d-flex align-items-center">
                     <div class="p-3 text-white" style="background-color: #F37D47;">
                         <i class="bi bi-box-seam" style="font-size: 2.5rem;"></i>
-                    </div>
-                    <div class="px-3">
-                        <div class="text-muted">إجمالي الطلبات</div>
+                        </div><div class="px-3"><div class="text-muted">إجمالي الطلبات</div>
                         <div class="fs-4 fw-bold"><?= $orders_count ?></div>
                     </div>
                 </div>
@@ -243,9 +280,7 @@ if (has_permission('dashboard_reports_view', $conn)) {
                 <div class="card-body p-0 d-flex align-items-center">
                     <div class="p-3 text-white" style="background-color: #D44759;">
                         <i class="bi bi-people-fill" style="font-size: 2.5rem;"></i>
-                    </div>
-                    <div class="px-3">
-                        <div class="text-muted">العملاء</div>
+                        </div><div class="px-3"><div class="text-muted">العملاء</div>
                         <div class="fs-4 fw-bold"><?= $clients_count ?></div>
                     </div>
                 </div>
@@ -256,9 +291,7 @@ if (has_permission('dashboard_reports_view', $conn)) {
                 <div class="card-body p-0 d-flex align-items-center">
                     <div class="p-3 text-white" style="background-color: #644D4D;">
                         <i class="bi bi-person-badge" style="font-size: 2.5rem;"></i>
-                    </div>
-                    <div class="px-3">
-                        <div class="text-muted">الموظفون</div>
+                        </div><div class="px-3"><div class="text-muted">الموظفون</div>
                         <div class="fs-4 fw-bold"><?= $employees_count ?></div>
                     </div>
                 </div>
@@ -269,9 +302,7 @@ if (has_permission('dashboard_reports_view', $conn)) {
                 <div class="card-body p-0 d-flex align-items-center">
                     <div class="p-3 text-white" style="background-color: #fabb46;">
                         <i class="bi bi-palette-fill" style="font-size: 2.5rem;"></i>
-                    </div>
-                    <div class="px-3">
-                        <div class="text-muted">المنتجات</div>
+                        </div><div class="px-3"><div class="text-muted">المنتجات</div>
                         <div class="fs-4 fw-bold"><?= $products_count ?></div>
                     </div>
                 </div>
@@ -383,41 +414,97 @@ if (has_permission('dashboard_reports_view', $conn)) {
                 </div>
             </div>
 
+            <?php
+            // جلب بيانات الرسوم البيانية
+            $top_products = get_chart_data('top_products', $conn);
+            $clients = get_chart_data('clients', $conn);
+            $employees = get_chart_data('employees', $conn);
+            ?>
             <script>
             // البيانات الخاصة بالمنتجات الأكثر مبيعاً
             const topProductsData = {
-                labels: ['المنتج 1', 'المنتج 2', 'المنتج 3'], // يجب استبدالها ببيانات حقيقية
+                labels: <?= json_encode(array_column($top_products, 'name')) ?>,
                 datasets: [{
                     label: 'عدد المبيعات',
-                    data: [12, 19, 3], // يجب استبدالها ببيانات حقيقية
-                    backgroundColor: ['#D44759', '#F37D47', '#fabb46'],
+                    data: <?= json_encode(array_column($top_products, 'sales_count')) ?>,
+                    backgroundColor: ['#D44759', '#F37D47', '#fabb46', '#644D4D', '#28a745'],
                 }]
             };
 
             // البيانات الخاصة بالعملاء
             const clientsData = {
-                labels: ['العميل 1', 'العميل 2', 'العميل 3'], // يجب استبدالها ببيانات حقيقية
+                labels: <?= json_encode(array_column($clients, 'company_name')) ?>,
                 datasets: [{
                     label: 'عدد الطلبات',
-                    data: [5, 8, 3], // يجب استبدالها ببيانات حقيقية
-                    backgroundColor: ['#D44759', '#F37D47', '#fabb46'],
+                    data: <?= json_encode(array_column($clients, 'orders_count')) ?>,
+                    backgroundColor: ['#D44759', '#F37D47', '#fabb46', '#644D4D', '#28a745'],
                 }]
             };
 
             // البيانات الخاصة بالموظفين
             const employeesData = {
-                labels: ['الموظف 1', 'الموظف 2', 'الموظف 3'], // يجب استبدالها ببيانات حقيقية
+                labels: <?= json_encode(array_column($employees, 'name')) ?>,
                 datasets: [{
                     label: 'عدد المهام المنجزة',
-                    data: [10, 7, 5], // يجب استبدالها ببيانات حقيقية
-                    backgroundColor: ['#D44759', '#F37D47', '#fabb46'],
+                    data: <?= json_encode(array_column($employees, 'tasks_count')) ?>,
+                    backgroundColor: ['#D44759', '#F37D47', '#fabb46', '#644D4D', '#28a745'],
+                    borderColor: ['#D44759', '#F37D47', '#fabb46', '#644D4D', '#28a745'],
+                    borderWidth: 2,
+                    fill: false
                 }]
             };
 
-            // إنشاء الرسوم البيانية
-            const topProductsChart = new Chart(document.getElementById('topProductsChart'), { type: 'pie', data: topProductsData });
-            const clientsChart = new Chart(document.getElementById('clientsChart'), { type: 'bar', data: clientsData });
-            const employeesChart = new Chart(document.getElementById('employeesChart'), { type: 'line', data: employeesData });
+            // إنشاء الرسوم البيانية مع التحقق من وجود البيانات
+            if (topProductsData.labels.length > 0) {
+                const topProductsChart = new Chart(document.getElementById('topProductsChart'), { 
+                    type: 'pie', 
+                    data: topProductsData,
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            }
+                        }
+                    }
+                });
+            } else {
+                document.getElementById('topProductsChart').parentElement.innerHTML = '<p class="text-center text-muted">لا توجد بيانات لعرضها</p>';
+            }
+
+            if (clientsData.labels.length > 0) {
+                const clientsChart = new Chart(document.getElementById('clientsChart'), { 
+                    type: 'bar', 
+                    data: clientsData,
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            } else {
+                document.getElementById('clientsChart').parentElement.innerHTML = '<p class="text-center text-muted">لا توجد بيانات لعرضها</p>';
+            }
+
+            if (employeesData.labels.length > 0) {
+                const employeesChart = new Chart(document.getElementById('employeesChart'), { 
+                    type: 'line', 
+                    data: employeesData,
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            } else {
+                document.getElementById('employeesChart').parentElement.innerHTML = '<p class="text-center text-muted">لا توجد بيانات لعرضها</p>';
+            }
             </script>
 
         </div>
@@ -492,6 +579,35 @@ if (has_permission('dashboard_reports_view', $conn)) {
         </div>
         <?php endif; ?>
 
+        <?php if (has_permission('employee_edit', $conn)): ?>
+        <!-- محتوى تبويب تعديل الموظفين -->
+        <div id="EditEmployee" class="tab-content">
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">تعديل بيانات الموظف</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">هنا يمكنك تعديل بيانات الموظف.</p>
+                    <?php
+                    // تضمين صفحة تعديل الموظف هنا
+                    $employee_id = intval($_GET['id'] ?? 0);
+                    if ($employee_id > 0) {
+                        include 'edit_employee.php';
+                    } else {
+                        echo '<div class="alert alert-info">الرجاء تحديد موظف لتعديل بياناته.</div>';
+                    }
+                    ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
+
+
+
+
+
+
         <!-- محتوى تبويب المهام -->
         <div id="Tasks" class="tab-content" style="<?= $default_active_tab === 'Tasks' ? 'display: block;' : '' ?>">
             <?php if (has_permission('order_view_all', $conn)): ?>
@@ -540,89 +656,11 @@ if (has_permission('dashboard_reports_view', $conn)) {
         <?php if($res && $res->num_rows > 0): ?>
             <?php while($row = $res->fetch_assoc()): ?>
             <div class="col-md-6 col-lg-4">
-                <div class="card h-100 shadow-sm <?= get_priority_class($row['priority']) ?>" style="border-width: 4px; border-style: solid; border-top:0; border-right:0; border-bottom:0;">
-                    <div class="card-body d-flex flex-column">
-                        <?php if ($user_role === 'محاسب'): ?>
-                            <h5 class="card-title mb-1"><?= htmlspecialchars($row['products_summary']) ?></h5>
-                            <h6 class="card-subtitle mb-2 text-muted">للعميل: <?= htmlspecialchars($row['client_name']) ?></h6>
-                            
-                            <div class="mb-3">
-                                <small class="text-muted d-block mb-1">حالة الدفع</small>
-                                <?= get_payment_status_display($row['payment_status'], $row['total_amount'], $row['deposit_amount']) ?>
-                            </div>
-                        <?php else: ?>
-                            <h5 class="card-title"><?= htmlspecialchars($row['products_summary']) ?></h5>
-                            <h6 class="card-subtitle mb-2 text-muted">للعميل: <?= htmlspecialchars($row['client_name']) ?></h6>
-                            <p class="card-text small">المصمم: <span class="fw-bold"><?= htmlspecialchars($row['designer_name'] ?? 'غير محدد') ?></span></p>
-                        <?php endif; ?>
-                        
-                        <?php if (has_permission('dashboard_reports_view', $conn)): ?>
-                            <div class="mb-3">
-                                <small class="text-muted d-block mb-1" style="font-size: 0.8rem;">الجدول الزمني للمراحل</small>
-                                <?= generate_timeline_bar($row) ?>
-                            </div>
-                            <div class="mb-3">
-                                <small class="text-muted d-block mb-1" style="font-size: 0.8rem;">حالة الدفع</small>
-                                <?= get_payment_status_display($row['payment_status'], $row['total_amount'], $row['deposit_amount']) ?>
-                            </div>
-                        <?php endif; ?>
-                        <div class="mt-auto">
-                            <div class="countdown p-2 rounded text-center bg-light mb-3" data-order-date="<?= $row['order_date'] ?>">
-                                <span class="fs-5">جاري حساب الوقت المنقضي...</span>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center flex-wrap">
-                                <?php
-                                    $actions = get_next_actions($row, $user_role, $user_id, $conn);
-                                ?>
-                                <div class="d-flex flex-wrap justify-content-start">
-                                    <a href="edit_order.php?id=<?= $row['order_id'] ?>" class="btn btn-sm btn-outline-secondary mb-1 me-1"><i class="bi bi-pencil-square"></i> تفاصيل</a>
-                                    <?php foreach ($actions as $action_key => $action_details): ?>
-                                        <?php if ($action_key === 'change_status'): ?>
-                                            <div class="btn-group mb-1 me-1">
-                                                <button type="button" class="btn btn-sm <?= htmlspecialchars($action_details['class']) ?> dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                                    <?= htmlspecialchars($action_details['label']) ?>
-                                                </button>
-                                                <ul class="dropdown-menu">
-                                                <?php foreach ($action_details['options'] as $next_status => $status_details): ?>
-                                                        <li><a class="dropdown-item action-btn" href="#" 
-                                                               data-action="change_status" 
-                                                               data-value="<?= htmlspecialchars($next_status) ?>" 
-                                                               data-order-id="<?= $row['order_id'] ?>"
-                                                            data-confirm-message="<?= htmlspecialchars($status_details['confirm_message']) ?>"
-                                                            <?php if (isset($status_details['whatsapp_action']) && $status_details['whatsapp_action']): ?>
-                                                                data-whatsapp-phone="<?= htmlspecialchars($row['client_phone']) ?>"
-                                                                data-whatsapp-order-id="<?= $row['order_id'] ?>"
-                                                            <?php endif; ?>
-                                                            >
-                                                            <?= htmlspecialchars($status_details['label']) ?>
-                                                            </a>
-                                                        </li>
-                                                    <?php endforeach; ?>
-                                                </ul>
-                                            </div>
-                                        <?php else: ?>
-                                            <button class="btn btn-sm <?= htmlspecialchars($action_details['class']) ?> action-btn mb-1 me-1" 
-                                                    data-action="<?= htmlspecialchars($action_key) ?>" 
-                                                    data-order-id="<?= $row['order_id'] ?>"
-                                                    data-confirm-message="هل أنت متأكد من '<?= htmlspecialchars($action_details['label']) ?>'؟">
-                                                <i class="bi <?= htmlspecialchars($action_details['icon']) ?>"></i> <?= htmlspecialchars($action_details['label']) ?>
-                                            </button>
-                                        <?php endif; ?>
-                                    <?php endforeach; ?>
-                                </div>
-                                <a href="<?= format_whatsapp_link($row['client_phone']) ?>" target="_blank" class="btn btn-sm" style="background-color: #25D366; color: white;">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-whatsapp" viewBox="0 0 16 16">
-                                        <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
-                                    </svg>
-                                    واتساب
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                            <?php include 'task_card.php'; ?>  <!-- تضمين ملف البطاقة الموحد -->
             </div>
             <?php endwhile; ?>
         <?php else: ?>
+
             <div class="col-12">
                 <div class="alert alert-info text-center">لا توجد مهام لعرضها حالياً.</div>
             </div>
@@ -760,5 +798,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 });
+
 </script>
 <?php include 'footer.php'; ?>
