@@ -97,9 +97,15 @@ function get_next_actions($order, $user_role, $user_id, $conn, $context = 'dashb
     $is_designer = ($order['designer_id'] == $user_id);
 
     // الإجراءات لا تعتمد دائماً على الحالة، بل على الأحداث (Milestones)
-    // 1. تأكيد الدفع (للمحاسب والمدير)
-    if (!$is_paid && has_permission('order_financial_settle', $conn)) {
-        $actions['confirm_payment'] = ['label' => 'تأكيد الدفع الكامل', 'class' => 'btn-success', 'icon' => 'bi-cash-coin'];
+    // 1. تأكيد الدفع - منطق مختلف حسب الدور
+    if (!$is_paid) {
+        if ($user_role === 'محاسب' && has_permission('order_financial_settle', $conn)) {
+            // للمحاسب: زر واحد فقط لتحديث حالة الدفع
+            $actions['update_payment'] = ['label' => 'تحديث حالة الدفع', 'class' => 'btn-success', 'icon' => 'bi-cash-coin'];
+        } elseif ($user_role === 'مدير' && has_permission('order_financial_settle', $conn)) {
+            // للمدير: زر منفصل لتأكيد الدفع الكامل (بالإضافة لزر الإجراءات)
+            $actions['confirm_payment'] = ['label' => 'تأكيد الدفع الكامل', 'class' => 'btn-success', 'icon' => 'bi-cash-coin'];
+        }
     }
 
     // 2. تأكيد التسليم (للمعمل، منشئ الطلب، المدير)
@@ -158,6 +164,52 @@ function get_next_actions($order, $user_role, $user_id, $conn, $context = 'dashb
 
     return $actions;
 }
+
+/**
+ * دالة لجلب بيانات الرسوم البيانية
+ * @param string $chart_type
+ * @param mysqli $conn
+ * @return array
+ */
+function get_chart_data_helper($chart_type, $conn) {
+    switch ($chart_type) {
+        case 'top_products':
+            $sql = "SELECT p.name, COUNT(oi.product_id) as sales_count 
+                   FROM order_items oi
+                   JOIN products p ON oi.product_id = p.product_id
+                   GROUP BY oi.product_id
+                   ORDER BY sales_count DESC
+                   LIMIT 5";
+            break;
+        case 'clients':
+            $sql = "SELECT c.company_name, COUNT(o.client_id) as orders_count
+                   FROM orders o
+                   JOIN clients c ON o.client_id = c.client_id
+                   GROUP BY o.client_id
+                   ORDER BY orders_count DESC
+                   LIMIT 5";
+            break;
+        case 'employees':
+            $sql = "SELECT e.name, COUNT(o.designer_id) as tasks_count
+                   FROM orders o
+                   JOIN employees e ON o.designer_id = e.employee_id
+                   WHERE o.status = 'مكتمل' AND o.order_date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+                   GROUP BY o.designer_id
+                   ORDER BY tasks_count DESC
+                   LIMIT 5";
+            break;
+        default:
+            return [];
+    }
+
+    $result = $conn->query($sql);
+    if ($result && $result->num_rows > 0) {
+        return $result->fetch_all(MYSQLI_ASSOC);
+    } else {
+        return [];
+    }
+}
+
 
 /**
  * Helper function to format seconds into a human-readable string.

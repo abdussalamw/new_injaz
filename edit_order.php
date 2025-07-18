@@ -1,7 +1,38 @@
 <?php
 $id = intval($_GET['id'] ?? 0);
-$page_title = "تعديل الطلب #" . $id;
+
 include 'db_connection.php';
+
+// التحقق من طلب AJAX لإرجاع بيانات الطلب كـ JSON
+if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
+    session_start();
+    include 'auth_check.php';
+    include 'permissions.php';
+    
+    // التحقق من الصلاحيات
+    if (!has_permission('order_view_all', $conn) && !has_permission('order_view_own', $conn)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'ليس لديك صلاحية لعرض بيانات الطلب']);
+        exit;
+    }
+    
+    $stmt = $conn->prepare("SELECT total_amount, deposit_amount, payment_status FROM orders WHERE order_id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($row = $result->fetch_assoc()) {
+        header('Content-Type: application/json');
+        echo json_encode($row);
+    } else {
+        http_response_code(404);
+        echo json_encode(['error' => 'الطلب غير موجود']);
+    }
+    exit;
+}
+
+// المنطق العادي لصفحة التعديل
+$page_title = "تعديل الطلب #" . $id;
 include 'header.php';
 
 check_permission('order_edit', $conn);

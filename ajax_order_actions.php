@@ -156,18 +156,21 @@ try {
             // --- إرسال الإشعارات ---
             $notification_link = "edit_order.php?id={$order_id}";
             $notify_ids = $manager_ids; // المديرون يتم إعلامهم دائماً
+            
+            // جلب اسم المستخدم الذي قام بالإجراء
+            $user_name = $_SESSION['user_name'] ?? 'مستخدم غير معروف';
 
             if ($current_status === 'قيد التصميم' && $new_status === 'قيد التنفيذ') {
-                $notification_message = "تم تحويل الطلب #{$order_id} إلى مرحلة التنفيذ.";
+                $notification_message = "🎨 المصمم {$user_name} أرسل الطلب #{$order_id} إلى مرحلة التنفيذ";
                 $lab_res = $conn->query("SELECT employee_id FROM employees WHERE role = 'معمل'");
                 while($lab_user = $lab_res->fetch_assoc()) { $notify_ids[] = $lab_user['employee_id']; }
                 send_notifications($conn, $notify_ids, $notification_message, $notification_link);
-                send_push_notifications($conn, $notify_ids, 'مهمة جديدة', $notification_message, $notification_link);
+                send_push_notifications($conn, $notify_ids, '🎨 مهمة جديدة للتنفيذ', $notification_message, $notification_link);
             } elseif ($current_status === 'قيد التنفيذ' && $new_status === 'جاهز للتسليم') {
-                $notification_message = "أصبح الطلب #{$order_id} جاهزاً للتسليم.";
+                $notification_message = "✅ {$user_name} أنهى تنفيذ الطلب #{$order_id} وأصبح جاهزاً للتسليم";
                 $notify_ids[] = $order['created_by']; // إعلام منشئ الطلب
                 send_notifications($conn, $notify_ids, $notification_message, $notification_link);
-                send_push_notifications($conn, $notify_ids, 'طلب جاهز', $notification_message, $notification_link);
+                send_push_notifications($conn, $notify_ids, '✅ طلب جاهز للتسليم', $notification_message, $notification_link);
             }
             break;
 
@@ -183,21 +186,38 @@ try {
             $additional_message = checkAndCloseOrderAndNotify($order_id, $conn);
 
             // --- إرسال الإشعارات ---
+            $user_name = $_SESSION['user_name'] ?? 'مستخدم غير معروف';
             $notification_link = "edit_order.php?id={$order_id}";
-            $notification_message = "تم تأكيد استلام العميل للطلب #{$order_id}.";
+            $notification_message = "📦 {$user_name} أكد استلام العميل للطلب #{$order_id}";
             $notify_ids = $manager_ids;
             $accountant_res = $conn->query("SELECT employee_id FROM employees WHERE role = 'محاسب'");
             while($acc_user = $accountant_res->fetch_assoc()) { $notify_ids[] = $acc_user['employee_id']; }
             send_notifications($conn, $notify_ids, $notification_message, $notification_link);
-            send_push_notifications($conn, $notify_ids, 'تم تسليم طلب', $notification_message, $notification_link);
+            send_push_notifications($conn, $notify_ids, '📦 تم تسليم طلب', $notification_message, $notification_link);
+            break;
+
+        case 'update_payment':
+            // للمحاسب: فتح نافذة تحديث الدفع (يتم التعامل معها في JavaScript)
+            if ($user_role !== 'محاسب' || !has_permission('order_financial_settle', $conn)) {
+                throw new Exception('غير مصرح لك بتحديث حالة الدفع.');
+            }
+            // هذا الإجراء يتم التعامل معه في الواجهة الأمامية
+            $message = 'فتح نافذة تحديث الدفع';
             break;
 
         case 'confirm_payment':
-            // السماح للمدير والمحاسب بتأكيد الدفع
-            if (!has_permission('order_financial_settle', $conn)) {
+            // للمدير: تأكيد الدفع الكامل مباشرة
+            if ($user_role !== 'مدير' || !has_permission('order_financial_settle', $conn)) {
                  throw new Exception('غير مصرح لك بتأكيد الدفع.');
             }
-            $update_stmt = $conn->prepare("UPDATE orders SET payment_settled_at = NOW() WHERE order_id = ? AND payment_settled_at IS NULL");
+            
+            // تحديث حالة الدفع إلى مدفوع بالكامل
+            $update_stmt = $conn->prepare("UPDATE orders SET 
+                                         deposit_amount = total_amount, 
+                                         remaining_amount = 0, 
+                                         payment_status = 'مدفوع',
+                                         payment_settled_at = NOW() 
+                                         WHERE order_id = ? AND payment_settled_at IS NULL");
             $update_stmt->bind_param("i", $order_id);
             $update_stmt->execute();
             $message = 'تم تأكيد الدفع الكامل للطلب بنجاح.';

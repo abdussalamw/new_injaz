@@ -1,0 +1,48 @@
+# Environment files
+.env
+.env.local
+.env.production
+
+# Database connection files
+db_connection.php
+
+# Debug and test files
+debug_*.php
+test_*.php
+check_*.php
+*_test.php
+
+# Sensitive files
+مفاتيح*.txt
+keys*.txt
+passwords*.txt
+
+# Composer
+/vendor/
+composer.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+cache/
+
+# Security and configuration files
+security_headers.php
+.htaccess
+
+# Logs directory
+logs/

@@ -267,30 +267,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Repopulate items if form was submitted with errors
     const existingItems = <?= json_encode($post_data['products'] ?? []) ?> || [];
-    const products = <?= json_encode($products_array) ?> || [];
-    let productsOptions = '<option value="">اختر المنتج...</option>';
-
-    if (products.length > 0) {
-        products.forEach(p => {
-            const tempOption = document.createElement('option');
-            tempOption.value = p.product_id;
-            tempOption.textContent = p.name;
-            productsOptions += tempOption.outerHTML;
-        });
-    }
 
     function addOrderItem(item = null) {
         const itemQty = item ? item.quantity : 1;
         const itemNotes = item ? item.item_notes : '';
         const productId = item ? item.product_id : '';
+        const productName = item ? item.product_name : '';
 
         const itemHtml = `
             <div class="order-item-row row g-3 mb-3 border-bottom pb-3 align-items-end">
                 <div class="col-md-4">
                     <label class="form-label">المنتج</label>
-                    <select name="products[${itemCounter}][product_id]" class="form-select product-select" required>
-                        ${productsOptions}
-                    </select>
+                    <div class="position-relative">
+                        <input type="text" class="form-control product-input" placeholder="ابحث عن منتج أو اكتب اسم منتج جديد..." autocomplete="off" required value="${productName}">
+                        <input type="hidden" name="products[${itemCounter}][product_id]" class="product-id-hidden" value="${productId}">
+                        <div class="product-autocomplete-list list-group position-absolute w-100" style="z-index: 1000;"></div>
+                    </div>
                 </div>
                 <div class="col-md-2"><label class="form-label">الكمية</label><input type="number" name="products[${itemCounter}][quantity]" class="form-control" min="1" value="${itemQty}" required></div>
                 <div class="col-md-5"><label class="form-label">تفاصيل الطلب</label><textarea name="products[${itemCounter}][item_notes]" class="form-control" rows="1">${itemNotes}</textarea></div>
@@ -301,13 +293,179 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         itemsContainer.insertAdjacentHTML('beforeend', itemHtml);
 
-        // Set the selected product for existing/repopulated items
-        if (productId) {
-            const newSelect = itemsContainer.querySelector(`select[name="products[${itemCounter}][product_id]"]`);
-            if(newSelect) newSelect.value = productId;
-        }
+        // Setup product autocomplete for the new item
+        setupProductAutocomplete(itemsContainer.querySelector('.order-item-row:last-child'));
 
         itemCounter++;
+    }
+
+    // Product Autocomplete Setup Function
+    function setupProductAutocomplete(itemRow) {
+        const productInput = itemRow.querySelector('.product-input');
+        const productIdHidden = itemRow.querySelector('.product-id-hidden');
+        const autocompleteList = itemRow.querySelector('.product-autocomplete-list');
+
+        productInput.addEventListener('keyup', function() {
+            const query = this.value;
+            productIdHidden.value = '';
+            
+            if (query.length < 2) {
+                autocompleteList.innerHTML = '';
+                return;
+            }
+
+            fetch(`ajax_search_product.php?query=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(products => {
+                    autocompleteList.innerHTML = '';
+                    
+                    if (products.length > 0) {
+                        products.forEach(product => {
+                            const item = document.createElement('a');
+                            item.href = '#';
+                            item.classList.add('list-group-item', 'list-group-item-action');
+                            item.innerHTML = `<strong>${product.name}</strong>`;
+                            if (product.default_size || product.default_material) {
+                                item.innerHTML += `<br><small class="text-muted">${product.default_size || ''} ${product.default_material || ''}</small>`;
+                            }
+                            
+                            item.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                productInput.value = product.name;
+                                productIdHidden.value = product.product_id;
+                                autocompleteList.innerHTML = '';
+                            });
+                            autocompleteList.appendChild(item);
+                        });
+                    } else {
+                        // إضافة خيار لإنشاء منتج جديد
+                        const newProductItem = document.createElement('a');
+                        newProductItem.href = '#';
+                        newProductItem.classList.add('list-group-item', 'list-group-item-action', 'text-success');
+                        newProductItem.innerHTML = `<i class="bi bi-plus-circle"></i> إضافة منتج جديد: "<strong>${query}</strong>"`;
+                        
+                        newProductItem.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            showAddProductModal(query, productInput, productIdHidden, autocompleteList);
+                        });
+                        autocompleteList.appendChild(newProductItem);
+                    }
+                })
+                .catch(error => {
+                    console.error('خطأ في البحث عن المنتجات:', error);
+                });
+        });
+
+        // إخفاء القائمة عند النقر خارجها
+        document.addEventListener('click', function(e) {
+            if (!itemRow.contains(e.target)) {
+                autocompleteList.innerHTML = '';
+            }
+        });
+    }
+
+    // Modal for adding new product
+    function showAddProductModal(productName, productInput, productIdHidden, autocompleteList) {
+        const modalHtml = `
+            <div class="modal fade" id="addProductModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">إضافة منتج جديد</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="addProductForm">
+                                <div class="mb-3">
+                                    <label class="form-label">اسم المنتج *</label>
+                                    <input type="text" id="newProductName" class="form-control" value="${productName}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">المقاس الافتراضي</label>
+                                    <input type="text" id="newProductSize" class="form-control" placeholder="مثال: 9x5 سم">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">المادة الافتراضية</label>
+                                    <input type="text" id="newProductMaterial" class="form-control" placeholder="مثال: ورق فاخر">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">تفاصيل إضافية</label>
+                                    <textarea id="newProductDetails" class="form-control" rows="2" placeholder="تفاصيل إضافية عن المنتج"></textarea>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                            <button type="button" class="btn btn-success" id="saveNewProduct">حفظ المنتج</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // إزالة أي modal موجود مسبقاً
+        const existingModal = document.getElementById('addProductModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // إضافة الـ modal الجديد
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('addProductModal'));
+        modal.show();
+
+        // معالج حفظ المنتج الجديد
+        document.getElementById('saveNewProduct').addEventListener('click', function() {
+            const name = document.getElementById('newProductName').value.trim();
+            const size = document.getElementById('newProductSize').value.trim();
+            const material = document.getElementById('newProductMaterial').value.trim();
+            const details = document.getElementById('newProductDetails').value.trim();
+
+            if (!name) {
+                alert('اسم المنتج مطلوب');
+                return;
+            }
+
+            // إرسال طلب إضافة المنتج
+            fetch('ajax_add_product.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: name,
+                    default_size: size,
+                    default_material: material,
+                    default_details: details
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // تحديث الحقول
+                    productInput.value = data.product.name;
+                    productIdHidden.value = data.product.product_id;
+                    autocompleteList.innerHTML = '';
+                    
+                    // إغلاق الـ modal
+                    modal.hide();
+                    
+                    // إظهار رسالة نجاح
+                    alert('تم إضافة المنتج بنجاح!');
+                } else {
+                    alert('خطأ: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('خطأ في إضافة المنتج:', error);
+                alert('حدث خطأ في إضافة المنتج');
+            });
+        });
+
+        // تنظيف الـ modal عند إغلاقه
+        document.getElementById('addProductModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
     }
 
     addItemBtn.addEventListener('click', () => addOrderItem());
@@ -321,16 +479,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Client-side validation before submitting the form
     const orderForm = document.getElementById('order-form');
     orderForm.addEventListener('submit', function(e) {
-        const productSelects = itemsContainer.querySelectorAll('.product-select');
+        const productIdInputs = itemsContainer.querySelectorAll('.product-id-hidden');
         let allProductsSelected = true;
         
         // Remove previous error states
         itemsContainer.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
 
-        productSelects.forEach(select => {
-            if (select.value === '') {
+        productIdInputs.forEach(input => {
+            if (!input.value || input.value === '') {
                 allProductsSelected = false;
-                select.classList.add('is-invalid'); // Highlight the invalid select
+                const productInput = input.parentElement.querySelector('.product-input');
+                if (productInput) {
+                    productInput.classList.add('is-invalid');
+                }
             }
         });
 

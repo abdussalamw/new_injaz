@@ -6,27 +6,10 @@
 </footer>
 <!-- Chart.js for creating charts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- SweetAlert2 for beautiful pop-ups -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <!-- Bootstrap JS (ضروري لبعض مكونات الواجهة مثل النوافذ المنبثقة والقوائم المنسدلة) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.4/dist/js/bootstrap.bundle.min.js"></script>
-
-<!-- نافذة تأكيد الإجراء العامة -->
-<div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="confirmationModalLabel">تأكيد الإجراء</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body" id="confirmationModalBody">
-        هل أنت متأكد من رغبتك في المتابعة؟
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
-        <button type="button" class="btn btn-primary" id="confirmActionBtn">تأكيد</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -63,17 +46,39 @@ document.addEventListener('DOMContentLoaded', function() {
             const minutes = Math.floor((absoluteDiff % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((absoluteDiff % (1000 * 60)) / 1000);
 
-            // تنسيق الوقت لعرض الأيام، الساعات، الدقائق، والثواني بشكل مضغوط ومفصل
+            // تنسيق الوقت بكتابة كاملة وخط جميل
             let parts = [];
+            
+            // إضافة الأيام إذا كانت أكبر من صفر
             if (days > 0) {
-                parts.push(`<span class="fw-bold fs-5">${days}</span>ي`);
+                const dayText = days === 1 ? 'يوم واحد' : days === 2 ? 'يومان' : `${days} أيام`;
+                parts.push(dayText);
             }
-            // إضافة الساعات والدقائق والثواني دائماً
-            parts.push(`<span class="fw-bold fs-5">${String(hours).padStart(2, '0')}</span>س`);
-            parts.push(`<span class="fw-bold fs-5">${String(minutes).padStart(2, '0')}</span>د`);
-            parts.push(`<span class="fw-bold fs-5">${String(seconds).padStart(2, '0')}</span>ث`);
+            
+            // إضافة الساعات
+            if (hours > 0) {
+                const hourText = hours === 1 ? 'ساعة واحدة' : hours === 2 ? 'ساعتان' : `${hours} ساعات`;
+                parts.push(hourText);
+            }
+            
+            // إضافة الدقائق
+            if (minutes > 0) {
+                const minuteText = minutes === 1 ? 'دقيقة واحدة' : minutes === 2 ? 'دقيقتان' : `${minutes} دقيقة`;
+                parts.push(minuteText);
+            }
+            
+            // إضافة الثواني (بدون كتابة، فقط الرقم)
+            const secondsDisplay = String(seconds).padStart(2, '0');
 
-            el.innerHTML = prefix + parts.join(' : ');
+            // تجميع النص النهائي
+            let timeText = '';
+            if (parts.length > 0) {
+                timeText = parts.join(' و ') + ` : ${secondsDisplay}`;
+            } else {
+                timeText = secondsDisplay; // إذا كان أقل من دقيقة، اعرض الثواني فقط
+            }
+
+            el.innerHTML = `<div class="text-center" style="font-family: 'Tajawal', Arial, sans-serif; font-weight: 600; color: #000; font-size: 1.1rem; line-height: 1.4;">${prefix}${timeText}</div>`;
         });
     }
 
@@ -84,66 +89,82 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// --- Global Action Button Handler ---
+// --- Global SweetAlert2 Action Button Handler (Centralized) ---
 document.addEventListener('DOMContentLoaded', function () {
-    const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
-    const confirmActionBtn = document.getElementById('confirmActionBtn');
-    const confirmationModalBody = document.getElementById('confirmationModalBody');
-    let currentActionData = {};
-
-    // استخدام body للاستماع للأحداث لضمان عمله في كل الصفحات
+    // استخدام body للاستماع للأحداث لضمان عمله مع العناصر التي تضاف ديناميكياً
     document.body.addEventListener('click', function (e) {
-        // البحث عن أقرب زر يحمل الكلاس المطلوب
-        const actionButton = e.target.closest('.action-btn');
-        if (actionButton) {
-            e.preventDefault();
-            currentActionData = {
-                action: actionButton.dataset.action,
-                order_id: actionButton.dataset.orderId,
-                value: actionButton.dataset.value || null,
-                whatsappPhone: actionButton.dataset.whatsappPhone || null,
-                whatsappOrderId: actionButton.dataset.whatsappOrderId || null
-            };
-            confirmationModalBody.textContent = actionButton.dataset.confirmMessage || 'هل أنت متأكد من رغبتك في المتابعة؟';
-            
-            // تغيير نص زر التأكيد بناءً على الإجراء
-            if (currentActionData.whatsappPhone) {
-                confirmActionBtn.textContent = 'متأكد وإرسال واتساب';
-            } else {
-                confirmActionBtn.textContent = 'تأكيد';
-            }
+        const actionBtn = e.target.closest('.action-btn');
+        if (!actionBtn) return;
 
-            confirmationModal.show();
-        }
-    });
+        e.preventDefault();
 
-    confirmActionBtn.addEventListener('click', function () {
-        fetch('ajax_order_actions.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(currentActionData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            const feedbackDiv = document.getElementById('status-update-feedback');
-            const alertClass = data.success ? 'alert-success' : 'alert-danger';
-            if (feedbackDiv) {
-                feedbackDiv.innerHTML = `<div class="alert ${alertClass}">${data.message}</div>`;
+        const orderId = actionBtn.dataset.orderId;
+        const action = actionBtn.dataset.action;
+        const value = actionBtn.dataset.value || null;
+        const confirmMessage = actionBtn.dataset.confirmMessage;
+        const whatsappPhone = actionBtn.dataset.whatsappPhone;
+        const whatsappOrderId = actionBtn.dataset.whatsappOrderId;
+
+        Swal.fire({
+            title: 'هل أنت متأكد؟',
+            text: confirmMessage,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'نعم, نفّذ الإجراء!',
+            cancelButtonText: 'إلغاء'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'الرجاء الانتظار...',
+                    text: 'جاري تنفيذ الإجراء.',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                fetch('ajax_order_actions.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ order_id: orderId, action: action, value: value })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (whatsappPhone && whatsappOrderId) {
+                            const whatsappMessage = `العميل العزيز، تم تحديث حالة طلبكم رقم ${whatsappOrderId}. شكراً لتعاملكم معنا.`;
+                            const encodedMessage = encodeURIComponent(whatsappMessage);
+                            const internationalPhone = '966' + whatsappPhone.substring(1);
+                            const whatsappUrl = `https://wa.me/${internationalPhone}?text=${encodedMessage}`;
+                            
+                            Swal.fire({
+                                title: 'تم بنجاح!',
+                                text: data.message + ' سيتم الآن فتح واتساب.',
+                                icon: 'success',
+                                timer: 2500,
+                                timerProgressBar: true
+                            }).then(() => {
+                                window.open(whatsappUrl, '_blank');
+                                location.reload();
+                            });
+                        } else {
+                             const feedbackDiv = document.getElementById('status-update-feedback');
+                             if (feedbackDiv) {
+                                 feedbackDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                             }
+                            Swal.close();
+                            setTimeout(() => location.reload(), 1500);
+                        }
+                    } else {
+                        Swal.fire('خطأ!', data.message, 'error');
+                    }
+                }).catch(error => {
+                    Swal.fire('خطأ فني!', 'حدث خطأ غير متوقع.', 'error');
+                });
             }
-            if (data.success) {
-                // إذا نجح الإجراء وكان يتطلب إرسال واتساب
-                if (currentActionData.whatsappPhone && currentActionData.whatsappOrderId) {
-                    const phone = currentActionData.whatsappPhone.replace(/[^0-9]/g, '');
-                    const message = encodeURIComponent(`عميلنا العزيز، طلبكم رقم #${currentActionData.whatsappOrderId} جاهز للاستلام. شكراً لتعاملكم مع إنجاز الإعلامية.`);
-                    const whatsappUrl = `https://wa.me/966${phone.substr(-9)}?text=${message}`; // استخدام آخر 9 أرقام مع مفتاح الدولة
-                    window.open(whatsappUrl, '_blank');
-                }
-                setTimeout(() => window.location.reload(), 1500);
-            }
-        })
-        .catch(console.error)
-        .finally(() => {
-            confirmationModal.hide();
         });
     });
 });
@@ -180,24 +201,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     'Content-Type': 'application/json'
                 }
             });
-            console.log('User is subscribed.');
         } catch (error) {
-            console.error('Failed to subscribe the user: ', error);
+            // Failed to subscribe the user
         }
     }
 
     if ('serviceWorker' in navigator && 'PushManager' in window) {
         navigator.serviceWorker.register('service-worker.js').then(function(registration) {
-            console.log('Service Worker registered with scope:', registration.scope);
             // طلب الإذن بمجرد تسجيل الدخول
             Notification.requestPermission().then(function(permission) {
                 if (permission === 'granted') {
-                    console.log('Notification permission granted.');
                     subscribeUser();
                 }
             });
         }).catch(function(error) {
-            console.error('Service Worker registration failed:', error);
+            // Service Worker registration failed
         });
     }
 });
