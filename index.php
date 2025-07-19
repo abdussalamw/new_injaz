@@ -1,6 +1,6 @@
 <?php
 $page_title = 'لوحة التحكم';
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'header.php';
 
 // دالة لجلب بيانات الرسوم البيانية (تأكد من أنها معرفة مرة واحدة فقط)

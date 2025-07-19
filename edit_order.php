@@ -1,7 +1,7 @@
 <?php
 $id = intval($_GET['id'] ?? 0);
 
-include 'db_connection.php';
+include 'db_connection_secure.php';
 
 // التحقق من طلب AJAX لإرجاع بيانات الطلب كـ JSON
 if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {

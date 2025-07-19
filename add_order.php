@@ -1,6 +1,6 @@
 <?php
 $page_title = 'إضافة طلب جديد';
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'header.php';
 
 check_permission('order_add', $conn);

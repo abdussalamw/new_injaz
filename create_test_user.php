@@ -1,6 +1,6 @@
 <?php
 // ملف مؤقت لإنشاء مستخدم تجريبي
-include 'db_connection.php';
+include 'db_connection_secure.php';
 
 $test_username = 'test';
 $test_password = 'test123';

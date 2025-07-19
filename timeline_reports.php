@@ -1,6 +1,6 @@
 <?php
 $page_title = 'الجدول الزمني للمراحل';
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'header.php';
 
 // التحقق من الصلاحيات

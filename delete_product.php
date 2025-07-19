@@ -1,5 +1,5 @@
 <?php
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'auth_check.php';
 
 check_permission('product_delete', $conn);

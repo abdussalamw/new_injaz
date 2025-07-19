@@ -1,6 +1,6 @@
 <?php
 $page_title = 'الطلبات';
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'header.php';
 
 check_permission('order_view', $conn);

@@ -1,6 +1,6 @@
 <?php
 $page_title = 'استيراد عملاء';
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'header.php';
 
 $success = false;

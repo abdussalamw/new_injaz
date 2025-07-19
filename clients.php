@@ -1,6 +1,6 @@
 <?php
 $page_title = 'العملاء';
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'header.php';
 
 check_permission('client_view', $conn);

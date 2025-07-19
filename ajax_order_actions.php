@@ -1,5 +1,5 @@
 <?php
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'auth_check.php';
 include_once 'push_notification_helper.php'; // The new helper file
 

@@ -1,5 +1,5 @@
 <?php
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'auth_check.php'; // للتأكد من أن المستخدم مسجل دخوله
 include 'helpers.php'; // تضمين الدوال المساعدة
 
