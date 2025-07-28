@@ -72,23 +72,37 @@ function has_permission($action, $conn) {
     $role = $_SESSION['user_role'] ?? 'guest';
     $user_id = $_SESSION['user_id'] ?? 0;
 
-    // المدير يمتلك كل الصلاحيات دائماً، لا داعي للتحقق من قاعدة البيانات.
+    // المدير يمتلك كل الصلاحيات دائماً.
     if ($role === 'مدير') {
         return true;
     }
 
-    // التحقق من صلاحيات المستخدم من قاعدة البيانات
-    if (!isset($_SESSION['user_permissions'])) {
-        $stmt = $conn->prepare("SELECT permission_key FROM employee_permissions WHERE employee_id = ?");
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $_SESSION['user_permissions'] = [];
-        while ($row = $result->fetch_assoc()) {
-            $_SESSION['user_permissions'][] = $row['permission_key'];
+    // المصمم له صلاحيات أساسية ثابتة لا يمكن تعديلها لضمان سير العمل
+    if ($role === 'مصمم') {
+        $designer_core_permissions = [
+            'dashboard_view',
+            'order_view_own', // يستطيع رؤية طلباته فقط
+            'order_add',      // يستطيع إضافة طلب جديد
+            'order_edit',     // يستطيع تعديل تفاصيل الطلب
+            'order_edit_status' // يستطيع تغيير حالة الطلب (مثلاً من "قيد التصميم" إلى "جاهز للتنفيذ")
+        ];
+        if (in_array($action, $designer_core_permissions)) {
+            return true;
         }
     }
 
-    // التحقق من وجود الصلاحية المحددة للمستخدم
-    return in_array($action, $_SESSION['user_permissions']);
+    // يتم الآن جلب الصلاحيات في كل مرة لضمان أن التغييرات تنعكس فوراً
+    $stmt = $conn->prepare("SELECT permission_key FROM employee_permissions WHERE employee_id = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user_permissions = [];
+    while ($row = $result->fetch_assoc()) {
+        $user_permissions[] = $row['permission_key'];
+    }
+    $stmt->close();
+    $_SESSION['user_permissions'] = $user_permissions; // تحديث الجلسة
+
+    // التحقق من وجود الصلاحية المحددة للمستخدم ضمن الصلاحيات المخصصة
+    return in_array($action, $user_permissions);
 }

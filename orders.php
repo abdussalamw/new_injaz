@@ -1,9 +1,12 @@
 <?php
 $page_title = 'الطلبات';
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'header.php';
 
-check_permission('order_view', $conn);
+if (!has_permission('order_view', $conn) && !has_permission('order_view_own', $conn)) {
+    // يمكنك إنشاء صفحة خاصة لعرض رسالة "غير مصرح لك"
+    die('<div class="container"><div class="alert alert-danger mt-4">ليس لديك الصلاحية للوصول إلى هذه الصفحة أو تنفيذ هذا الإجراء.</div></div>');
+}
 
 // --- Sorting Logic ---
 $sort_column_key = $_GET['sort'] ?? 'order_id';

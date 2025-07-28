@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'db_connection.php';
+require_once 'db_connection_secure.php';
 require_once 'auth_check.php';
 require_once 'permissions.php';
 

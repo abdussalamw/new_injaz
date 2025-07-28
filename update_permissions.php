@@ -1,6 +1,6 @@
 <?php
 $page_title = 'تعديل صلاحيات الموظف';
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'header.php';
 
 // صلاحية الوصول لهذه الصفحة

@@ -1,7 +1,7 @@
 <?php
 $id = intval($_GET['id'] ?? 0);
 $page_title = "تعديل بيانات الموظف";
-include 'db_connection.php';
+include 'db_connection_secure.php';
 include 'header.php';
 
 check_permission('employee_edit', $conn);

@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db_connection.php';
+include 'db_connection_secure.php';
 $error = '';
 $success_reset = '';
 

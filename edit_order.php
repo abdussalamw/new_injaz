@@ -1,38 +1,56 @@
 <?php
-$id = intval($_GET['id'] ?? 0);
-
-include 'db_connection.php';
-
-// التحقق من طلب AJAX لإرجاع بيانات الطلب كـ JSON
+// --- AJAX Handler ---
+// يجب أن يكون هذا الجزء في بداية الملف لضمان عدم إرسال أي مخرجات أخرى
 if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
+    // تعيين رأس المحتوى إلى JSON
+    header('Content-Type: application/json');
+
+    // تضمين الملفات الضرورية فقط
+    require_once 'db_connection_secure.php';
     session_start();
-    include 'auth_check.php';
-    include 'permissions.php';
-    
+    require_once 'permissions.php';
+
+    $response = [];
+    $id = intval($_GET['id'] ?? 0);
+
     // التحقق من الصلاحيات
-    if (!has_permission('order_view_all', $conn) && !has_permission('order_view_own', $conn)) {
+    if (
+        !isset($_SESSION['user_id']) || 
+        (!has_permission('order_view_all', $conn) && 
+         !has_permission('order_view_own', $conn) && 
+         !has_permission('order_financial_settle', $conn))
+    ) {
         http_response_code(403);
-        echo json_encode(['error' => 'ليس لديك صلاحية لعرض بيانات الطلب']);
+        $response['error'] = 'غير مصرح لك بالوصول لهذه البيانات.';
+        echo json_encode($response);
         exit;
     }
-    
-    $stmt = $conn->prepare("SELECT total_amount, deposit_amount, payment_status FROM orders WHERE order_id = ?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($row = $result->fetch_assoc()) {
-        header('Content-Type: application/json');
-        echo json_encode($row);
+
+    if ($id > 0) {
+        $stmt = $conn->prepare("SELECT total_amount, deposit_amount, payment_status FROM orders WHERE order_id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($row = $result->fetch_assoc()) {
+            $response = $row;
+        } else {
+            http_response_code(404);
+            $response['error'] = 'الطلب غير موجود.';
+        }
     } else {
-        http_response_code(404);
-        echo json_encode(['error' => 'الطلب غير موجود']);
+        http_response_code(400);
+        $response['error'] = 'معرف الطلب غير صحيح.';
     }
+
+    echo json_encode($response);
     exit;
 }
 
-// المنطق العادي لصفحة التعديل
+// --- Regular Page Load ---
+$id = intval($_GET['id'] ?? 0);
 $page_title = "تعديل الطلب #" . $id;
+include 'db_connection_secure.php';
 include 'header.php';
 
 check_permission('order_edit', $conn);
