@@ -1,6 +1,9 @@
 <?php
-// --- AJAX Handler ---
-// يجب أن يكون هذا الجزء في بداية الملف لضمان عدم إرسال أي مخرجات أخرى
+$id = intval($_GET['id'] ?? 0);
+
+include 'db_connection.php';
+
+// التحقق من طلب AJAX لإرجاع بيانات الطلب كـ JSON
 if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
     // تعيين رأس المحتوى إلى JSON
     header('Content-Type: application/json');
