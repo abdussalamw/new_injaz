@@ -1,446 +1,50 @@
 <?php
-$page_title = 'لوحة التحكم';
-include 'db_connection_secure.php';
-include 'header.php';
+declare(strict_types=1);
 
-// دالة لجلب بيانات الرسوم البيانية (تأكد من أنها معرفة مرة واحدة فقط)
-if (!function_exists('get_chart_data')) {
-    function get_chart_data($type, $conn) {
-        $limit = "LIMIT 5";
-        switch($type) {
-            case 'top_products':
-                $sql = "SELECT p.name, COUNT(oi.product_id) as sales_count 
-                        FROM products p 
-                        LEFT JOIN order_items oi ON p.product_id = oi.product_id 
-                        LEFT JOIN orders o ON oi.order_id = o.order_id 
-                        WHERE o.status != 'ملغي'
-                        GROUP BY p.product_id, p.name 
-                        ORDER BY sales_count DESC {$limit}";
-                break;
-            case 'clients':
-                $sql = "SELECT c.company_name, COUNT(o.order_id) as orders_count 
-                        FROM clients c 
-                        LEFT JOIN orders o ON c.client_id = o.client_id 
-                        WHERE o.status != 'ملغي'
-                        GROUP BY c.client_id, c.company_name 
-                        ORDER BY orders_count DESC {$limit}";
-                break;
-            case 'employees':
-                $sql = "SELECT e.name, COUNT(o.order_id) as tasks_count 
-                        FROM employees e 
-                        LEFT JOIN orders o ON e.employee_id = o.designer_id 
-                        WHERE o.status = 'مكتمل'
-                        GROUP BY e.employee_id, e.name 
-                        ORDER BY tasks_count DESC {$limit}";
-                break;
-            default:
-                return [];
+// Start session
+session_start();
+
+// Autoloader
+require_once __DIR__ . '/vendor/autoload.php';
+
+// Load environment variables
+// Note: You would use a library like Dotenv in a real project
+// For now, we'll manually include the config.
+require_once __DIR__ . '/src/Core/config.php';
+
+// Database Connection
+$dbConnection = new \App\Core\Database(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+$conn = $dbConnection->getConnection();
+
+// Simple Router
+$requestUri = strtok($_SERVER["REQUEST_URI"], '?');
+$requestMethod = $_SERVER["REQUEST_METHOD"];
+
+// Define routes
+$routes = require_once __DIR__ . '/src/routes.php';
+
+// Match route
+$handler = $routes[$requestUri] ?? null;
+
+if ($handler) {
+    // Check for authentication if required
+    if (isset($handler['auth']) && $handler['auth'] === true) {
+        if (!isset($_SESSION['user_id'])) {
+            header('Location: /login');
+            exit;
         }
-        $result = $conn->query($sql);
-        return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
     }
+
+    // Load the appropriate controller or view
+    if (isset($handler['file'])) {
+        require_once __DIR__ . '/' . $handler['file'];
+    } elseif (isset($handler['controller'])) {
+        list($controllerClass, $method) = $handler['controller'];
+        $controller = new $controllerClass($conn);
+        $controller->$method();
+    }
+} else {
+    // Handle 404 Not Found
+    http_response_code(404);
+    echo "Page not found";
 }
-
-// --- جلب البيانات الأولية للصفحة ---
-
-// 1. العدادات
-$orders_count = $conn->query("SELECT COUNT(*) FROM orders")->fetch_row()[0];
-$clients_count = $conn->query("SELECT COUNT(*) FROM clients")->fetch_row()[0];
-$employees_count = $conn->query("SELECT COUNT(*) FROM employees")->fetch_row()[0];
-$products_count = $conn->query("SELECT COUNT(*) FROM products")->fetch_row()[0];
-
-// 2. إحصائيات وتقارير للمدراء
-$employee_stats = [];
-$overall_stats = ['open' => 0, 'closed' => 0, 'total' => 0];
-if (has_permission('dashboard_reports_view', $conn)) {
-    // إحصائيات الموظفين (المهام المفتوحة والمهام المستحقة اليوم)
-    $stmt_employees = $conn->prepare("
-        SELECT e.employee_id, e.name,
-               COUNT(CASE WHEN o.status NOT IN ('مكتمل', 'ملغي') THEN o.order_id END) AS total_open_tasks,
-               SUM(CASE WHEN o.due_date = CURDATE() AND o.status NOT IN ('مكتمل', 'ملغي') THEN 1 ELSE 0 END) AS tasks_due_today
-        FROM employees e
-        LEFT JOIN orders o ON e.employee_id = o.designer_id
-        GROUP BY e.employee_id, e.name ORDER BY e.name");
-    $stmt_employees->execute();
-    $employee_stats = $stmt_employees->get_result()->fetch_all(MYSQLI_ASSOC);
-
-    // المهام المنجزة شهرياً
-    $stmt_monthly = $conn->prepare("SELECT designer_id, COUNT(*) as monthly_closed_tasks FROM orders WHERE status = 'مكتمل' AND order_date >= DATE_FORMAT(NOW(), '%Y-%m-01') GROUP BY designer_id");
-    $stmt_monthly->execute();
-    $monthly_tasks_map = array_column($stmt_monthly->get_result()->fetch_all(MYSQLI_ASSOC), 'monthly_closed_tasks', 'designer_id');
-
-    foreach ($employee_stats as &$stat) {
-        $stat['monthly_closed_tasks'] = $monthly_tasks_map[$stat['employee_id']] ?? 0;
-    }
-    unset($stat);
-
-    // الإحصائيات الإجمالية
-    $stmt_overall = $conn->prepare("SELECT SUM(CASE WHEN status = 'مكتمل' THEN 1 ELSE 0 END) as closed_count, SUM(CASE WHEN status NOT IN ('مكتمل', 'ملغي') THEN 1 ELSE 0 END) as open_count FROM orders");
-    $stmt_overall->execute();
-    $overall_res = $stmt_overall->get_result()->fetch_assoc();
-    $overall_stats['closed'] = $overall_res['closed_count'] ?? 0;
-    $overall_stats['open'] = $overall_res['open_count'] ?? 0;
-    $overall_stats['total'] = $overall_stats['closed'] + $overall_stats['open'];
-}
-
-// 3. بيانات الفلاتر
-$employees_res = $conn->query("SELECT employee_id, name FROM employees ORDER BY name");
-$employees_list = $employees_res->fetch_all(MYSQLI_ASSOC);
-
-// 4. جلب المهام الأولية (بدون فلترة)
-$initial_filter_status = $_GET['status'] ?? '';
-$initial_filter_employee = $_GET['employee'] ?? '';
-$initial_filter_payment = $_GET['payment'] ?? '';
-
-include 'initial_tasks_query.php'; // تضمين منطق الاستعلام الأولي للمهام
-$res = fetch_tasks($conn, $initial_filter_status, $initial_filter_employee, $initial_filter_payment);
-
-
-
-// 5. تحديد العنوان والتبويب النشط
-$dashboard_title = has_permission('order_view_own', $conn) && !has_permission('order_view_all', $conn) ? 'المهام الموكلة إليك' : 'أحدث المهام النشطة';
-$active_tab = $_GET['tab'] ?? 'tasks';
-$default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab === 'reports' ? 'CustomReports' : 'Tasks');
-?>
-
-<style>
-    .tab-container { width: 100%; background-color: #fff; border-radius: 8px; overflow: hidden; }
-    .tab-buttons { overflow: hidden; border-bottom: 1px solid #dee2e6; background-color: #f8f9fa; }
-    .tab-buttons button { background-color: inherit; float: right; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: background-color 0.3s, color 0.3s; font-size: 17px; color: #495057; }
-    .tab-buttons button:hover { background-color: #e9ecef; }
-    .tab-buttons button.active { background-color: #fff; font-weight: bold; color: #D44759; border-top: 2px solid #D44759; }
-    .tab-content { display: none; padding: 20px; }
-    #tasks-container .spinner-border { width: 3rem; height: 3rem; }
-</style>
-
-<div class="container">
-    <div id="status-update-feedback" class="mb-3"></div>
-    <div class="tab-container shadow-sm">
-        <div class="tab-buttons">
-            <button class="tab-link <?= $default_active_tab === 'Tasks' ? 'active' : '' ?>" onclick="openTab(event, 'Tasks')">المهام</button>
-            <?php if (has_permission('dashboard_reports_view', $conn)): ?>
-                <button class="tab-link <?= $default_active_tab === 'StatsReports' ? 'active' : '' ?>" onclick="openTab(event, 'StatsReports')">الإحصائيات</button>
-            <?php endif; ?>
-            <?php if (has_permission('financial_reports_view', $conn)): ?>
-                <button class="tab-link <?= $default_active_tab === 'CustomReports' ? 'active' : '' ?>" onclick="openTab(event, 'CustomReports')">التقارير المالية</button>
-            <?php endif; ?>
-        </div>
-
-        <!-- ==================== تبويب المهام ==================== -->
-        <div id="Tasks" class="tab-content" style="<?= $default_active_tab === 'Tasks' ? 'display: block;' : '' ?>">
-            <?php if (has_permission('order_view_all', $conn)): ?>
-            <form id="filter-form" class="row g-3 align-items-center mb-4 p-3 border rounded bg-light">
-                <div class="col-md-3">
-                    <label for="status_filter" class="form-label">الحالة</label>
-                    <select name="status" id="status_filter" class="form-select form-select-sm">
-                        <option value="">الكل</option>
-                        <option value="قيد التصميم" <?= $initial_filter_status == 'قيد التصميم' ? 'selected' : '' ?>>قيد التصميم</option>
-                        <option value="قيد التنفيذ" <?= $initial_filter_status == 'قيد التنفيذ' ? 'selected' : '' ?>>قيد التنفيذ</option>
-                        <option value="جاهز للتسليم" <?= $initial_filter_status == 'جاهز للتسليم' ? 'selected' : '' ?>>جاهز للتسليم</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label for="employee_filter" class="form-label">الموظف</label>
-                    <select name="employee" id="employee_filter" class="form-select form-select-sm">
-                        <option value="">الكل</option>
-                        <?php foreach ($employees_list as $employee): ?>
-                            <option value="<?= $employee['employee_id'] ?>" <?= $initial_filter_employee == $employee['employee_id'] ? 'selected' : '' ?>><?= htmlspecialchars($employee['name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label for="payment_filter" class="form-label">الدفع</label>
-                    <select name="payment" id="payment_filter" class="form-select form-select-sm">
-                        <option value="">الكل</option>
-                        <option value="مدفوع" <?= $initial_filter_payment == 'مدفوع' ? 'selected' : '' ?>>مدفوع</option>
-                        <option value="مدفوع جزئياً" <?= $initial_filter_payment == 'مدفوع جزئياً' ? 'selected' : '' ?>>مدفوع جزئياً</option>
-                        <option value="غير مدفوع" <?= $initial_filter_payment == 'غير مدفوع' ? 'selected' : '' ?>>غير مدفوع</option>
-                    </select>
-                </div>
-                <div class="col-md-3 align-self-end">
-                    <button type="button" id="reset-filters-btn" class="btn btn-sm btn-outline-secondary w-100">إلغاء الفلترة</button>
-                </div>
-            </form>
-            <?php endif; ?>
-
-            <h4 style="color:#D44759;" class="mt-4 mb-3"><?= $dashboard_title ?></h4>
-            <div class="row g-4" id="tasks-container">
-                <?php if($res && $res->num_rows > 0): ?>
-                    <?php while($row = $res->fetch_assoc()): ?>
-                        <div class="col-md-6 col-lg-4">
-                            <?php 
-                            $task_details = $row;
-                            // تحديد الإجراءات المتاحة بناءً على حالة المهمة ودور المستخدم
-                            $actions = get_next_actions($row, $_SESSION['user_role'], $_SESSION['user_id'], $conn, 'dashboard'); 
-                            include 'task_card.php'; 
-                            ?>
-                        </div>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <div class="col-12"><div class="alert alert-info text-center">لا توجد مهام لعرضها حالياً.</div></div>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <!-- ==================== تبويب الإحصائيات ==================== -->
-        <?php if (has_permission('dashboard_reports_view', $conn)): ?>
-        <div id="StatsReports" class="tab-content" style="<?= $default_active_tab === 'StatsReports' ? 'display: block;' : '' ?>">
-            <?php include 'dashboard_stats.php'; ?>
-        </div>
-        <?php endif; ?>
-
-        <!-- ==================== تبويب التقارير المالية ==================== -->
-        <?php if (has_permission('financial_reports_view', $conn)): ?>
-        <div id="CustomReports" class="tab-content" style="<?= $default_active_tab === 'CustomReports' ? 'display: block;' : '' ?>">
-            <?php include 'dashboard_financial_reports.php'; ?>
-        </div>
-        <?php endif; ?>
-    </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    // --- Tabs ---
-    function openTab(evt, tabName) {
-        document.querySelectorAll(".tab-content").forEach(tab => tab.style.display = "none");
-        document.querySelectorAll(".tab-link").forEach(link => link.classList.remove("active"));
-        document.getElementById(tabName).style.display = "block";
-        evt.currentTarget.classList.add("active");
-    }
-    
-    // Make it globally accessible
-    window.openTab = openTab;
-
-    // --- AJAX Filtering ---
-    const filterForm = document.getElementById('filter-form');
-    const tasksContainer = document.getElementById('tasks-container');
-    const resetBtn = document.getElementById('reset-filters-btn');
-
-    function applyFilters() {
-        if (!filterForm || !tasksContainer) return;
-        
-        const formData = new FormData(filterForm);
-        const urlParams = new URLSearchParams(formData);
-        
-        tasksContainer.innerHTML = '<div class="col-12 text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">جاري التحميل...</span></div></div>';
-
-        fetch('ajax_filter_tasks.php?' + urlParams.toString(), {
-            method: 'GET',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(response => response.text())
-        .then(data => {
-            tasksContainer.innerHTML = data;
-            // Re-bind action buttons for the new content
-            bindActionButtons(); 
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            tasksContainer.innerHTML = '<div class="col-12"><div class="alert alert-danger text-center">حدث خطأ أثناء تحديث المهام.</div></div>';
-        });
-    }
-
-    if (filterForm) {
-        filterForm.querySelectorAll('select').forEach(select => {
-            select.addEventListener('change', applyFilters);
-        });
-    }
-
-    if (resetBtn) {
-        resetBtn.addEventListener('click', function() {
-            filterForm.reset();
-            applyFilters();
-        });
-    }
-
-    // --- Action Buttons (SweetAlert) ---
-    function bindActionButtons() {
-        document.querySelectorAll('.action-btn').forEach(button => {
-            // Remove existing listener to prevent duplicates
-            button.replaceWith(button.cloneNode(true));
-        });
-
-        document.querySelectorAll('.action-btn').forEach(button => {
-            button.addEventListener('click', function (e) {
-                e.preventDefault();
-                const btn = this;
-                const orderId = btn.dataset.orderId;
-                const action = btn.dataset.action;
-                const confirmMessage = btn.dataset.confirmMessage;
-
-                // معالجة خاصة لزر تحديث الدفع (للمحاسب)
-                if (action === 'update_payment') {
-                    showPaymentUpdateModal(orderId);
-                    return;
-                }
-
-                Swal.fire({
-                    title: 'هل أنت متأكد؟',
-                    text: confirmMessage,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'نعم, نفّذ الإجراء!',
-                    cancelButtonText: 'إلغاء'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        Swal.fire({
-                            title: 'الرجاء الانتظار...',
-                            allowOutsideClick: false,
-                            didOpen: () => { Swal.showLoading(); }
-                        });
-
-                        fetch('ajax_order_actions.php', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                            body: JSON.stringify({ order_id: orderId, action: action })
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                Swal.fire('تم بنجاح!', data.message, 'success').then(() => {
-                                    // Refresh only the tasks list for better UX
-                                    applyFilters(); 
-                                });
-                            } else {
-                                Swal.fire('خطأ!', data.message, 'error');
-                            }
-                        }).catch(error => {
-                            console.error('Error:', error);
-                            Swal.fire('خطأ فني!', 'حدث خطأ غير متوقع.', 'error');
-                        });
-                    }
-                });
-            });
-        });
-    }
-
-    // --- نافذة تحديث الدفع ---
-    function showPaymentUpdateModal(orderId) {
-        // جلب بيانات الطلب أولاً
-        fetch(`edit_order.php?id=${orderId}&ajax=1`)
-            .then(response => response.json())
-            .then(orderData => {
-                const totalAmount = parseFloat(orderData.total_amount || 0);
-                const currentDeposit = parseFloat(orderData.deposit_amount || 0);
-                const remainingAmount = totalAmount - currentDeposit;
-
-                Swal.fire({
-                    title: 'تحديث حالة الدفع',
-                    html: `
-                        <div class="text-start mb-3">
-                            <div class="row mb-2">
-                                <div class="col-6"><strong>المبلغ الإجمالي:</strong></div>
-                                <div class="col-6">${totalAmount.toFixed(2)} ر.س</div>
-                            </div>
-                            <div class="row mb-2">
-                                <div class="col-6"><strong>المدفوع حالياً:</strong></div>
-                                <div class="col-6">${currentDeposit.toFixed(2)} ر.س</div>
-                            </div>
-                            <div class="row mb-3">
-                                <div class="col-6"><strong>المتبقي:</strong></div>
-                                <div class="col-6 text-danger">${remainingAmount.toFixed(2)} ر.س</div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="payment_amount" class="form-label">مبلغ الدفعة الجديدة:</label>
-                            <input type="number" id="payment_amount" class="form-control" 
-                                   min="0.01" max="${remainingAmount}" step="0.01" 
-                                   placeholder="أدخل مبلغ الدفعة">
-                        </div>
-                        <div class="mb-3">
-                            <label for="payment_method" class="form-label">طريقة الدفع:</label>
-                            <select id="payment_method" class="form-select">
-                                <option value="">اختر طريقة الدفع</option>
-                                <option value="نقدي">نقدي</option>
-                                <option value="تحويل بنكي">تحويل بنكي</option>
-                                <option value="فوري">فوري</option>
-                                <option value="غيره">غيره</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="payment_notes" class="form-label">ملاحظات (اختياري):</label>
-                            <textarea id="payment_notes" class="form-control" rows="2" 
-                                      placeholder="أي ملاحظات إضافية..."></textarea>
-                        </div>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonText: 'حفظ الدفعة',
-                    cancelButtonText: 'إلغاء',
-                    confirmButtonColor: '#28a745',
-                    cancelButtonColor: '#6c757d',
-                    preConfirm: () => {
-                        const paymentAmount = document.getElementById('payment_amount').value;
-                        const paymentMethod = document.getElementById('payment_method').value;
-                        const paymentNotes = document.getElementById('payment_notes').value;
-
-                        if (!paymentAmount || parseFloat(paymentAmount) <= 0) {
-                            Swal.showValidationMessage('يجب إدخال مبلغ صحيح أكبر من صفر');
-                            return false;
-                        }
-
-                        if (parseFloat(paymentAmount) > remainingAmount) {
-                            Swal.showValidationMessage(`المبلغ يتجاوز المتبقي (${remainingAmount.toFixed(2)} ر.س)`);
-                            return false;
-                        }
-
-                        if (!paymentMethod) {
-                            Swal.showValidationMessage('يجب اختيار طريقة الدفع');
-                            return false;
-                        }
-
-                        return {
-                            payment_amount: paymentAmount,
-                            payment_method: paymentMethod,
-                            notes: paymentNotes
-                        };
-                    }
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // إرسال البيانات لتحديث الدفع
-                        const formData = new FormData();
-                        formData.append('order_id', orderId);
-                        formData.append('payment_amount', result.value.payment_amount);
-                        formData.append('payment_method', result.value.payment_method);
-                        formData.append('notes', result.value.notes);
-
-                        Swal.fire({
-                            title: 'جاري الحفظ...',
-                            allowOutsideClick: false,
-                            didOpen: () => { Swal.showLoading(); }
-                        });
-
-                        fetch('ajax_update_payment.php', {
-                            method: 'POST',
-                            body: formData
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                Swal.fire('تم بنجاح!', data.message, 'success').then(() => {
-                                    applyFilters(); // تحديث قائمة المهام
-                                });
-                            } else {
-                                Swal.fire('خطأ!', data.message, 'error');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            Swal.fire('خطأ فني!', 'حدث خطأ أثناء حفظ الدفعة.', 'error');
-                        });
-                    }
-                });
-            })
-            .catch(error => {
-                console.error('Error fetching order data:', error);
-                Swal.fire('خطأ!', 'فشل في جلب بيانات الطلب.', 'error');
-            });
-    }
-
-    // Initial bind
-    bindActionButtons();
-});
-</script>
-
-<?php include 'footer.php'; ?>

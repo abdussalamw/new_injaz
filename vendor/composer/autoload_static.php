@@ -10,6 +10,7 @@ class ComposerStaticInit1bae9e80265f85709f7235955fd3024a
         '7b11c4dc42b3b3023073cb14e519683c' => __DIR__ . '/..' . '/ralouphie/getallheaders/src/getallheaders.php',
         '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
         '37a3dc5111fe8f707ab4c132ef1dbc62' => __DIR__ . '/..' . '/guzzlehttp/guzzle/src/functions_include.php',
+        'e0593d1a7cc6ab91031433926a925f77' => __DIR__ . '/../..' . '/src/Core/Helpers.php',
     );
 
     public static $prefixLengthsPsr4 = array (
@@ -41,6 +42,10 @@ class ComposerStaticInit1bae9e80265f85709f7235955fd3024a
         array (
             'Brick\\Math\\' => 11,
             'Base64Url\\' => 10,
+        ),
+        'A' => 
+        array (
+            'App\\' => 4,
         ),
     );
 
@@ -89,6 +94,10 @@ class ComposerStaticInit1bae9e80265f85709f7235955fd3024a
         'Base64Url\\' => 
         array (
             0 => __DIR__ . '/..' . '/spomky-labs/base64url/src',
+        ),
+        'App\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/src',
         ),
     );
 
