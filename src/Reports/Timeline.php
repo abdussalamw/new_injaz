@@ -50,33 +50,25 @@ if (Permissions::has_permission('dashboard_reports_view', $conn)) {
         $types .= "i";
     }
 } else {
-    switch ($user_role) {
-        case 'مصمم':
-            $where_clauses[] = "o.designer_id = ?";
-            $params[] = $user_id;
-            $types .= "i";
-            break;
-        case 'معمل':
-            $where_clauses[] = "o.workshop_id = ?";
-            $params[] = $user_id;
-            $types .= "i";
-            break;
-        case 'محاسب':
-            $where_clauses[] = "o.status != 'ملغي'";
-            break;
-        default:
-            $where_clauses[] = "1=0";
-            break;
+    if ($user_role === 'معمل') {
+        $where_clauses[] = "o.workshop_id = ?";
+    } else {
+        $where_clauses[] = "o.designer_id = ?";
     }
+    $params[] = $user_id;
+    $types .= "i";
 }
+
+// استخدام الدوال من Helpers class
+use App\Core\Helpers;
 
 $where_clause = "";
 if (!empty($where_clauses)) {
     $where_clause = "WHERE " . implode(" AND ", $where_clauses);
 }
 
-$sql = "SELECT o.order_id, o.order_date, o.status, o.design_completed_at, o.execution_completed_at, 
-               o.delivered_at, o.design_rating, o.execution_rating, c.company_name as client_name, 
+$sql = "SELECT o.order_id, o.order_date, o.status, o.design_completed_at, o.execution_completed_at,
+               o.delivered_at, o.design_rating, o.execution_rating, c.company_name as client_name,
                e.name as designer_name, w.name as workshop_name,
                o.total_amount, o.deposit_amount, o.payment_status,
                COALESCE(GROUP_CONCAT(DISTINCT p.name SEPARATOR ', '), 'لا يوجد منتجات') as products_summary
@@ -86,7 +78,7 @@ $sql = "SELECT o.order_id, o.order_date, o.status, o.design_completed_at, o.exec
         LEFT JOIN employees w ON o.workshop_id = w.employee_id
         LEFT JOIN order_items oi ON o.order_id = oi.order_id
         LEFT JOIN products p ON oi.product_id = p.product_id
-        {$where_clause}
+        $where_clause
         GROUP BY o.order_id
         ORDER BY o.order_date DESC";
 
@@ -96,52 +88,6 @@ if (!empty($params)) {
 }
 $stmt->execute();
 $result = $stmt->get_result();
-
-function calculate_stage_duration($start_date, $end_date)
-{
-    if (empty($start_date) || empty($end_date)) {
-        return null;
-    }
-    
-    $start = new DateTime($start_date);
-    $end = new DateTime($end_date);
-    $diff = $end->getTimestamp() - $start->getTimestamp();
-    
-    if ($diff <= 0) return null;
-    
-    $days = floor($diff / (24 * 60 * 60));
-    $hours = floor(($diff % (24 * 60 * 60)) / (60 * 60));
-    $minutes = floor(($diff % (60 * 60)) / 60);
-    
-    $parts = [];
-    if ($days > 0) $parts[] = "{$days} يوم";
-    if ($hours > 0) $parts[] = "{$hours} ساعة";
-    if ($minutes > 0) $parts[] = "{$minutes} دقيقة";
-    
-    return empty($parts) ? "أقل من دقيقة" : implode(' و ', $parts);
-}
-
-function calculate_current_stage_duration($start_date)
-{
-    if (empty($start_date)) return null;
-    
-    $start = new DateTime($start_date);
-    $now = new DateTime();
-    $diff = $now->getTimestamp() - $start->getTimestamp();
-    
-    if ($diff <= 0) return null;
-    
-    $days = floor($diff / (24 * 60 * 60));
-    $hours = floor(($diff % (24 * 60 * 60)) / (60 * 60));
-    $minutes = floor(($diff % (60 * 60)) / 60);
-    
-    $parts = [];
-    if ($days > 0) $parts[] = "{$days} يوم";
-    if ($hours > 0) $parts[] = "{$hours} ساعة";
-    if ($minutes > 0) $parts[] = "{$minutes} دقيقة";
-    
-    return empty($parts) ? "أقل من دقيقة" : implode(' و ', $parts);
-}
 
 require_once __DIR__ . '/../View/timeline_report.php';
 

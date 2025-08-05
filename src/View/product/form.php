@@ -1,19 +1,28 @@
 <?php
 // src/View/product/form.php
+// Logic is now in ProductController
 
-// Determine if we are editing or adding
-$is_edit = isset($product);
-$page_title = $is_edit ? "تعديل المنتج #{$product['product_id']}" : 'إضافة منتج جديد';
+$is_edit = $is_edit ?? false;
+$product = $product ?? [];
+$page_title = $page_title ?? ($is_edit ? 'تعديل المنتج' : 'إضافة منتج جديد');
+$error = $error ?? null;
 
 // Set form values
 $name = $product['name'] ?? '';
 $default_size = $product['default_size'] ?? '';
 $default_material = $product['default_material'] ?? '';
 $default_details = $product['default_details'] ?? '';
-
 ?>
 <div class="container">
-    <form method="post">
+    <?php if (isset($error)): ?>
+        <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+    <?php endif; ?>
+    
+    <form method="POST" action="<?= $is_edit ? '/new_injaz/products/update' : '/new_injaz/products' ?>">
+        <?php if ($is_edit): ?>
+            <input type="hidden" name="id" value="<?= htmlspecialchars($product['product_id']) ?>">
+        <?php endif; ?>
+
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label">اسم المنتج</label>
@@ -33,6 +42,6 @@ $default_details = $product['default_details'] ?? '';
             </div>
         </div>
         <button class="btn btn-primary mt-3" type="submit">حفظ</button>
-        <a href="/?page=products" class="btn btn-secondary mt-3">عودة للقائمة</a>
+        <a href="/new_injaz/products" class="btn btn-secondary mt-3">عودة للقائمة</a>
     </form>
 </div>

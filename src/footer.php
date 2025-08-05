@@ -2,7 +2,7 @@
   </div>
 </div>
 <footer class="text-center py-4 mt-5" style="background:#fff;color:#D44759;">
-    &copy; <?= date('Y') ?> إنجاز الإعلامية — جميع الحقوق محفوظة.
+    &copy; <?= date('Y') ?> — جميع الحقوق محفوظة.
 </footer>
 <!-- Chart.js for creating charts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -13,6 +13,36 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // --- القائمة الجانبية الديناميكية ---
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const mainContent = document.getElementById('mainContent');
+    
+    if (sidebarToggle && sidebar && mainContent) {
+        // استرجاع حالة القائمة من localStorage
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed) {
+            sidebar.classList.add('collapsed');
+            mainContent.classList.add('expanded');
+            sidebarToggle.querySelector('i').classList.replace('bi-chevron-right', 'bi-chevron-left');
+        }
+        
+        sidebarToggle.addEventListener('click', function() {
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+            
+            const icon = sidebarToggle.querySelector('i');
+            if (sidebar.classList.contains('collapsed')) {
+                icon.classList.replace('bi-chevron-right', 'bi-chevron-left');
+                localStorage.setItem('sidebarCollapsed', 'true');
+            } else {
+                icon.classList.replace('bi-chevron-left', 'bi-chevron-right');
+                localStorage.setItem('sidebarCollapsed', 'false');
+            }
+        });
+    }
+
+    // --- المؤقتات ---
     const countdownElements = document.querySelectorAll('.countdown');
 
     // دالة موحدة لتحديث جميع أنواع العدادات
@@ -27,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 prefix = 'منذ ';
             } else if (el.dataset.dueDate) {
                 const dueDate = new Date(el.dataset.dueDate + 'T23:59:59');
-                const diff = dueDate - now;
+                diff = dueDate - now;
                 prefix = 'متبقي: ';
                 if (diff <= 0) isExpired = true;
             } else {

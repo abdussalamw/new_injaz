@@ -42,8 +42,7 @@ class Login
                     $perm_check_stmt->close();
 
                     if ($perm_count == 0) {
-                        require_once __DIR__ . '/../Core/Permissions.php';
-                        $all_permissions = get_all_permissions();
+                        $all_permissions = \App\Core\Permissions::get_all_permissions();
                         $stmt_grant = $this->conn->prepare("INSERT INTO employee_permissions (employee_id, permission_key) VALUES (?, ?)");
                         foreach ($all_permissions as $group => $permissions) {
                             foreach (array_keys($permissions) as $perm_key) {
@@ -55,7 +54,7 @@ class Login
                     }
                 }
 
-                header("Location: /");
+                header('Location: /new_injaz/dashboard.php');
                 exit;
             } else {
                 $error = "كلمة المرور غير صحيحة.";
@@ -66,11 +65,4 @@ class Login
             require_once __DIR__ . '/../View/login_form.php';
         }
     }
-}
-
-$login = new Login($conn);
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $login->handle();
-} else {
-    $login->show();
 }

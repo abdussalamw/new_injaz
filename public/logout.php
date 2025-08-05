@@ -1,13 +1,13 @@
 <?php
 declare(strict_types=1);
 
-// Start session to destroy it
 session_start();
 
-// Clear all session data
-$_SESSION = array();
+// تدمير جميع بيانات الجلسة
+session_unset();
+session_destroy();
 
-// Destroy the session cookie
+// حذف ملف تعريف الارتباط إذا كان موجوداً
 if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
     setcookie(session_name(), '', time() - 42000,
@@ -16,9 +16,7 @@ if (ini_get("session.use_cookies")) {
     );
 }
 
-// Destroy the session
-session_destroy();
-
-// Redirect to login page
-header("Location: /new_injaz/login");
+// إعادة التوجيه إلى صفحة تسجيل الدخول
+header("Location: /?page=login");
 exit;
+?>

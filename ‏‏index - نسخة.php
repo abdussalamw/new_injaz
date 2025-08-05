@@ -1,29 +1,14 @@
 <?php
+// index.php (moved to root)
+
+require_once __DIR__ . '/vendor/autoload.php';
 session_start();
 
 // 1. Load base configuration and database connection
 require_once __DIR__ . '/src/Core/config.php';
-require_once __DIR__ . '/src/Core/Database.php';
-require_once __DIR__ . '/src/Core/AuthCheck.php';
-require_once __DIR__ . '/src/Core/Permissions.php';
-require_once __DIR__ . '/src/Core/Helpers.php';
-require_once __DIR__ . '/src/Core/InitialTasksQuery.php';
-require_once __DIR__ . '/src/Core/PushNotification.php';
-require_once __DIR__ . '/src/Core/MessageSystem.php';
+use App\Core\Database;
 
-// Load controllers
-require_once __DIR__ . '/src/Controller/ClientController.php';
-require_once __DIR__ . '/src/Controller/OrderController.php';
-require_once __DIR__ . '/src/Controller/ProductController.php';
-require_once __DIR__ . '/src/Controller/EmployeeController.php';
-
-// Load API controllers
-require_once __DIR__ . '/src/Api/ApiController.php';
-
-// Load Auth classes
-require_once __DIR__ . '/src/Auth/Login.php';
-
-$db = new \App\Core\Database(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+$db = new Database(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 $conn = $db->getConnection();
 
 // 2. Include header

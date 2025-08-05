@@ -20,12 +20,12 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
     exit;
 }
 ?>
-<?php $page_title = $page_title ?? 'إنجاز الإعلامية'; // تعيين عنوان افتراضي في حال لم يتم تحديده ?>
+<?php $page_title = $page_title ?? ''; // تعيين عنوان افتراضي في حال لم يتم تحديده ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title><?= htmlspecialchars($page_title) ?> - إنجاز الإعلامية</title>
+    <title><?= htmlspecialchars($page_title) ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Bootstrap RTL -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.4/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
@@ -33,6 +33,8 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/assets/style.css">
     <style>
@@ -113,13 +115,63 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
         .dropdown-header h6 {
             color: white !important;
         }
+
+        /* --- Sidebar Toggle Button Styles --- */
+        .sidebar-toggle {
+            position: absolute;
+            top: 10px;
+            right: -15px;
+            background: #D44759;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .sidebar-toggle:hover {
+            background: #F37D47;
+            transform: scale(1.1);
+        }
+        .sidebar.collapsed {
+            width: 60px !important;
+            min-width: 60px !important;
+        }
+        .sidebar.collapsed .nav-link span {
+            display: none;
+        }
+        .sidebar.collapsed .nav-link {
+            text-align: center;
+            padding: 10px 5px;
+        }
+        .main-content.expanded {
+            margin-left: 60px !important;
+            width: calc(100% - 60px) !important;
+        }
+        @media (max-width: 768px) {
+            .sidebar-toggle {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
 <nav class="navbar main-navbar navbar-expand-lg shadow-sm px-3">
-    <a class="navbar-brand d-flex align-items-center" href="/">
-        <img src="/assets/logoenjaz.jpg" class="me-2" alt="Logo">
-        إنجاز الإعلامية
+    <a class="navbar-brand d-flex align-items-center" href="/new_injaz/">
+        <img src="/new_injaz/public/assets/logoenjaz.jpg" class="me-2" alt="Logo">
+        <span class="fw-bold">إنجاز الإعلامية</span>
+        <?php if (!empty($page_title)): ?>
+            <span class="text-light ms-2" style="font-size: 14px; font-weight: normal; opacity: 0.9;">
+                / <?= htmlspecialchars($page_title) ?>
+            </span>
+        <?php endif; ?>
     </a>
     <div class="ms-auto d-flex align-items-center">
         <?php if(isset($_SESSION['user_name'])): ?>
@@ -193,35 +245,68 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
             </ul>
         </div>
         <span class="text-white me-3 d-none d-sm-inline">مرحبًا، <?= htmlspecialchars($_SESSION['user_name']) ?></span>
-        <a href="/logout.php" class="btn btn-light btn-sm">تسجيل الخروج <i class="bi bi-box-arrow-right"></i></a>
+        <a href="/new_injaz/logout.php" class="btn btn-light btn-sm">تسجيل الخروج <i class="bi bi-box-arrow-right"></i></a>
         <?php endif; ?>
     </div>
 </nav>
 <div class="container-fluid">
   <div class="row">
-    <nav class="col-md-2 sidebar py-4 d-none d-md-block">
+    <nav class="col-md-2 sidebar py-4 d-none d-md-block" id="sidebar">
+      <button class="sidebar-toggle" id="sidebarToggle" title="تصغير/توسيع القائمة">
+        <i class="bi bi-chevron-right"></i>
+      </button>
       <ul class="nav flex-column">
-        <?php if (has_permission('dashboard_view', $conn)): // صلاحية افتراضية للجميع ?>
-            <li class="nav-item"><a class="nav-link<?= ($_SERVER['REQUEST_URI'] == '/') ? ' active' : '' ?>" href="/">لوحة التحكم</a></li>
+        <?php if (\App\Core\Permissions::has_permission('dashboard_view', $conn)): ?>
+            <li class="nav-item">
+              <a class="nav-link<?= ($_SERVER['REQUEST_URI'] == '/new_injaz/' || $_SERVER['REQUEST_URI'] == '/new_injaz/index.php') ? ' active' : '' ?>" href="/new_injaz/">
+                <i class="bi bi-speedometer2"></i>
+                <span>لوحة التحكم</span>
+              </a>
+            </li>
         <?php endif; ?>
-        <?php if (has_permission('order_view_all', $conn) || has_permission('order_view_own', $conn)): ?>
-            <li class="nav-item"><a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/orders')) ? ' active' : '' ?>" href="/orders">الطلبات</a></li>
+        <?php if (\App\Core\Permissions::has_permission('order_view_all', $conn) || \App\Core\Permissions::has_permission('order_view_own', $conn)): ?>
+            <li class="nav-item">
+              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/new_injaz/orders')) ? ' active' : '' ?>" href="/new_injaz/orders">
+                <i class="bi bi-clipboard-check"></i>
+                <span>الطلبات</span>
+              </a>
+            </li>
         <?php endif; ?>
-        <?php if (has_permission('client_view', $conn)): ?>
-            <li class="nav-item"><a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/clients')) ? ' active' : '' ?>" href="/clients">العملاء</a></li>
+        <?php if (\App\Core\Permissions::has_permission('client_view', $conn)): ?>
+            <li class="nav-item">
+              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/new_injaz/clients')) ? ' active' : '' ?>" href="/new_injaz/clients">
+                <i class="bi bi-people"></i>
+                <span>العملاء</span>
+              </a>
+            </li>
         <?php endif; ?>
-        <?php if (has_permission('product_view', $conn)): ?>
-            <li class="nav-item"><a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/products')) ? ' active' : '' ?>" href="/products">المنتجات</a></li>
+        <?php if (\App\Core\Permissions::has_permission('product_view', $conn)): ?>
+            <li class="nav-item">
+              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/new_injaz/products')) ? ' active' : '' ?>" href="/new_injaz/products">
+                <i class="bi bi-box-seam"></i>
+                <span>المنتجات</span>
+              </a>
+            </li>
         <?php endif; ?>
-        <?php if (has_permission('employee_view', $conn)): ?>
-            <li class="nav-item"><a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/employees')) ? ' active' : '' ?>" href="/employees">الموظفون</a></li>
+        <?php if (\App\Core\Permissions::has_permission('employee_view', $conn)): ?>
+            <li class="nav-item">
+              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/new_injaz/employees')) ? ' active' : '' ?>" href="/new_injaz/employees">
+                <i class="bi bi-person-badge"></i>
+                <span>الموظفون</span>
+              </a>
+            </li>
         <?php endif; ?>
-        <?php if (has_permission('dashboard_reports_view', $conn) || has_permission('order_view_own', $conn)): ?>
-            <li class="nav-item"><a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/reports/timeline')) ? ' active' : '' ?>" href="/reports/timeline">الجدول الزمني للمراحل</a></li>
+        <?php if (\App\Core\Permissions::has_permission('dashboard_reports_view', $conn) || \App\Core\Permissions::has_permission('order_view_own', $conn)): ?>
+            <li class="nav-item">
+              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/new_injaz/reports')) ? ' active' : '' ?>" href="/new_injaz/reports/timeline">
+                <i class="bi bi-graph-up"></i>
+                <span>الجدول الزمني للمراحل</span>
+              </a>
+            </li>
         <?php endif; ?>
       </ul>
     </nav>
-    <main class="col-md-10 ms-sm-auto px-md-4 pt-4">
+    <main class="col-md-10 ms-sm-auto px-md-4 pt-4 main-content" id="mainContent">
     <h1 class="mb-4" style="color:#D44759;"><?= htmlspecialchars($page_title) ?></h1>
     <?php if(isset($_SESSION['flash_message'])): ?>
         <div class="alert alert-<?= $_SESSION['flash_message']['type'] ?> alert-dismissible fade show" role="alert">

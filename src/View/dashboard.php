@@ -1,6 +1,5 @@
 <?php
 $page_title = 'لوحة التحكم';
-include __DIR__ . '/../header.php';
 
 // دالة لجلب بيانات الرسوم البيانية (تأكد من أنها معرفة مرة واحدة فقط)
 if (!function_exists('get_chart_data')) {
@@ -51,7 +50,7 @@ $products_count = $conn->query("SELECT COUNT(*) FROM products")->fetch_row()[0];
 // 2. إحصائيات وتقارير للمدراء
 $employee_stats = [];
 $overall_stats = ['open' => 0, 'closed' => 0, 'total' => 0];
-if (has_permission('dashboard_reports_view', $conn)) {
+if (\App\Core\Permissions::has_permission('dashboard_reports_view', $conn)) {
     // إحصائيات الموظفين (المهام المفتوحة والمهام المستحقة اليوم)
     $stmt_employees = $conn->prepare("
         SELECT e.employee_id, e.name,
@@ -93,13 +92,12 @@ $initial_filter_payment = $_GET['payment'] ?? '';
 $initial_filter_search = $_GET['search'] ?? '';
 $initial_sort_by = $_GET['sort_by'] ?? 'latest';
 
-include __DIR__ . '/../Core/InitialTasksQuery.php'; // تضمين منطق الاستعلام الأولي للمهام
-$res = fetch_tasks($conn, $initial_filter_status, $initial_filter_employee, $initial_filter_payment, $initial_filter_search, $initial_sort_by);
+$res = \App\Core\InitialTasksQuery::fetch_tasks($conn, $initial_filter_status, $initial_filter_employee, $initial_filter_payment, $initial_filter_search, $initial_sort_by);
 
 
 
 // 5. تحديد العنوان والتبويب النشط
-$dashboard_title = has_permission('order_view_own', $conn) && !has_permission('order_view_all', $conn) ? 'المهام الموكلة إليك' : 'أحدث المهام النشطة';
+$dashboard_title = \App\Core\Permissions::has_permission('order_view_own', $conn) && !\App\Core\Permissions::has_permission('order_view_all', $conn) ? 'المهام الموكلة إليك' : 'أحدث المهام النشطة';
 $active_tab = $_GET['tab'] ?? 'tasks';
 $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab === 'reports' ? 'CustomReports' : 'Tasks');
 ?>
@@ -110,7 +108,8 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
     .tab-buttons button { background-color: inherit; float: right; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: background-color 0.3s, color 0.3s; font-size: 17px; color: #495057; }
     .tab-buttons button:hover { background-color: #e9ecef; }
     .tab-buttons button.active { background-color: #fff; font-weight: bold; color: #D44759; border-top: 2px solid #D44759; }
-    .tab-content { display: none; padding: 20px; }
+    .tab-content { display: none !important; padding: 20px; }
+    .tab-content.active { display: block !important; }
     #tasks-container .spinner-border { width: 3rem; height: 3rem; }
 </style>
 
@@ -119,17 +118,17 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
     <div class="tab-container shadow-sm">
         <div class="tab-buttons">
             <button class="tab-link <?= $default_active_tab === 'Tasks' ? 'active' : '' ?>" onclick="openTab(event, 'Tasks')">المهام</button>
-            <?php if (has_permission('dashboard_reports_view', $conn)): ?>
+            <?php if (\App\Core\Permissions::has_permission('dashboard_reports_view', $conn)): ?>
                 <button class="tab-link <?= $default_active_tab === 'StatsReports' ? 'active' : '' ?>" onclick="openTab(event, 'StatsReports')">الإحصائيات</button>
             <?php endif; ?>
-            <?php if (has_permission('financial_reports_view', $conn)): ?>
+            <?php if (\App\Core\Permissions::has_permission('financial_reports_view', $conn)): ?>
                 <button class="tab-link <?= $default_active_tab === 'CustomReports' ? 'active' : '' ?>" onclick="openTab(event, 'CustomReports')">التقارير المالية</button>
             <?php endif; ?>
         </div>
 
         <!-- ==================== تبويب المهام ==================== -->
-        <div id="Tasks" class="tab-content" style="<?= $default_active_tab === 'Tasks' ? 'display: block;' : '' ?>">
-            <?php if (has_permission('order_view_all', $conn) || has_permission('order_view_own', $conn)): ?>
+        <div id="Tasks" class="tab-content <?= $default_active_tab === 'Tasks' ? 'active' : '' ?>">
+            <?php if (\App\Core\Permissions::has_permission('order_view_all', $conn) || \App\Core\Permissions::has_permission('order_view_own', $conn)): ?>
             <form id="filter-form" class="row g-3 align-items-center mb-4 p-3 border rounded bg-light">
                 <div class="col-md-3">
                     <label for="search_filter" class="form-label">بحث</label>
@@ -148,7 +147,7 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
                 </div>
                 
                 
-                <?php if (has_permission('order_view_all', $conn)): ?>
+                <?php if (\App\Core\Permissions::has_permission('order_view_all', $conn)): ?>
                 <div class="col-md-2">
                     <label for="employee_filter" class="form-label">الموظف</label>
                     <select name="employee" id="employee_filter" class="form-select form-select-sm">
@@ -175,7 +174,7 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
                         <option value="latest" <?= ($initial_sort_by == 'latest') ? 'selected' : '' ?>>الأحدث</option>
                         <option value="oldest" <?= ($initial_sort_by == 'oldest') ? 'selected' : '' ?>>الأقدم</option>
                         <option value="payment" <?= ($initial_sort_by == 'payment') ? 'selected' : '' ?>>الدفع</option>
-                        <?php if (has_permission('order_view_all', $conn)): ?>
+                        <?php if (\App\Core\Permissions::has_permission('order_view_all', $conn)): ?>
                         <option value="employee" <?= ($initial_sort_by == 'employee') ? 'selected' : '' ?>>الموظف</option>
                         <?php endif; ?>
                     </select>
@@ -187,14 +186,14 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
             <?php endif; ?>
 
             <h4 style="color:#D44759;" class="mt-4 mb-3"><?= $dashboard_title ?></h4>
-            <div class="row g-4" id="tasks-container">
+            <div class="row g-3 dashboard-cards" id="tasks-container">
                 <?php if($res && $res->num_rows > 0): ?>
                     <?php while($row = $res->fetch_assoc()): ?>
-                        <div class="col-md-6 col-lg-4">
+                        <div class="col-md-6 col-lg-3">
                             <?php 
                             $task_details = $row;
                             // تحديد الإجراءات المتاحة بناءً على حالة المهمة ودور المستخدم
-                            $actions = get_next_actions($row, $_SESSION['user_role'], $_SESSION['user_id'], $conn, 'dashboard'); 
+                            $actions = \App\Core\Helpers::get_next_actions($row, $_SESSION['user_role'], $_SESSION['user_id'], $conn, 'dashboard'); 
                             include __DIR__ . '/task/card.php'; 
                             ?>
                         </div>
@@ -206,15 +205,15 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
         </div>
 
         <!-- ==================== تبويب الإحصائيات ==================== -->
-        <?php if (has_permission('dashboard_reports_view', $conn)): ?>
-        <div id="StatsReports" class="tab-content" style="<?= $default_active_tab === 'StatsReports' ? 'display: block;' : '' ?>">
+        <?php if (\App\Core\Permissions::has_permission('dashboard_reports_view', $conn)): ?>
+        <div id="StatsReports" class="tab-content <?= $default_active_tab === 'StatsReports' ? 'active' : '' ?>">
             <?php include __DIR__ . '/../Reports/Stats.php'; ?>
         </div>
         <?php endif; ?>
 
         <!-- ==================== تبويب التقارير المالية ==================== -->
-        <?php if (has_permission('financial_reports_view', $conn)): ?>
-        <div id="CustomReports" class="tab-content" style="<?= $default_active_tab === 'CustomReports' ? 'display: block;' : '' ?>">
+        <?php if (\App\Core\Permissions::has_permission('financial_reports_view', $conn)): ?>
+        <div id="CustomReports" class="tab-content <?= $default_active_tab === 'CustomReports' ? 'active' : '' ?>">
             <?php include __DIR__ . '/../Reports/Financial.php'; ?>
         </div>
         <?php endif; ?>
@@ -225,9 +224,9 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
 document.addEventListener('DOMContentLoaded', function () {
     // --- Tabs ---
     function openTab(evt, tabName) {
-        document.querySelectorAll(".tab-content").forEach(tab => tab.style.display = "none");
+        document.querySelectorAll(".tab-content").forEach(tab => tab.classList.remove("active"));
         document.querySelectorAll(".tab-link").forEach(link => link.classList.remove("active"));
-        document.getElementById(tabName).style.display = "block";
+        document.getElementById(tabName).classList.add("active");
         evt.currentTarget.classList.add("active");
     }
     
@@ -247,7 +246,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         tasksContainer.innerHTML = '<div class="col-12 text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">جاري التحميل...</span></div></div>';
 
-        fetch('/api/tasks?' + urlParams.toString(), {
+        fetch('/new_injaz/api_tasks.php?' + urlParams.toString(), {
             method: 'GET',
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -477,5 +476,3 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 </script>
-
-<?php include __DIR__ . '/../footer.php'; ?>

@@ -26,39 +26,44 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-bordered table-striped table-hover text-center">
-                            <thead class="table-dark align-middle">
+                        <table class="table table-bordered table-striped table-hover text-center table-sm">
+                            <thead class="align-middle">
                                 <tr>
-                                    <th rowspan="2">رقم الطلب</th>
+                                    <th rowspan="2" style="width: 8%;">رقم الطلب</th>
                                     <th colspan="5" class="bg-info bg-opacity-25">مرحلة التصميم</th>
                                     <th colspan="5" class="bg-primary bg-opacity-25">مرحلة التنفيذ</th>
-                                    <th rowspan="2">إجمالي الوقت</th>
+                                    <th rowspan="2" style="width: 10%;">إجمالي الوقت</th>
                                 </tr>
                                 <tr>
-                                    <th class="bg-info bg-opacity-10">المصمم</th>
-                                    <th class="bg-info bg-opacity-10">البداية</th>
-                                    <th class="bg-info bg-opacity-10">النهاية</th>
-                                    <th class="bg-info bg-opacity-10">الوقت</th>
-                                    <th class="bg-info bg-opacity-10">التقييم</th>
-                                    <th class="bg-primary bg-opacity-10">المعمل</th>
-                                    <th class="bg-primary bg-opacity-10">البداية</th>
-                                    <th class="bg-primary bg-opacity-10">النهاية</th>
-                                    <th class="bg-primary bg-opacity-10">الوقت</th>
-                                    <th class="bg-primary bg-opacity-10">التقييم</th>
+                                    <th class="bg-info bg-opacity-10" style="width: 10%;">المصمم</th>
+                                    <th class="bg-info bg-opacity-10" style="width: 8%;">البداية</th>
+                                    <th class="bg-info bg-opacity-10" style="width: 8%;">النهاية</th>
+                                    <th class="bg-info bg-opacity-10" style="width: 8%;">الوقت</th>
+                                    <th class="bg-info bg-opacity-10" style="width: 8%;">التقييم</th>
+                                    <th class="bg-primary bg-opacity-10" style="width: 10%;">المعمل</th>
+                                    <th class="bg-primary bg-opacity-10" style="width: 8%;">البداية</th>
+                                    <th class="bg-primary bg-opacity-10" style="width: 8%;">النهاية</th>
+                                    <th class="bg-primary bg-opacity-10" style="width: 8%;">الوقت</th>
+                                    <th class="bg-primary bg-opacity-10" style="width: 8%;">التقييم</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if ($result && $result->num_rows > 0): ?>
                                     <?php while($row = $result->fetch_assoc()): ?>
                                         <?php
-                                        $design_duration = calculate_stage_duration($row['order_date'], $row['design_completed_at']);
-                                        $execution_duration = calculate_stage_duration($row['design_completed_at'], $row['execution_completed_at']);
+                                        $design_duration_seconds = \App\Core\Helpers::calculate_stage_duration($row['order_date'], $row['design_completed_at']);
+                                        $execution_duration_seconds = \App\Core\Helpers::calculate_stage_duration($row['design_completed_at'], $row['execution_completed_at']);
+                                        
+                                        $design_duration = $design_duration_seconds ? \App\Core\Helpers::format_duration($design_duration_seconds) : null;
+                                        $execution_duration = $execution_duration_seconds ? \App\Core\Helpers::format_duration($execution_duration_seconds) : null;
                                         
                                         $total_duration = null;
                                         if ($row['status'] === 'مكتمل' && !empty($row['delivered_at'])) {
-                                            $total_duration = calculate_stage_duration($row['order_date'], $row['delivered_at']);
+                                            $total_duration_seconds = \App\Core\Helpers::calculate_stage_duration($row['order_date'], $row['delivered_at']);
+                                            $total_duration = $total_duration_seconds ? \App\Core\Helpers::format_duration($total_duration_seconds) : null;
                                         } else {
-                                            $total_duration = calculate_current_stage_duration($row['order_date']);
+                                            $total_duration_seconds = \App\Core\Helpers::calculate_current_stage_duration($row['order_date']);
+                                            $total_duration = $total_duration_seconds ? \App\Core\Helpers::format_duration($total_duration_seconds) : null;
                                         }
                                         ?>
                                         <tr>

@@ -1,11 +1,19 @@
 <?php
 // src/View/order/form.php
 
-// Determine if we are editing or adding
-$is_edit = isset($order);
-$page_title = $is_edit ? "تعديل الطلب #{$order['order_id']}" : 'إضافة طلب جديد';
+// All the logic is now in the OrderController.
+// This file is now purely for presentation.
 
-// Set form values
+// The controller will set these variables for us.
+$is_edit = $is_edit ?? false;
+$order = $order ?? [];
+$page_title = $page_title ?? ($is_edit ? 'تعديل الطلب' : 'إضافة طلب جديد');
+$products_array = $products_array ?? [];
+$employees_array = $employees_array ?? [];
+$order_items = $order_items ?? [];
+$error = $error ?? null;
+
+// Set form values for both add and edit, falling back to defaults
 $client_id = $order['client_id'] ?? '';
 $company_name = $order['company_name'] ?? '';
 $contact_person = $order['contact_person'] ?? '';
@@ -17,14 +25,17 @@ $total_amount = $order['total_amount'] ?? '0';
 $deposit_amount = $order['deposit_amount'] ?? '0';
 $payment_method = $order['payment_method'] ?? 'نقدي';
 $notes = $order['notes'] ?? '';
-$order_items = $order_items ?? [];
 
 ?>
 <div class="container">
     <?php if (!empty($error)): ?>
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
-    <form method="POST" action="<?= $is_edit ? '/?page=orders&action=edit&id=' . $order['order_id'] : '/?page=orders&action=add' ?>" id="order-form">
+    <form method="POST" action="<?= $is_edit ? '/new_injaz/orders/update' : '/new_injaz/orders' ?>" id="order-form">
+        <?php if ($is_edit): ?>
+            <input type="hidden" name="id" value="<?= htmlspecialchars($order['order_id']) ?>">
+        <?php endif; ?>
+
         <div class="row g-3">
             <!-- Client Info Section -->
             <fieldset class="border p-3 rounded mb-3">
@@ -43,8 +54,15 @@ $order_items = $order_items ?? [];
                         <input type="text" name="contact_person" id="contact_person_input" class="form-control" value="<?= htmlspecialchars($contact_person) ?>">
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">الجوال</label>
-                        <input type="text" name="phone" id="phone_input" class="form-control" required value="<?= htmlspecialchars($phone) ?>">
+                        <label class="form-label">الجوال <span class="text-danger">*</span></label>
+                        <input type="tel" name="phone" id="phone_input" class="form-control" 
+                               pattern="^05[0-9]{8}$" 
+                               placeholder="05xxxxxxxx" 
+                               title="يجب أن يبدأ الرقم بـ 05 ويتكون من 10 أرقام"
+                               maxlength="10" 
+                               required 
+                               value="<?= htmlspecialchars($phone) ?>">
+                        <div class="form-text text-muted">مثال: 0501234567</div>
                     </div>
                 </div>
             </fieldset>
@@ -53,7 +71,7 @@ $order_items = $order_items ?? [];
             <fieldset class="border p-3 rounded mb-3">
                 <legend class="float-none w-auto px-2 h6">بنود الطلب</legend>
                 <div id="order-items-container">
-                    <!-- Product rows will be inserted here by JavaScript -->
+                    <!-- JS will populate this -->
                 </div>
                 <button type="button" id="add-item-btn" class="btn btn-outline-success mt-2">إضافة منتج آخر +</button>
             </fieldset>
@@ -81,8 +99,8 @@ $order_items = $order_items ?? [];
                         <?php if ($_SESSION['user_role'] === 'مدير'): ?>
                             <select name="designer_id" class="form-select" required>
                                 <option value="">اختر المسؤول...</option>
-                                <?php foreach ($designers_list as $d_row): ?>
-                                    <option value="<?= $d_row['employee_id'] ?>" <?= ($designer_id == $d_row['employee_id']) ? 'selected' : '' ?>><?= htmlspecialchars($d_row['name']) ?> (<?= htmlspecialchars($d_row['role']) ?>)</option>
+                                <?php foreach ($employees_array as $d_row): ?>
+                                    <option value="<?= $d_row['employee_id'] ?>" <?= ($designer_id == $d_row['employee_id']) ? 'selected' : '' ?>><?= htmlspecialchars($d_row['name']) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         <?php else: ?>
@@ -120,7 +138,7 @@ $order_items = $order_items ?? [];
 
             <div class="col-12 text-center mt-4">
                 <button class="btn btn-lg px-5 text-white" type="submit" style="background-color:#D44759;">حفظ</button>
-                <a href="/?page=orders" class="btn btn-secondary ms-2">عودة للقائمة</a>
+                <a href="/new_injaz/orders" class="btn btn-secondary ms-2">عودة للقائمة</a>
             </div>
         </div>
     </form>
@@ -141,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
             autocompleteList.innerHTML = '';
             return;
         }
-        fetch(`/?page=clients&action=ajax_search&query=${query}`)
+        fetch(`/new_injaz/api/clients/search?query=${query}`)
             .then(response => response.json())
             .then(clients => {
                 autocompleteList.innerHTML = '';
@@ -178,39 +196,36 @@ document.addEventListener('DOMContentLoaded', function() {
     const addItemBtn = document.getElementById('add-item-btn');
     let itemCounter = 0;
 
-    const existingItems = <?= json_encode($order_items) ?> || [];
-    const products_array = <?= json_encode($products_array) ?> || [];
+    const existingItems = <?= json_encode($order_items) ?>;
+    const products_array = <?= json_encode($products_array) ?>;
 
     function addOrderItem(item = null) {
+        itemCounter++;
+        const newIndex = itemCounter;
+
         const itemQty = item ? item.quantity : 1;
         const itemNotes = item ? item.item_notes : '';
         const productId = item ? item.product_id : '';
 
         const productOptions = products_array.map(p => 
             `<option value="${p.product_id}" ${productId == p.product_id ? 'selected' : ''}>${p.name}</option>`
-        ).join('');
+        ).join('') + `<option value="other" ${productId === null ? 'selected' : ''}>أخرى</option>`;
 
         const itemHtml = `
             <div class="order-item-row row g-3 mb-3 border-bottom pb-3 align-items-end">
                 <div class="col-md-4">
                     <label class="form-label">المنتج</label>
-                    <select name="products[${itemCounter}][product_id]" class="form-select product-select" required>
+                    <select name="products[${newIndex}][product_id]" class="form-select product-select" required>
                         <option value="">اختر منتج...</option>
                         ${productOptions}
                     </select>
                 </div>
-                <div class="col-md-2"><label class="form-label">الكمية</label><input type="number" name="products[${itemCounter}][quantity]" class="form-control" min="1" value="${itemQty}" required></div>
-                <div class="col-md-5"><label class="form-label">تفاصيل الطلب</label><textarea name="products[${itemCounter}][item_notes]" class="form-control" rows="1">${itemNotes}</textarea></div>
-                <div class="col-md-1">
-                    <button type="button" class="btn btn-danger w-100 remove-item-btn" title="حذف المنتج">X</button>
-                </div>
+                <div class="col-md-2"><label class="form-label">الكمية</label><input type="number" name="products[${newIndex}][quantity]" class="form-control" min="1" value="${itemQty}" required></div>
+                <div class="col-md-6"><label class="form-label">تفاصيل الطلب</label><textarea name="products[${newIndex}][item_notes]" class="form-control" rows="2">${itemNotes ? itemNotes : ''}</textarea></div>
             </div>
         `;
         itemsContainer.insertAdjacentHTML('beforeend', itemHtml);
-        itemCounter++;
     }
-
-    addItemBtn.addEventListener('click', () => addOrderItem());
 
     itemsContainer.addEventListener('click', function(e) {
         if (e.target && e.target.classList.contains('remove-item-btn')) {
@@ -218,31 +233,28 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Client-side validation before submitting the form
-    const orderForm = document.getElementById('order-form');
-    orderForm.addEventListener('submit', function(e) {
-        const productSelects = itemsContainer.querySelectorAll('.product-select');
-        let allProductsSelected = true;
-        
-        itemsContainer.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-
-        productSelects.forEach(select => {
-            if (!select.value || select.value === '') {
-                allProductsSelected = false;
-                select.classList.add('is-invalid');
-            }
-        });
-
-        if (!allProductsSelected) {
-            e.preventDefault(); // Stop form submission
-            alert('الرجاء اختيار منتج لجميع البنود المضافة في الطلب.');
-        }
-    });
+    addItemBtn.addEventListener('click', () => addOrderItem());
 
     if (existingItems.length > 0) {
+        itemsContainer.innerHTML = ''; // Clear placeholder
         existingItems.forEach(item => addOrderItem(item));
     } else {
-        addOrderItem();
+        addOrderItem(); // Add one empty row for new orders
     }
+
+    // Phone number validation
+    const phoneInputEl = document.getElementById('phone_input');
+    phoneInputEl.addEventListener('input', function() {
+        const phone = this.value;
+        const phonePattern = /^05[0-9]{8}$/;
+
+        if (phone && !phonePattern.test(phone)) {
+            this.setCustomValidity('يجب أن يبدأ الرقم بـ 05 ويتكون من 10 أرقام');
+            this.classList.add('is-invalid');
+        } else {
+            this.setCustomValidity('');
+            this.classList.remove('is-invalid');
+        }
+    });
 });
 </script>

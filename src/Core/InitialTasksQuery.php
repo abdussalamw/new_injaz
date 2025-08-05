@@ -48,7 +48,8 @@ class InitialTasksQuery
                         $where_clauses[] = "o.payment_settled_at IS NULL AND o.total_amount > 0";
                         break;
                     default:
-                        $where_clauses[] = "1=0";
+                        // للأدوار الأخرى، عرض جميع الطلبات النشطة
+                        $where_clauses[] = "o.status IN ('جديد', 'قيد التصميم', 'قيد التنفيذ', 'جاهز للتسليم')";
                         break;
                 }
             } else {

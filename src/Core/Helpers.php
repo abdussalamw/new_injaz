@@ -166,6 +166,34 @@ class Helpers
         return empty($parts) ? "لحظات" : implode(' و ', array_slice($parts, 0, 2));
     }
 
+    public static function calculate_stage_duration(?string $start_date_str, ?string $end_date_str): ?int
+    {
+        if (empty($start_date_str) || empty($end_date_str)) {
+            return null;
+        }
+        try {
+            $start_date = new DateTime($start_date_str);
+            $end_date = new DateTime($end_date_str);
+            return $end_date->getTimestamp() - $start_date->getTimestamp();
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    public static function calculate_current_stage_duration(?string $start_date_str): ?int
+    {
+        if (empty($start_date_str)) {
+            return null;
+        }
+        try {
+            $start_date = new DateTime($start_date_str);
+            $now = new DateTime();
+            return $now->getTimestamp() - $start_date->getTimestamp();
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
     public static function generate_timeline_bar(array $order): string
     {
         try {
@@ -260,7 +288,14 @@ class Helpers
         if ($sort_column_key === $column) {
             $icon = $sort_order === 'asc' ? ' <i class="bi bi-sort-up"></i>' : ' <i class="bi bi-sort-down"></i>';
         }
-        return "<a href=\"?sort={$column}&order={$order}\">{$title}{$icon}</a>";
+        
+        // الحفاظ على الفلاتر الحالية
+        $current_params = $_GET;
+        $current_params['sort'] = $column;
+        $current_params['order'] = $order;
+        $query_string = http_build_query($current_params);
+        
+        return "<a href=\"?{$query_string}\">{$title}{$icon}</a>";
     }
 
     public static function generate_non_sort_column(string $title): string

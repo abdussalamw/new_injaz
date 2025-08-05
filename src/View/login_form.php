@@ -16,11 +16,11 @@
 <div class="container d-flex align-items-center justify-content-center" style="min-height:100vh;">
     <div class="card shadow-lg rounded-4 p-4" style="min-width:340px;max-width:370px;">
         <div class="text-center mb-3">
-            <img src="/assets/logoenjaz.jpg" alt="Logo" style="height:56px">
+            <img src="/new_injaz/public/assets/logoenjaz.jpg" alt="Logo" style="height:56px">
         </div>
         <h3 class="text-center mb-3" style="color:#D44759;">تسجيل الدخول</h3>
-        <?php if($success_reset): ?><div class="alert alert-success"><?= $success_reset ?></div><?php endif; ?>
-        <?php if($error): ?><div class="alert alert-danger"><?= $error ?></div><?php endif; ?>
+        <?php if(isset($success_reset) && $success_reset): ?><div class="alert alert-success"><?= $success_reset ?></div><?php endif; ?>
+        <?php if(isset($error) && $error): ?><div class="alert alert-danger"><?= $error ?></div><?php endif; ?>
         <form method="post">
             <div class="mb-3">
                 <label class="form-label">اسم المستخدم أو البريد الإلكتروني</label>

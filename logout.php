@@ -1,6 +1,4 @@
 <?php
-declare(strict_types=1);
-
 // Start session to destroy it
 session_start();
 
@@ -20,5 +18,6 @@ if (ini_get("session.use_cookies")) {
 session_destroy();
 
 // Redirect to login page
-header("Location: /new_injaz/login");
+header("Location: /new_injaz/login.php");
 exit;
+?>

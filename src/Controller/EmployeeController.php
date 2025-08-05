@@ -1,265 +1,315 @@
 <?php
+declare(strict_types=1);
 
-function list_employees() {
-    global $conn;
-    $page_title = 'إدارة الموظفين';
+namespace App\Controller;
 
-    // --- Sorting Logic ---
-    $sort_column_key = $_GET['sort'] ?? 'name';
-    $sort_order = $_GET['order'] ?? 'ASC';
+use App\Core\Permissions;
 
-    $column_map = [
-        'employee_id' => 'employee_id',
-        'name' => 'name',
-        'role' => 'role',
-        'email' => 'email'
-    ];
-    $allowed_sort_columns = array_keys($column_map);
-    if (!in_array($sort_column_key, $allowed_sort_columns)) {
-        $sort_column_key = 'name';
+class EmployeeController
+{
+    private \mysqli $conn;
+
+    public function __construct(\mysqli $conn)
+    {
+        $this->conn = $conn;
     }
-    if (strtoupper($sort_order) !== 'ASC' && strtoupper($sort_order) !== 'DESC') {
-        $sort_order = 'ASC';
-    }
-    $sort_column_sql = $column_map[$sort_column_key];
 
-    include_once __DIR__ . '/../View/employee/list.php';
-}
-
-function add_employee() {
-    global $conn;
-    $page_title = 'إضافة موظف جديد';
-
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        $name = $_POST['name'];
-        $role = $_POST['role'];
-        $phone = $_POST['phone'];
-        $email = $_POST['email'];
-        // تعيين كلمة مرور افتراضية وتشفيرها
-        $password = password_hash('demo123', PASSWORD_DEFAULT);
-
-        $conn->begin_transaction();
-        try {
-            // 1. إضافة الموظف
-            $stmt = $conn->prepare("INSERT INTO employees (name, role, phone, email, password) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssss", $name, $role, $phone, $email, $password);
-            $stmt->execute();
-            $employee_id = $conn->insert_id;
-
-            // 2. تعيين الصلاحيات الافتراضية بناءً على الدور
-            $default_permissions = [];
-            switch ($role) {
-                case 'مدير':
-                    // المدير الجديد يحصل على كل الصلاحيات المتاحة في النظام
-                    // دالة get_all_permissions() متاحة من خلال ملف header.php
-                    $all_perms = get_all_permissions();
-                    foreach ($all_perms as $group => $permissions) {
-                        $default_permissions = array_merge($default_permissions, array_keys($permissions));
-                    }
-                    break;
-                case 'مصمم':
-                case 'معمل':
-                    $default_permissions = ['dashboard_view', 'order_view_own'];
-                    break;
-                case 'محاسب':
-                    // المحاسب يحتاج صلاحية عرض مهامه، وصلاحية التسوية المالية
-                    // وصلاحية عرض كل الطلبات للمتابعة
-                    $default_permissions = ['dashboard_view', 'order_view_own', 'order_financial_settle'];
-                    break;
-            }
-
-            if (!empty($default_permissions)) {
-                $stmt_perm = $conn->prepare("INSERT INTO employee_permissions (employee_id, permission_key) VALUES (?, ?)");
-                foreach ($default_permissions as $perm_key) {
-                    $stmt_perm->bind_param("is", $employee_id, $perm_key);
-                    $stmt_perm->execute();
-                }
-            }
-
-            $conn->commit();
-            $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'تمت إضافة الموظف وتعيين صلاحياته الافتراضية بنجاح.'];
-        } catch (Exception $e) {
-            $conn->rollback();
-            $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'حدث خطأ: ' . $e->getMessage()];
+    public function index(): void
+    {
+        if (!Permissions::has_permission('employee_view', $this->conn)) {
+            header('Location: /new_injaz/');
+            exit;
         }
-        header("Location: /?page=employees");
-        exit;
+
+        $page_title = 'الموظفون';
+        
+        $sort_column_key = $_GET['sort'] ?? 'employee_id';
+        $sort_order = $_GET['order'] ?? 'asc';
+        $sort_column_sql = $sort_column_key; // For simplicity, assuming direct column names
+
+        $res = $this->conn->query("SELECT * FROM employees ORDER BY $sort_column_sql $sort_order");
+
+        // Pass variables to the view
+        $data = [
+            'conn' => $this->conn,
+            'sort_column_key' => $sort_column_key,
+            'sort_order' => $sort_order,
+            'sort_column_sql' => $sort_column_sql,
+            'res' => $res
+        ];
+
+        // Start output buffering
+        ob_start();
+        extract($data);
+        require_once __DIR__ . '/../View/employee/list.php';
+        $content = ob_get_clean();
+
+        echo $content;
     }
 
-    include_once __DIR__ . '/../View/employee/form.php';
-}
+    public function add(): void
+    {
+        if (!Permissions::has_permission('employee_add', $this->conn)) {
+            header('Location: /new_injaz/employees');
+            exit;
+        }
+        $page_title = 'إضافة موظف جديد';
+        $is_edit = false;
+        require_once __DIR__ . '/../View/employee/form.php';
+    }
 
-function edit_employee() {
-    global $conn;
-    $id = intval($_GET['id'] ?? 0);
-    $page_title = "تعديل بيانات الموظف";
+    public function store(): void
+    {
+        if (!Permissions::has_permission('employee_add', $this->conn)) {
+            header('Location: /new_injaz/employees');
+            exit;
+        }
 
-    if (isset($_POST['reset_password'])) {
-        check_permission('employee_password_reset', $conn);
-        $password = password_hash('demo123', PASSWORD_DEFAULT);
-        $stmt_reset = $conn->prepare("UPDATE employees SET password = ? WHERE employee_id = ?");
-        $stmt_reset->bind_param("si", $password, $id);
-        if ($stmt_reset->execute()) {
-            $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'تم إعادة تعيين كلمة المرور بنجاح إلى "demo123".'];
+        $name = $_POST['name'] ?? '';
+        $role = $_POST['role'] ?? '';
+        $phone = $_POST['phone'] ?? '';
+        $email = $_POST['email'] ?? '';
+        $password = $_POST['password'] ?? '';
+
+        if (empty($password)) {
+            $error = "كلمة المرور مطلوبة للموظف الجديد.";
+            $page_title = 'إضافة موظف جديد';
+            $is_edit = false;
+            require_once __DIR__ . '/../View/employee/form.php';
+            return;
+        }
+
+        // التحقق من صحة رقم الجوال
+        if (!empty($phone) && !preg_match('/^05[0-9]{8}$/', $phone)) {
+            $error = "رقم الجوال غير صحيح. يجب أن يبدأ بـ 05 ويتكون من 10 أرقام";
+            $page_title = 'إضافة موظف جديد';
+            $is_edit = false;
+            require_once __DIR__ . '/../View/employee/form.php';
+            return;
+        }
+
+        $password_hash = password_hash($password, PASSWORD_DEFAULT);
+        $stmt = $this->conn->prepare("INSERT INTO employees (name, role, phone, email, password) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssss", $name, $role, $phone, $email, $password_hash);
+
+        if ($stmt->execute()) {
+            header("Location: /new_injaz/employees");
+            exit;
         } else {
-            $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'حدث خطأ أثناء إعادة تعيين كلمة المرور.'];
+            $error = "خطأ في إضافة الموظف";
+            $page_title = 'إضافة موظف جديد';
+            $is_edit = false;
+            require_once __DIR__ . '/../View/employee/form.php';
         }
-        header("Location: /?page=employees&action=edit&id=" . $id);
-        exit;
     }
 
-    if ($_SERVER["REQUEST_METHOD"] == "POST" && !isset($_POST['reset_password'])) {
-        $name = $_POST['name'];
-        $role = $_POST['role'];
-        $phone = $_POST['phone'];
-        $email = $_POST['email'];
-        $password = $_POST['password'];
+    public function edit(): void
+    {
+        if (!Permissions::has_permission('employee_edit', $this->conn)) {
+            header('Location: /new_injaz/employees');
+            exit;
+        }
 
-        // بناء الاستعلام بشكل ديناميكي
-        $sql = "UPDATE employees SET name=?, role=?, phone=?, email=? ";
-        $types = "ssss";
-        $params = [$name, $role, $phone, $email];
+        $id = $_GET['id'] ?? null;
+        if (!$id) {
+            http_response_code(400);
+            echo "<h1>400 Bad Request: Missing employee ID</h1>";
+            return;
+        }
+
+        $stmt = $this->conn->prepare("SELECT * FROM employees WHERE employee_id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $employee = $result->fetch_assoc();
+
+        if (!$employee) {
+            http_response_code(404);
+            echo "<h1>404 Not Found: Employee not found</h1>";
+            return;
+        }
+
+        $page_title = "تعديل الموظف #" . $employee['employee_id'];
+        $is_edit = true;
+        require_once __DIR__ . '/../View/employee/form.php';
+    }
+
+    public function update(): void
+    {
+        if (!Permissions::has_permission('employee_edit', $this->conn)) {
+            header('Location: /new_injaz/employees');
+            exit;
+        }
+
+        $id = $_POST['id'] ?? null;
+        if (!$id) {
+            http_response_code(400);
+            echo "<h1>400 Bad Request: Missing employee ID</h1>";
+            return;
+        }
+
+        $name = $_POST['name'] ?? '';
+        $role = $_POST['role'] ?? '';
+        $phone = $_POST['phone'] ?? '';
+        $email = $_POST['email'] ?? '';
+        $password = $_POST['password'] ?? '';
+
+        // التحقق من صحة رقم الجوال
+        if (!empty($phone) && !preg_match('/^05[0-9]{8}$/', $phone)) {
+            $error = "رقم الجوال غير صحيح. يجب أن يبدأ بـ 05 ويتكون من 10 أرقام";
+            $page_title = "تعديل الموظف #" . $id;
+            $is_edit = true;
+            $stmt = $this->conn->prepare("SELECT * FROM employees WHERE employee_id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $employee = $result->fetch_assoc();
+            require_once __DIR__ . '/../View/employee/form.php';
+            return;
+        }
 
         if (!empty($password)) {
-            $sql .= ", password=? ";
-            $types .= "s";
-            $params[] = password_hash($password, PASSWORD_DEFAULT);
-        }
-        $sql .= " WHERE employee_id=?";
-        $types .= "i";
-        $params[] = $id;
-        $stmt2 = $conn->prepare($sql);
-        $stmt2->bind_param($types, ...$params);
-        if ($stmt2->execute()) {
-            $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'تم تعديل بيانات الموظف بنجاح.'];
+            $password_hash = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $this->conn->prepare("UPDATE employees SET name = ?, role = ?, phone = ?, email = ?, password = ? WHERE employee_id = ?");
+            $stmt->bind_param("sssssi", $name, $role, $phone, $email, $password_hash, $id);
         } else {
-            $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'حدث خطأ أثناء التعديل.'];
+            $stmt = $this->conn->prepare("UPDATE employees SET name = ?, role = ?, phone = ?, email = ? WHERE employee_id = ?");
+            $stmt->bind_param("ssssi", $name, $role, $phone, $email, $id);
         }
-        header("Location: /?page=employees&action=edit&id=" . $id);
-        exit;
+
+        if ($stmt->execute()) {
+            header("Location: /new_injaz/employees");
+            exit;
+        } else {
+            $error = "خطأ في تحديث البيانات";
+            $page_title = "تعديل الموظف #" . $id;
+            $is_edit = true;
+            $stmt = $this->conn->prepare("SELECT * FROM employees WHERE employee_id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $employee = $result->fetch_assoc();
+            require_once __DIR__ . '/../View/employee/form.php';
+        }
     }
 
-    $stmt = $conn->prepare("SELECT * FROM employees WHERE employee_id=?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $employee = $result->fetch_assoc();
-
-    if (!$employee) {
-        echo "<div class='alert alert-danger'>الموظف غير موجود</div>";
-        return;
-    }
-
-    include_once __DIR__ . '/../View/employee/form.php';
-}
-
-function delete_employee() {
-    global $conn;
-    $id = intval($_GET['id'] ?? 0);
-
-    if ($id) {
-        // منع المستخدم من حذف نفسه
-        if ($id === ($_SESSION['user_id'] ?? 0)) {
-            $_SESSION['flash_message'] = ['type' => 'warning', 'message' => 'لا يمكنك حذف حسابك الخاص.'];
-            header("Location: /?page=employees");
+    public function permissions(): void
+    {
+        if (!Permissions::has_permission('employee_permissions_edit', $this->conn)) {
+            header('Location: /new_injaz/employees');
             exit;
         }
 
-        // Check for related records in the orders table
-        $stmt_check = $conn->prepare("SELECT 1 FROM orders WHERE created_by = ? OR designer_id = ? LIMIT 1");
-        $stmt_check->bind_param("ii", $id, $id);
-        $stmt_check->execute();
-        $result_check = $stmt_check->get_result();
-
-        if ($result_check->num_rows > 0) {
-            $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'لا يمكن حذف هذا الموظف لأنه مرتبط بطلبات حالية (كمنشئ أو مصمم).'];
-            header("Location: /?page=employees");
-            exit;
+        $id = $_GET['id'] ?? null;
+        if (!$id) {
+            http_response_code(400);
+            echo "<h1>400 Bad Request: Missing employee ID</h1>";
+            return;
         }
 
-        $stmt = $conn->prepare("DELETE FROM employees WHERE employee_id=?");
+        $stmt = $this->conn->prepare("SELECT * FROM employees WHERE employee_id = ?");
         $stmt->bind_param("i", $id);
-        if ($stmt->execute() && $stmt->affected_rows > 0) {
-            $_SESSION['flash_message'] = ['type' => 'success', 'message' => 'تم حذف الموظف بنجاح.'];
-        } else {
-            $_SESSION['flash_message'] = ['type' => 'danger', 'message' => 'لم يتم العثور على الموظف أو حدث خطأ.'];
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $employee = $result->fetch_assoc();
+
+        if (!$employee) {
+            http_response_code(404);
+            echo "<h1>404 Not Found: Employee not found</h1>";
+            return;
         }
-    }
-    header("Location: /?page=employees");
-    exit;
-}
 
-function ajax_change_password() {
-    global $conn;
-    header('Content-Type: application/json');
-
-    if (!isset($_SESSION['user_id'])) {
-        echo json_encode(['success' => false, 'message' => 'جلسة غير صالحة. يرجى تسجيل الدخول مرة أخرى.']);
-        exit;
+        $page_title = "صلاحيات الموظف: " . $employee['name'];
+        $conn = $this->conn;
+        require_once __DIR__ . '/../View/employee/permissions.php';
     }
 
-    $data = json_decode(file_get_contents('php://input'), true);
-    $employee_id = $data['employee_id'] ?? null;
-    $current_password = $data['current_password'] ?? '';
-    $new_password = $data['new_password'] ?? '';
-    $confirm_password = $data['confirm_password'] ?? '';
-
-    $current_user_id = $_SESSION['user_id'];
-    $is_self_change = ($current_user_id == $employee_id);
-
-    if (!($is_self_change && has_permission('profile_change_password', $conn)) && !has_permission('employee_password_reset', $conn)) {
-        echo json_encode(['success' => false, 'message' => 'ليس لديك الصلاحية لتنفيذ هذا الإجراء.']);
-        exit;
-    }
-
-    if (empty($employee_id) || empty($new_password) || empty($confirm_password)) {
-        echo json_encode(['success' => false, 'message' => 'يرجى ملء جميع الحقول المطلوبة.']);
-        exit;
-    }
-
-    if ($is_self_change && empty($current_password)) {
-        echo json_encode(['success' => false, 'message' => 'يرجى إدخال كلمة المرور الحالية.']);
-        exit;
-    }
-
-    if ($new_password !== $confirm_password) {
-        echo json_encode(['success' => false, 'message' => 'كلمة المرور الجديدة وتأكيدها غير متطابقين.']);
-        exit;
-    }
-
-    if (strlen($new_password) < 8) {
-        echo json_encode(['success' => false, 'message' => 'يجب أن تتكون كلمة المرور الجديدة من 8 أحرف على الأقل.']);
-        exit;
-    }
-
-    $stmt = $conn->prepare("SELECT password FROM employees WHERE employee_id = ?");
-    $stmt->bind_param("i", $employee_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $user = $result->fetch_assoc();
-    $stmt->close();
-
-    if (!$user) {
-        echo json_encode(['success' => false, 'message' => 'الموظف غير موجود.']);
-        exit;
-    }
-
-    if ($is_self_change) {
-        if (!password_verify($current_password, $user['password'])) {
-            echo json_encode(['success' => false, 'message' => 'كلمة المرور الحالية غير صحيحة.']);
+    public function updatePermissions(): void
+    {
+        if (!Permissions::has_permission('employee_permissions_edit', $this->conn)) {
+            header('Location: /new_injaz/employees');
             exit;
         }
+
+        $id = $_POST['employee_id'] ?? $_POST['id'] ?? $_GET['id'] ?? null;
+        if (!$id) {
+            http_response_code(400);
+            echo "<h1>400 Bad Request: Missing employee ID</h1>";
+            return;
+        }
+
+        // Delete existing permissions
+        $stmt = $this->conn->prepare("DELETE FROM employee_permissions WHERE employee_id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+
+        // Insert new permissions
+        if (isset($_POST['permissions']) && is_array($_POST['permissions'])) {
+            $stmt = $this->conn->prepare("INSERT INTO employee_permissions (employee_id, permission_key) VALUES (?, ?)");
+            foreach ($_POST['permissions'] as $permission) {
+                $stmt->bind_param("is", $id, $permission);
+                $stmt->execute();
+            }
+        }
+
+        header("Location: /new_injaz/employees");
+        exit;
     }
 
-    $hashed_new_password = password_hash($new_password, PASSWORD_DEFAULT);
-    $update_stmt = $conn->prepare("UPDATE employees SET password = ? WHERE employee_id = ?");
-    $update_stmt->bind_param("si", $hashed_new_password, $employee_id);
+    public function destroy(): void
+    {
+        if (!Permissions::has_permission('employee_delete', $this->conn)) {
+            header('Location: /new_injaz/employees');
+            exit;
+        }
 
-    if ($update_stmt->execute()) {
-        echo json_encode(['success' => true, 'message' => 'تم تغيير كلمة المرور بنجاح!']);
-    } else {
-        echo json_encode(['success' => false, 'message' => 'حدث خطأ أثناء تحديث كلمة المرور.']);
+        $id = $_POST['id'] ?? null;
+        if (!$id) {
+            http_response_code(400);
+            echo "<h1>400 Bad Request: Missing employee ID</h1>";
+            return;
+        }
+
+        $stmt = $this->conn->prepare("DELETE FROM employees WHERE employee_id = ?");
+        $stmt->bind_param("i", $id);
+
+        if ($stmt->execute()) {
+            header("Location: /new_injaz/employees");
+            exit;
+        } else {
+            http_response_code(500);
+            echo "Error deleting employee: " . $stmt->error;
+        }
     }
-    $update_stmt->close();
-    exit;
+
+    public function confirmDelete(): void
+    {
+        if (!Permissions::has_permission('employee_delete', $this->conn)) {
+            header('Location: /new_injaz/employees');
+            exit;
+        }
+
+        $id = $_GET['id'] ?? null;
+        if (!$id) {
+            http_response_code(400);
+            echo "<h1>400 Bad Request: Missing employee ID</h1>";
+            return;
+        }
+
+        $stmt = $this->conn->prepare("SELECT * FROM employees WHERE employee_id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $employee = $result->fetch_assoc();
+
+        if (!$employee) {
+            http_response_code(404);
+            echo "<h1>404 Not Found: Employee not found</h1>";
+            return;
+        }
+
+        $page_title = "تأكيد حذف الموظف: " . $employee['name'];
+        $conn = $this->conn;
+        require_once __DIR__ . '/../View/employee/delete_confirm.php';
+    }
 }
