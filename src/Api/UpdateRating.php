@@ -7,6 +7,13 @@ use App\Core\Permissions;
 
 // Note: The router handles session_start, db_connection, and auth checks.
 
+// Check if $conn is available and is a valid mysqli connection
+if (!isset($conn) || !($conn instanceof \mysqli) || $conn->connect_error) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'خطأ في الاتصال بقاعدة البيانات.']);
+    exit;
+}
+
 if (!Permissions::has_permission('dashboard_reports_view', $conn)) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'غير مسموح لك بتقييم المراحل']);
@@ -43,6 +50,10 @@ if (!in_array($stage, ['design', 'execution'])) {
 $column = $stage === 'design' ? 'design_rating' : 'execution_rating';
 
 $stmt = $conn->prepare("UPDATE orders SET {$column} = ? WHERE order_id = ?");
+if ($stmt === false) {
+    echo json_encode(['success' => false, 'message' => 'خطأ في تحضير استعلام التحديث: ' . $conn->error]);
+    exit;
+}
 $stmt->bind_param("ii", $rating, $order_id);
 
 if ($stmt->execute()) {
@@ -50,6 +61,10 @@ if ($stmt->execute()) {
                                    FROM orders o 
                                    JOIN clients c ON o.client_id = c.client_id 
                                    WHERE o.order_id = ?");
+    if ($order_query === false) {
+        echo json_encode(['success' => false, 'message' => 'خطأ في تحضير استعلام جلب الطلب: ' . $conn->error]);
+        exit;
+    }
     $order_query->bind_param("i", $order_id);
     $order_query->execute();
     $order_info = $order_query->get_result()->fetch_assoc();

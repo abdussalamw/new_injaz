@@ -181,6 +181,7 @@
 </style>
 
 <script>
+    const BASE_URL = '<?= $base_path ?>'; // Defined in public/index.php
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.rating-stars').forEach(function(ratingContainer) {
         const stars = ratingContainer.querySelectorAll('.star');
@@ -226,10 +227,11 @@ document.addEventListener('DOMContentLoaded', function() {
             didOpen: () => Swal.showLoading()
         });
         
-        fetch('/api/ratings', {
+        fetch(BASE_URL + '/api/ratings', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({
                 order_id: orderId,

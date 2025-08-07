@@ -36,7 +36,7 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/assets/style.css">
+    <link rel="stylesheet" href="/new_injaz/public/assets/style.css">
     <style>
         body { font-family: 'Tajawal', Arial, sans-serif; background: #faf6f4; }
         .main-navbar { background: #D44759; }
@@ -116,30 +116,66 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
             color: white !important;
         }
 
-        /* --- Sidebar Toggle Button Styles --- */
+        /* --- تصميم شريط التحكم الجديد --- */
+        .sidebar-control-bar {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 3px solid #007bff;
+            border-top: 1px solid #dee2e6;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1001;
+        }
+
         .sidebar-toggle {
-            position: absolute;
-            top: 10px;
-            right: -15px;
-            background: #D44759;
-            border: none;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 14px;
-            cursor: pointer;
             transition: all 0.3s ease;
-            z-index: 1000;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            font-size: 14px;
+            font-weight: 600;
+            border: none !important;
+            background: #007bff !important;
+            color: white !important;
         }
+
         .sidebar-toggle:hover {
-            background: #F37D47;
-            transform: scale(1.1);
+            background: #0056b3 !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
         }
+
+        .sidebar-toggle:focus {
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+        }
+
+        .sidebar-toggle i {
+            transition: transform 0.3s ease;
+            font-size: 16px;
+        }
+
+        .sidebar.collapsed .sidebar-toggle .toggle-text {
+            display: none;
+        }
+
+        .sidebar.collapsed .sidebar-toggle i {
+            transform: rotate(180deg);
+        }
+
+        /* تصميم الزر الكبير الجديد */
+        #sidebarToggle {
+            transition: all 0.4s ease;
+            animation: pulse 2s infinite;
+        }
+
+        #sidebarToggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+        }
+
         .sidebar.collapsed {
             width: 60px !important;
             min-width: 60px !important;
@@ -249,13 +285,18 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
         <?php endif; ?>
     </div>
 </nav>
+
 <div class="container-fluid">
   <div class="row">
     <nav class="col-md-2 sidebar py-4 d-none d-md-block" id="sidebar">
-      <button class="sidebar-toggle" id="sidebarToggle" title="تصغير/توسيع القائمة">
-        <i class="bi bi-chevron-right"></i>
-      </button>
       <ul class="nav flex-column">
+        <!-- عنصر توسيع تصغير لوحة التحكم -->
+        <li class="nav-item">
+            <a class="nav-link" href="#" id="sidebarToggle" style="cursor: pointer;">
+                <i class="bi bi-arrows-angle-expand me-2"></i>
+                <span class="toggle-text">توسيع تصغير لوحة التحكم</span>
+            </a>
+        </li>
         <?php if (\App\Core\Permissions::has_permission('dashboard_view', $conn)): ?>
             <li class="nav-item">
               <a class="nav-link<?= ($_SERVER['REQUEST_URI'] == '/new_injaz/' || $_SERVER['REQUEST_URI'] == '/new_injaz/index.php') ? ' active' : '' ?>" href="/new_injaz/">

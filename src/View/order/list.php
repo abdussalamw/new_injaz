@@ -185,7 +185,7 @@
                                             ?>
                                             <div class="btn-group btn-group-sm" role="group">
                                                 <a href="/new_injaz/orders/edit?id=<?= $row['order_id'] ?>" class="btn btn-outline-secondary btn-sm" title="تفاصيل">
-                                                    <i class="bi bi-eye"></i>
+                                                    <i class="bi bi-eye"></i> تفاصيل
                                                 </a>
 
                                                 <?php foreach ($actions as $action_key => $action_details): ?>

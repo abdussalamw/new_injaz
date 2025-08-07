@@ -186,6 +186,8 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
             <?php endif; ?>
 
             <h4 style="color:#D44759;" class="mt-4 mb-3"><?= $dashboard_title ?></h4>
+            
+            
             <div class="row g-3 dashboard-cards" id="tasks-container">
                 <?php if($res && $res->num_rows > 0): ?>
                     <?php while($row = $res->fetch_assoc()): ?>
@@ -296,10 +298,15 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('.action-btn').forEach(button => {
             button.addEventListener('click', function (e) {
                 e.preventDefault();
+                e.stopPropagation(); // منع أي مستمعي أحداث آخرين من التداخل
                 const btn = this;
                 const orderId = btn.dataset.orderId;
                 const action = btn.dataset.action;
+                const value = btn.dataset.value || null;
                 const confirmMessage = btn.dataset.confirmMessage;
+
+                const whatsappPhone = btn.dataset.whatsappPhone;
+                const whatsappOrderId = btn.dataset.whatsappOrderId;
 
                 // معالجة خاصة لزر تحديث الدفع (للمحاسب)
                 if (action === 'update_payment') {
@@ -324,18 +331,49 @@ document.addEventListener('DOMContentLoaded', function () {
                             didOpen: () => { Swal.showLoading(); }
                         });
 
-                        fetch('ajax_order_actions.php', {
+                        const requestData = { order_id: orderId, action: action, value: value };
+
+                        fetch('/new_injaz/ajax_order_actions.php', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                            body: JSON.stringify({ order_id: orderId, action: action })
+                            headers: { 
+                                'Content-Type': 'application/json', 
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: JSON.stringify(requestData)
                         })
-                        .then(response => response.json())
+                        .then(response => {
+                            return response.json();
+                        })
                         .then(data => {
                             if (data.success) {
-                                Swal.fire('تم بنجاح!', data.message, 'success').then(() => {
-                                    // Refresh only the tasks list for better UX
-                                    applyFilters(); 
-                                });
+                                if (whatsappPhone && whatsappOrderId) {
+                                    const whatsappMessage = `العميل العزيز، تم تحديث حالة طلبكم رقم ${whatsappOrderId}. شكراً لتعاملكم معنا.`;
+                                    const encodedMessage = encodeURIComponent(whatsappMessage);
+                                    const internationalPhone = '966' + whatsappPhone.substring(1);
+                                    const whatsappUrl = `https://wa.me/${internationalPhone}?text=${encodedMessage}`;
+
+                                    Swal.fire({
+                                        title: 'تم بنجاح!',
+                                        text: data.message,
+                                        icon: 'success',
+                                        showCancelButton: true,
+                                        confirmButtonText: 'فتح واتساب',
+                                        cancelButtonText: 'إغلاق',
+                                        confirmButtonColor: '#25d366'
+                                    }).then((result) => {
+                                        if (result.isConfirmed) {
+                                            window.open(whatsappUrl, '_blank');
+                                        }
+                                        // Refresh only the tasks list for better UX
+                                        applyFilters(); 
+                                    });
+                                } else {
+                                    Swal.fire('تم بنجاح!', data.message, 'success').then(() => {
+                                        // Refresh only the tasks list for better UX
+                                        applyFilters(); 
+                                    });
+                                }
                             } else {
                                 Swal.fire('خطأ!', data.message, 'error');
                             }
@@ -473,6 +511,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Initial bind
     bindActionButtons();
+    
+    // --- اختبار تشخيصي بسيط ---
+    const testButton = document.getElementById('cline-test-button');
+    if (testButton) {
+        testButton.addEventListener('click', function() {
+            alert('🎉 ممتاز! الكود الجديد يعمل بشكل صحيح. هذا يعني أن المشكلة ليست في التخزين المؤقت.');
+        });
+    }
 });
 
 </script>

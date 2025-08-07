@@ -73,8 +73,8 @@
                                     </td>
                                     <td>
                                         <?php if (!empty($row['phone'])): ?>
-                                            <a href="<?= \App\Core\Helpers::format_whatsapp_link($row['phone']) ?>" target="_blank" class="btn btn-sm text-decoration-none" style="background-color: #25D366; color: white;" title="فتح واتساب">
-                                                <i class="bi bi-whatsapp me-1"></i>
+                                            <a href="<?= \App\Core\Helpers::format_whatsapp_link($row['phone']) ?>" target="_blank" class="text-decoration-none text-dark" title="فتح واتساب">
+                                                <i class="bi bi-whatsapp me-1 text-success"></i>
                                                 <?= htmlspecialchars($row['phone']) ?>
                                             </a>
                                         <?php else: ?>
@@ -89,10 +89,10 @@
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">
                                             <a href="/new_injaz/employees/edit?id=<?= $row['employee_id'] ?>" class="btn btn-outline-primary btn-sm" title="تعديل">
-                                                <i class="bi bi-pencil"></i>
+                                                <i class="bi bi-pencil"></i> تفاصيل
                                             </a>
                                             <a href="/new_injaz/employees/permissions?id=<?= $row['employee_id'] ?>" class="btn btn-outline-info btn-sm" title="الصلاحيات">
-                                                <i class="bi bi-shield-check"></i>
+                                                <i class="bi bi-shield-check"></i> الصلاحيات
                                             </a>
                                             <a href="/new_injaz/employees/confirm-delete?id=<?= $row['employee_id'] ?>" class="btn btn-outline-danger btn-sm" title="حذف">
                                                 <i class="bi bi-trash"></i>

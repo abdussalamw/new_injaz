@@ -88,7 +88,7 @@
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">
                                             <a href="/new_injaz/products/edit?id=<?= $row['product_id'] ?>" class="btn btn-outline-primary btn-sm" title="تعديل">
-                                                <i class="bi bi-pencil"></i>
+                                                <i class="bi bi-pencil"></i> تفاصيل
                                             </a>
                                             <a href="/new_injaz/products/confirm-delete?id=<?= $row['product_id'] ?>" class="btn btn-outline-danger btn-sm" title="حذف">
                                                 <i class="bi bi-trash"></i>

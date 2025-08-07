@@ -161,7 +161,7 @@ if (!function_exists('get_current_responsible')) {
                 <!-- الصف الأول -->
                 <div class="col-6">
                     <?php if (has_card_permission('task_card_edit', $conn)): ?>
-                        <a href="/?page=orders&action=edit&id=<?= $task_details['order_id'] ?>" class="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center" style="height: 35px;">
+                        <a href="/new_injaz/orders/edit?id=<?= $task_details['order_id'] ?>" class="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center" style="height: 35px;">
                             <i class="bi bi-pencil-square me-1"></i>
                             <span class="small">تفاصيل</span>
                         </a>
@@ -258,90 +258,3 @@ if (!function_exists('get_current_responsible')) {
         </div>
     </div>
 </div>
-
-<script>
-// JavaScript for action buttons in cards
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.action-btn').forEach(button => {
-        button.addEventListener('click', function (e) {
-            e.preventDefault();
-
-            const btn = this;
-            const orderId = btn.dataset.orderId;
-            const action = btn.dataset.action;
-            const value = btn.dataset.value || null;
-            const confirmMessage = btn.dataset.confirmMessage;
-
-            const whatsappPhone = btn.dataset.whatsappPhone;
-            const whatsappOrderId = btn.dataset.whatsappOrderId;
-
-            Swal.fire({
-                title: 'هل أنت متأكد؟',
-                text: confirmMessage,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'نعم, نفّذ الإجراء!',
-                cancelButtonText: 'إلغاء'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'الرجاء الانتظار...',
-                        allowOutsideClick: false,
-                        didOpen: () => { Swal.showLoading(); }
-                    });
-
-                    fetch('/new_injaz/ajax_order_actions.php', {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json', 
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: JSON.stringify({ order_id: orderId, action: action, value: value })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            if (whatsappPhone && whatsappOrderId) {
-                                const whatsappMessage = `العميل العزيز، تم تحديث حالة طلبكم رقم ${whatsappOrderId}. شكراً لتعاملكم معنا.`;
-                                const encodedMessage = encodeURIComponent(whatsappMessage);
-                                const internationalPhone = '966' + whatsappPhone.substring(1);
-                                const whatsappUrl = `https://wa.me/${internationalPhone}?text=${encodedMessage}`;
-
-                                Swal.fire({
-                                    title: 'تم بنجاح!',
-                                    text: data.message,
-                                    icon: 'success',
-                                    showCancelButton: true,
-                                    confirmButtonText: 'فتح واتساب',
-                                    cancelButtonText: 'إغلاق',
-                                    confirmButtonColor: '#25d366'
-                                }).then((result) => {
-                                    if (result.isConfirmed) {
-                                        window.open(whatsappUrl, '_blank');
-                                    }
-                                    // Reload the page to see the updated status
-                                    window.location.reload();
-                                });
-                            } else {
-                                Swal.fire('تم بنجاح!', data.message, 'success').then(() => {
-                                    // Reload the page to see the updated status
-                                    window.location.reload();
-                                });
-                            }
-                        } else {
-                            Swal.fire('خطأ!', data.message, 'error');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        Swal.fire('خطأ فني!', 'حدث خطأ أثناء تنفيذ الإجراء.', 'error');
-                    });
-                }
-            });
-        });
-    });
-});
-</script>
