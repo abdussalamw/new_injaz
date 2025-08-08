@@ -105,11 +105,11 @@ try {
             break;
             
         case 'confirm_delivery':
-            $stmt = $conn->prepare("UPDATE orders SET delivered_at = NOW(), updated_at = NOW() WHERE order_id = ?");
+            $stmt = $conn->prepare("UPDATE orders SET delivered_at = NOW(), status = 'مكتمل', updated_at = NOW() WHERE order_id = ?");
             $stmt->bind_param("i", $order_id);
             $stmt->execute();
             
-            echo json_encode(['success' => true, 'message' => 'تم تأكيد استلام العميل']);
+            echo json_encode(['success' => true, 'message' => 'تم تأكيد استلام العميل وتغيير الحالة إلى مكتمل']);
             break;
             
         case 'confirm_payment':

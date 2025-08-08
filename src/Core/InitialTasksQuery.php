@@ -24,7 +24,8 @@ class InitialTasksQuery
         $types = "";
 
         if (Permissions::has_permission('order_view_all', $conn)) {
-            $where_clauses[] = "TRIM(o.status) NOT IN ('مكتمل', 'ملغي')";
+            // إخفاء المهام المكتملة أو المدفوعة أو الملغية (أي شرط يكفي)
+            $where_clauses[] = "TRIM(o.status) != 'مكتمل' AND TRIM(o.payment_status) != 'مدفوع' AND TRIM(o.status) != 'ملغي'";
 
             if (!empty($filter_employee)) {
                 $employee_role_query = $conn->prepare("SELECT role FROM employees WHERE employee_id = ?");
@@ -74,7 +75,8 @@ class InitialTasksQuery
                 $types .= "sss";
             }
         } elseif (Permissions::has_permission('order_view_own', $conn)) {
-            $where_clauses = ["TRIM(o.status) NOT IN ('مكتمل', 'ملغي')"];
+            // إخفاء المهام المكتملة والمدفوعة كاملاً، وكذلك الملغية للموظفين
+            $where_clauses = ["(o.status != 'مكتمل' OR o.payment_status != 'مدفوع') AND o.status != 'ملغي'"];
             
             switch ($user_role) {
                 case 'مصمم':
@@ -83,6 +85,8 @@ class InitialTasksQuery
                     $types .= "i";
                     break;
                 case 'معمل':
+                    // يظهر له فقط قيد التنفيذ أو جاهز للتسليم (ولا يظهر مكتمل)
+                    // ملاحظة: يجب ألا يتم تغيير الحالة إلى "مكتمل" إلا بعد تأكيد العميل فقط من الكنترولر
                     $where_clauses[] = "o.workshop_id = ? AND TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم')";
                     $params[] = $user_id;
                     $types .= "i";
@@ -123,6 +127,7 @@ class InitialTasksQuery
 
         $sql .= " GROUP BY o.order_id ORDER BY " . $order_by_clause;
 
+        
         $stmt = $conn->prepare($sql);
         if (!empty($params)) {
             $stmt->bind_param($types, ...$params);

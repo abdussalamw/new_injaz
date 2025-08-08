@@ -21,26 +21,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const mainContent = document.getElementById('mainContent');
     
     if (sidebarToggle && sidebar && mainContent) {
-        // استرجاع حالة القائمة من localStorage
-        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-        if (isCollapsed) {
-            sidebar.classList.add('collapsed');
-            mainContent.classList.add('expanded');
-            sidebarToggle.querySelector('i').classList.replace('bi-chevron-right', 'bi-chevron-left');
-        }
-        
-        sidebarToggle.addEventListener('click', function() {
-            sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('expanded');
-            
+        const applySidebarState = (isCollapsed) => {
             const icon = sidebarToggle.querySelector('i');
-            if (sidebar.classList.contains('collapsed')) {
-                icon.classList.replace('bi-chevron-right', 'bi-chevron-left');
+
+            // Toggle Bootstrap grid classes for proper reflow
+            sidebar.classList.toggle('col-md-2', !isCollapsed);
+            mainContent.classList.toggle('col-md-10', !isCollapsed);
+            mainContent.classList.toggle('ms-sm-auto', !isCollapsed);
+            mainContent.classList.toggle('col-md-12', isCollapsed);
+
+            // Toggle custom state classes
+            sidebar.classList.toggle('collapsed', isCollapsed);
+
+            // Update icon and save state
+            if (isCollapsed) {
+                icon.classList.remove('bi-arrows-angle-expand');
+                icon.classList.add('bi-arrows-angle-contract');
                 localStorage.setItem('sidebarCollapsed', 'true');
             } else {
-                icon.classList.replace('bi-chevron-left', 'bi-chevron-right');
+                icon.classList.remove('bi-arrows-angle-contract');
+                icon.classList.add('bi-arrows-angle-expand');
                 localStorage.setItem('sidebarCollapsed', 'false');
             }
+        };
+
+        // Set initial state from localStorage
+        applySidebarState(localStorage.getItem('sidebarCollapsed') === 'true');
+
+        // Add click listener
+        sidebarToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            applySidebarState(!sidebar.classList.contains('collapsed'));
         });
     }
 

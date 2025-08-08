@@ -190,7 +190,6 @@ if (!function_exists('get_current_responsible')) {
                 <div class="col-6">
                     <?php 
                     $payment_action = null;
-                    $status_action = null;
                     foreach ($actions as $action_key => $action_details) {
                         if ($action_key === 'confirm_payment') {
                             $payment_action = $action_details;
@@ -216,14 +215,27 @@ if (!function_exists('get_current_responsible')) {
                 </div>
                 <div class="col-6">
                     <?php 
+                    $status_action = null;
+                    $confirm_delivery_action = null;
+
                     foreach ($actions as $action_key => $action_details) {
                         if ($action_key === 'change_status') {
                             $status_action = $action_details;
-                            break;
+                        } elseif ($action_key === 'confirm_delivery') {
+                            $confirm_delivery_action = $action_details;
                         }
                     }
                     ?>
-                    <?php if ($status_action): ?>
+                    <?php if ($confirm_delivery_action): ?>
+                        <button class="btn <?= $confirm_delivery_action['class'] ?> btn-sm w-100 action-btn d-flex align-items-center justify-content-center" 
+                                data-action="confirm_delivery" 
+                                data-order-id="<?= $task_details['order_id'] ?>"
+                                data-confirm-message="هل أنت متأكد من تأكيد استلام العميل للطلب؟"
+                                style="height: 35px;">
+                            <i class="<?= $confirm_delivery_action['icon'] ?> me-1"></i>
+                            <span class="small"><?= $confirm_delivery_action['label'] ?></span>
+                        </button>
+                    <?php elseif ($status_action): ?>
                         <div class="btn-group w-100">
                             <button type="button" class="btn btn-info btn-sm dropdown-toggle w-100 d-flex align-items-center justify-content-center" data-bs-toggle="dropdown" aria-expanded="false" style="height: 35px;">
                                 <i class="bi bi-arrow-repeat me-1"></i>

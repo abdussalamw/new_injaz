@@ -67,9 +67,7 @@
                                     <td class="fw-bold text-primary"><?= $row['employee_id'] ?></td>
                                     <td class="text-start"><?= htmlspecialchars($row['name']) ?></td>
                                     <td>
-                                        <span class="badge bg-<?= $row['role'] === 'مدير' ? 'danger' : ($row['role'] === 'مصمم' ? 'info' : 'secondary') ?>">
-                                            <?= htmlspecialchars($row['role']) ?>
-                                        </span>
+                                        <?= htmlspecialchars($row['role']) ?>
                                     </td>
                                     <td>
                                         <?php if (!empty($row['phone'])): ?>

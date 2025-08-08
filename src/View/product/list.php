@@ -70,14 +70,10 @@
                                         <?= htmlspecialchars($row['name']) ?>
                                     </td>
                                     <td>
-                                        <span class="badge bg-info">
-                                            <?= htmlspecialchars($row['default_size']) ?>
-                                        </span>
+                                        <?= htmlspecialchars($row['default_size']) ?>
                                     </td>
                                     <td>
-                                        <span class="badge bg-secondary">
-                                            <?= htmlspecialchars($row['default_material']) ?>
-                                        </span>
+                                        <?= htmlspecialchars($row['default_material']) ?>
                                     </td>
                                     <td class="text-start">
                                         <small class="text-muted">

@@ -79,7 +79,9 @@ class OrderController
         $types = "";
 
         if (Permissions::has_permission('order_view_all', $this->conn)) {
-            // المدير يرى جميع الطلبات
+            // المدير يرى جميع الطلبات ما عدا المهام المكتملة والمدفوعة
+            $where_clauses[] = "NOT (TRIM(o.status) = 'مكتمل' AND TRIM(o.payment_status) = 'مدفوع') AND TRIM(o.status) != 'ملغي'";
+
             if (!empty($filter_status)) {
                 $where_clauses[] = "o.status = ?";
                 $params[] = $filter_status;
@@ -122,21 +124,50 @@ class OrderController
                 $types .= "s";
             }
         } elseif (Permissions::has_permission('order_view_own', $this->conn)) {
-            // الموظف يرى طلباته فقط
             switch ($user_role) {
                 case 'مصمم':
-                    $where_clauses[] = "o.designer_id = ?";
+                    $where_clauses[] = "o.designer_id = ? AND TRIM(o.status) = 'قيد التصميم'";
                     $params[] = $user_id;
                     $types .= "i";
+                    // تطبيق الفلاتر الإضافية للمصمم فقط
+                    if (!empty($filter_status)) {
+                        $where_clauses[] = "o.status = ?";
+                        $params[] = $filter_status;
+                        $types .= "s";
+                    }
+                    if (!empty($filter_payment)) {
+                        $where_clauses[] = "o.payment_status = ?";
+                        $params[] = $filter_payment;
+                        $types .= "s";
+                    }
+                    if (!empty($search_query)) {
+                        $where_clauses[] = "(o.order_id LIKE ? OR c.company_name LIKE ?)";
+                        $search_param = "%$search_query%";
+                        $params[] = $search_param;
+                        $params[] = $search_param;
+                        $types .= "ss";
+                    }
+                    if (!empty($filter_date_from)) {
+                        $where_clauses[] = "DATE(o.order_date) >= ?";
+                        $params[] = $filter_date_from;
+                        $types .= "s";
+                    }
+                    if (!empty($filter_date_to)) {
+                        $where_clauses[] = "DATE(o.order_date) <= ?";
+                        $params[] = $filter_date_to;
+                        $types .= "s";
+                    }
                     break;
                 case 'معمل':
-                    $where_clauses[] = "o.workshop_id = ?";
+                    // يظهر له فقط قيد التنفيذ أو جاهز للتسليم (ولا يظهر مكتمل)
+                    $where_clauses[] = "o.workshop_id = ? AND TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم')";
                     $params[] = $user_id;
                     $types .= "i";
+                    // لا تطبق أي فلترة إضافية هنا!
                     break;
                 case 'محاسب':
-                    // المحاسب يرى الطلبات التي تحتاج متابعة دفع
                     $where_clauses[] = "o.payment_status != 'مدفوع'";
+                    // يمكن تطبيق الفلاتر هنا إذا أردت
                     break;
                 default:
                     $where_clauses[] = "1=0"; // لا يرى شيء
@@ -533,5 +564,40 @@ class OrderController
             exit;
         }
     }
+
+    // عند ضغط زر "جاهز للتسليم" من المعمل
+    public function markReadyForDelivery(): void
+    {
+        $order_id = $_POST['order_id'] ?? null;
+        if ($order_id) {
+            $stmt = $this->conn->prepare("UPDATE orders SET status = 'جاهز للتسليم' WHERE order_id = ?");
+            $stmt->bind_param("i", $order_id);
+            $stmt->execute();
+
+            // إرسال رسالة واتساب للعميل (مثال)
+            $client_stmt = $this->conn->prepare("SELECT c.phone FROM orders o JOIN clients c ON o.client_id = c.client_id WHERE o.order_id = ?");
+            $client_stmt->bind_param("i", $order_id);
+            $client_stmt->execute();
+            $client_result = $client_stmt->get_result();
+            if ($client = $client_result->fetch_assoc()) {
+                $phone = $client['phone'];
+                // استدعاء دالة إرسال واتساب هنا
+                // sendWhatsappMessage($phone, "طلبك جاهز للتسليم ...");
+            }
+
+            // ...redirect...
+        }
+    }
+
+    // عند ضغط زر "تأكيد استلام العميل"
+    public function confirmClientReceived(): void
+    {
+        $order_id = $_POST['order_id'] ?? null;
+        if ($order_id) {
+            $stmt = $this->conn->prepare("UPDATE orders SET status = 'مكتمل' WHERE order_id = ?");
+            $stmt->bind_param("i", $order_id);
+            $stmt->execute();
+            // ...redirect...
+        }
+    }
 }
-      

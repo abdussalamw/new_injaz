@@ -103,17 +103,74 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
 ?>
 
 <style>
-    .tab-container { width: 100%; background-color: #fff; border-radius: 8px; overflow: hidden; }
-    .tab-buttons { overflow: hidden; border-bottom: 1px solid #dee2e6; background-color: #f8f9fa; }
-    .tab-buttons button { background-color: inherit; float: right; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: background-color 0.3s, color 0.3s; font-size: 17px; color: #495057; }
+    .tab-container { 
+        width: 100%; 
+        background-color: #fff; 
+        border-radius: 8px; 
+        overflow: hidden; 
+        margin: 0; 
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .tab-buttons { 
+        overflow: hidden; 
+        border-bottom: 1px solid #dee2e6; 
+        background-color: #f8f9fa; 
+        margin: 0;
+        padding: 0;
+    }
+    .tab-buttons button { 
+        background-color: inherit; 
+        float: right; 
+        border: none; 
+        outline: none; 
+        cursor: pointer; 
+        padding: 14px 20px; 
+        transition: background-color 0.3s, color 0.3s; 
+        font-size: 17px; 
+        color: #495057; 
+        min-width: 120px;
+    }
     .tab-buttons button:hover { background-color: #e9ecef; }
-    .tab-buttons button.active { background-color: #fff; font-weight: bold; color: #D44759; border-top: 2px solid #D44759; }
-    .tab-content { display: none !important; padding: 20px; }
-    .tab-content.active { display: block !important; }
+    .tab-buttons button.active { 
+        background-color: #fff; 
+        font-weight: bold; 
+        color: #D44759; 
+        border-top: 3px solid #D44759; 
+    }
+    .tab-content { 
+        display: none !important; 
+        padding: 15px; 
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    .tab-content.active { 
+        display: block !important; 
+        width: 100% !important;
+    }
     #tasks-container .spinner-border { width: 3rem; height: 3rem; }
+
+    /* تحسين البطاقات للتوسع الكامل */
+    .dashboard-cards {
+        margin: 0 !important;
+        width: 100% !important;
+    }
+    .dashboard-cards .col-md-6,
+    .dashboard-cards .col-lg-3 {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    /* تحسين النماذج للتوسع */
+    #filter-form {
+        margin: 0 0 20px 0 !important;
+        padding: 15px !important;
+        width: 100%;
+        max-width: 100%;
+    }
 </style>
 
-<div class="container">
+<div class="container-fluid">
     <div id="status-update-feedback" class="mb-3"></div>
     <div class="tab-container shadow-sm">
         <div class="tab-buttons">

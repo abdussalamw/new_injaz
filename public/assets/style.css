@@ -61,11 +61,10 @@ h6 { font-size: 0.8rem; }
     box-shadow: 1px 0 4px #eee;
     transition: all 0.3s ease;
     position: relative;
-    width: 16.66667%; /* col-md-2 width */
+    flex: 0 0 250px; /* استخدام flexbox بدلاً من العرض الثابت */
 }
 .sidebar.collapsed {
-    width: 60px !important;
-    min-width: 60px !important;
+    flex: 0 0 60px !important; /* تصغير باستخدام flexbox */
 }
 .sidebar.collapsed span {
     display: none;
@@ -112,15 +111,7 @@ h6 { font-size: 0.8rem; }
     flex-shrink: 0;
 }
 
-.main-content {
-    transition: all 0.3s ease;
-    width: 83.33333%; /* col-md-10 width */
-    margin-right: auto;
-}
-.main-content.expanded {
-    width: calc(100% - 60px);
-    margin-right: 60px;
-}
+/* القواعد القديمة للمحتوى الرئيسي - تم استبدالها بـ flexbox */
 
 .card {
     border-radius: 1rem !important;
@@ -236,4 +227,37 @@ footer {
 .col, .col-md-2, .col-md-10 {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
+}
+
+/* إصلاح التخطيط المرن للشريط الجانبي والمحتوى */
+.sidebar-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    flex: 0 0 250px; /* عرض ثابت للشريط الجانبي */
+    transition: all 0.3s ease;
+}
+
+.sidebar.collapsed {
+    flex: 0 0 60px; /* عرض مصغر للشريط الجانبي */
+}
+
+.main-content {
+    flex: 1; /* يأخذ باقي المساحة المتاحة */
+    transition: all 0.3s ease;
+    padding: 1rem;
+    overflow-x: auto;
+}
+
+/* إزالة القواعد القديمة للعرض الثابت */
+@media (min-width: 768px) {
+    .sidebar {
+        width: auto !important;
+    }
+    .main-content {
+        width: auto !important;
+        margin-right: 0 !important;
+    }
 }

@@ -188,8 +188,7 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
             padding: 10px 5px;
         }
         .main-content.expanded {
-            margin-left: 60px !important;
-            width: calc(100% - 60px) !important;
+            
         }
         @media (max-width: 768px) {
             .sidebar-toggle {

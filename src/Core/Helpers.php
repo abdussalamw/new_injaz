@@ -68,6 +68,7 @@ class Helpers
 
     public static function get_next_actions(array $order, string $user_role, int $user_id, \mysqli $conn, string $context = 'dashboard'): array
     {
+        
         if ($context === 'orders_page') {
             return [];
         }

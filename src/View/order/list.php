@@ -35,75 +35,80 @@
                             <i class="bi bi-plus-circle me-1"></i>
                             إضافة طلب جديد
                         </a>
-                        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters" aria-expanded="false">
-                            <i class="bi bi-funnel me-1"></i>
-                            فلاتر متقدمة
-                        </button>
-                    </div>
+                        </div>
 
                     <!-- الفلاتر المتقدمة -->
                     <?php if (\App\Core\Permissions::has_permission('order_view_all', $conn) || \App\Core\Permissions::has_permission('order_view_own', $conn)): ?>
-                    <div class="collapse mb-4" id="advancedFilters">
+                    <div class="collapse show mb-4" id="advancedFilters">
                         <div class="card card-body bg-light">
-                            <form id="filter-form" class="row g-3 align-items-center">
-                                <div class="col-md-2">
-                                    <label for="search_filter" class="form-label">بحث تفصيلي</label>
-                                    <input type="text" name="search" id="search_filter" class="form-control form-control-sm" value="<?= htmlspecialchars($filter_search) ?>" placeholder="ابحث برقم الطلب، اسم العميل،...">
+                            <form id="filter-form" class="d-flex flex-nowrap align-items-center gap-3">
+                                
+                                <div>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <label for="date_from">من تاريخ</label>
+                                        <input type="date" name="date_from" id="date_from" class="form-control form-control-sm" value="<?= htmlspecialchars($filter_date_from ?? '') ?>">
+                                    </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <label for="date_from" class="form-label">من تاريخ</label>
-                                    <input type="date" name="date_from" id="date_from" class="form-control form-control-sm" value="<?= htmlspecialchars($filter_date_from ?? '') ?>">
+                                <div>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <label for="date_to">إلى تاريخ</label>
+                                        <input type="date" name="date_to" id="date_to" class="form-control form-control-sm" value="<?= htmlspecialchars($filter_date_to ?? '') ?>">
+                                    </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <label for="date_to" class="form-label">إلى تاريخ</label>
-                                    <input type="date" name="date_to" id="date_to" class="form-control form-control-sm" value="<?= htmlspecialchars($filter_date_to ?? '') ?>">
-                                </div>
-                                <div class="col-md-2">
-                                    <label for="status_filter" class="form-label">الحالة</label>
-                                    <select name="status" id="status_filter" class="form-select form-select-sm" <?= !empty($filter_employee) ? 'disabled' : '' ?>>
-                                        <option value="">الكل</option>
-                                        <option value="قيد التصميم" <?= $filter_status == 'قيد التصميم' ? 'selected' : '' ?>>قيد التصميم</option>
-                                        <option value="قيد التنفيذ" <?= $filter_status == 'قيد التنفيذ' ? 'selected' : '' ?>>قيد التنفيذ</option>
-                                        <option value="جاهز للتسليم" <?= $filter_status == 'جاهز للتسليم' ? 'selected' : '' ?>>جاهز للتسليم</option>
-                                        <option value="مكتمل" <?= $filter_status == 'مكتمل' ? 'selected' : '' ?>>مكتمل</option>
-                                        <option value="ملغي" <?= $filter_status == 'ملغي' ? 'selected' : '' ?>>ملغي</option>
-                                    </select>
+                                <div>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <label for="status_filter">الحالة</label>
+                                        <select name="status" id="status_filter" class="form-select form-select-sm" <?= !empty($filter_employee) ? 'disabled' : '' ?>>
+                                            <option value="">الكل</option>
+                                            <option value="قيد التصميم" <?= $filter_status == 'قيد التصميم' ? 'selected' : '' ?>>قيد التصميم</option>
+                                            <option value="قيد التنفيذ" <?= $filter_status == 'قيد التنفيذ' ? 'selected' : '' ?>>قيد التنفيذ</option>
+                                            <option value="جاهز للتسليم" <?= $filter_status == 'جاهز للتسليم' ? 'selected' : '' ?>>جاهز للتسليم</option>
+                                            <option value="مكتمل" <?= $filter_status == 'مكتمل' ? 'selected' : '' ?>>مكتمل</option>
+                                            <option value="ملغي" <?= $filter_status == 'ملغي' ? 'selected' : '' ?>>ملغي</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 
                                 <?php if (\App\Core\Permissions::has_permission('order_view_all', $conn)): ?>
-                                <div class="col-md-2">
-                                    <label for="employee_filter" class="form-label">الموظف</label>
-                                    <select name="employee" id="employee_filter" class="form-select form-select-sm">
-                                        <option value="">الكل</option>
-                                        <?php foreach ($employees_list as $employee): ?>
-                                            <option value="<?= $employee['employee_id'] ?>" <?= $filter_employee == $employee['employee_id'] ? 'selected' : '' ?>><?= htmlspecialchars($employee['name']) ?> (<?= htmlspecialchars($employee['role']) ?>)</option>
-                                        <?php endforeach; ?>
-                                    </select>
+                                <div>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <label for="employee_filter">الموظف</label>
+                                        <select name="employee" id="employee_filter" class="form-select form-select-sm">
+                                            <option value="">الكل</option>
+                                            <?php foreach ($employees_list as $employee): ?>
+                                                <option value="<?= $employee['employee_id'] ?>" <?= $filter_employee == $employee['employee_id'] ? 'selected' : '' ?>><?= htmlspecialchars($employee['name']) ?> (<?= htmlspecialchars($employee['role']) ?>)</option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
                                 </div>
                                 <?php endif; ?>
 
-                                <div class="col-md-2">
-                                    <label for="payment_filter" class="form-label">الدفع</label>
-                                    <select name="payment" id="payment_filter" class="form-select form-select-sm">
-                                        <option value="">الكل</option>
-                                        <option value="مدفوع" <?= $filter_payment == 'مدفوع' ? 'selected' : '' ?>>مدفوع</option>
-                                        <option value="مدفوع جزئياً" <?= $filter_payment == 'مدفوع جزئياً' ? 'selected' : '' ?>>مدفوع جزئياً</option>
-                                        <option value="غير مدفوع" <?= $filter_payment == 'غير مدفوع' ? 'selected' : '' ?>>غير مدفوع</option>
-                                    </select>
+                                <div>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <label for="payment_filter">الدفع</label>
+                                        <select name="payment" id="payment_filter" class="form-select form-select-sm">
+                                            <option value="">الكل</option>
+                                            <option value="مدفوع" <?= $filter_payment == 'مدفوع' ? 'selected' : '' ?>>مدفوع</option>
+                                            <option value="مدفوع جزئياً" <?= $filter_payment == 'مدفوع جزئياً' ? 'selected' : '' ?>>مدفوع جزئياً</option>
+                                            <option value="غير مدفوع" <?= $filter_payment == 'غير مدفوع' ? 'selected' : '' ?>>غير مدفوع</option>
+                                        </select>
+                                    </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <label for="sort_by" class="form-label">الترتيب حسب</label>
-                                    <select name="sort_by" id="sort_by" class="form-select form-select-sm">
-                                        <option value="latest" <?= ($sort_by == 'latest') ? 'selected' : '' ?>>الأحدث</option>
-                                        <option value="oldest" <?= ($sort_by == 'oldest') ? 'selected' : '' ?>>الأقدم</option>
-                                        <option value="payment" <?= ($sort_by == 'payment') ? 'selected' : '' ?>>الدفع</option>
-                                        <?php if (\App\Core\Permissions::has_permission('order_view_all', $conn)): ?>
-                                        <option value="employee" <?= ($sort_by == 'employee') ? 'selected' : '' ?>>الموظف</option>
-                                        <?php endif; ?>
-                                    </select>
-                                </div>
-                                <div class="col-md-2 align-self-end">
-                                    <button type="button" id="reset-filters-btn" class="btn btn-sm btn-outline-secondary w-100">إلغاء الفلاتر</button>
+                                <div>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <label for="sort_by">الترتيب حسب</label>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <select name="sort_by" id="sort_by" class="form-select form-select-sm flex-grow-1">
+                                                <option value="latest" <?= ($sort_by == 'latest') ? 'selected' : '' ?>>الأحدث</option>
+                                                <option value="oldest" <?= ($sort_by == 'oldest') ? 'selected' : '' ?>>الأقدم</option>
+                                                <option value="payment" <?= ($sort_by == 'payment') ? 'selected' : '' ?>>الدفع</option>
+                                                <?php if (\App\Core\Permissions::has_permission('order_view_all', $conn)): ?>
+                                                <option value="employee" <?= ($sort_by == 'employee') ? 'selected' : '' ?>>الموظف</option>
+                                                <?php endif; ?>
+                                            </select>
+                                            <button type="button" id="reset-filters-btn" class="btn btn-sm btn-outline-secondary">إلغاء الفلاتر</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </form>
                         </div>
