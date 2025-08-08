@@ -9,7 +9,9 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Load required files
-require_once __DIR__ . '/src/Core/config.php';
+require_once __DIR__ . '/vendor/autoload.php'; // Load Composer's autoloader
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__)->load();
+
 require_once __DIR__ . '/src/Core/Database.php';
 require_once __DIR__ . '/src/Core/AuthCheck.php';
 require_once __DIR__ . '/src/Core/Permissions.php';
@@ -18,7 +20,12 @@ require_once __DIR__ . '/src/Core/InitialTasksQuery.php';
 
 // Database connection
 try {
-    $db = new \App\Core\Database(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+    $db = new \App\Core\Database(
+        $_ENV['DB_HOST'],
+        $_ENV['DB_USERNAME'],
+        $_ENV['DB_PASSWORD'],
+        $_ENV['DB_NAME']
+    );
     $conn = $db->getConnection();
 } catch (Exception $e) {
     die("Database connection failed: " . $e->getMessage());

@@ -2,7 +2,10 @@
 session_start();
 
 // 1. Load base configuration and database connection
-require_once __DIR__ . '/src/Core/config.php';
+require_once __DIR__ . '/vendor/autoload.php'; // Load Composer's autoloader
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+$dotenv->load();
+
 require_once __DIR__ . '/src/Core/Database.php';
 require_once __DIR__ . '/src/Core/AuthCheck.php';
 require_once __DIR__ . '/src/Core/Permissions.php';
@@ -23,7 +26,12 @@ require_once __DIR__ . '/src/Api/ApiController.php';
 // Load Auth classes
 require_once __DIR__ . '/src/Auth/Login.php';
 
-$db = new \App\Core\Database(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+$db = new \App\Core\Database(
+    $_ENV['DB_HOST'],
+    $_ENV['DB_USERNAME'],
+    $_ENV['DB_PASSWORD'],
+    $_ENV['DB_NAME']
+);
 $conn = $db->getConnection();
 
 // 2. Include header

@@ -5,10 +5,15 @@ require_once __DIR__ . '/../vendor/autoload.php';
 session_start();
 
 // 1. Load base configuration and database connection
-require_once __DIR__ . '/../src/Core/config.php';
+Dotenv\Dotenv::createImmutable(__DIR__ . '/../')->load();
 use App\Core\Database;
 
-$db = new Database(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+$db = new Database(
+    $_ENV['DB_HOST'],
+    $_ENV['DB_USERNAME'],
+    $_ENV['DB_PASSWORD'],
+    $_ENV['DB_NAME']
+);
 $conn = $db->getConnection();
 
 // 2. Include header

@@ -1,8 +1,15 @@
 <?php
-require_once 'src/Core/config.php';
+require_once __DIR__ . '/vendor/autoload.php'; // Load Composer's autoloader
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__)->load();
+
 require_once 'src/Core/Database.php';
 
-$database = new \App\Core\Database(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+$database = new \App\Core\Database(
+    $_ENV['DB_HOST'],
+    $_ENV['DB_USERNAME'],
+    $_ENV['DB_PASSWORD'],
+    $_ENV['DB_NAME']
+);
 $conn = $database->getConnection();
 
 echo "<h1>تعيين الطلبات للمعمل</h1>";
