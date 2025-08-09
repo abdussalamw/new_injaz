@@ -20,7 +20,7 @@ class OrderController
     public function index(): void
     {
         if (!Permissions::has_permission('order_view_all', $this->conn) && !Permissions::has_permission('order_view_own', $this->conn)) {
-            header('Location: /new_injaz/');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/');
             exit;
         }
 
@@ -281,7 +281,7 @@ class OrderController
     public function add(): void
     {
         if (!Permissions::has_permission('order_add', $this->conn)) {
-            header('Location: /new_injaz/orders');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/orders');
             exit;
         }
         $page_title = 'إضافة طلب جديد';
@@ -309,7 +309,7 @@ class OrderController
     public function store(): void
     {
         if (!Permissions::has_permission('order_add', $this->conn)) {
-            header('Location: /new_injaz/orders');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/orders');
             exit;
         }
 
@@ -350,7 +350,7 @@ class OrderController
             } else {
                 // Handle error: client info is required
                 // For now, we'll just redirect back
-                header('Location: /new_injaz/orders/add');
+                header('Location: ' . $_ENV['BASE_PATH'] . '/orders/add');
                 exit;
             }
         }
@@ -393,12 +393,12 @@ class OrderController
                 }
             }
             MessageSystem::setSuccess("تم إضافة الطلب بنجاح!");
-            header("Location: /new_injaz/orders");
+            header("Location: " . $_ENV['BASE_PATH'] . "/orders");
             exit;
         } else {
             // Handle error
             MessageSystem::setError("حدث خطأ أثناء إضافة الطلب: " . $stmt->error);
-            header("Location: /new_injaz/orders/add");
+            header("Location: " . $_ENV['BASE_PATH'] . "/orders/add");
             exit;
         }
     }
@@ -406,7 +406,7 @@ class OrderController
     public function edit(): void
     {
         if (!Permissions::has_permission('order_edit', $this->conn)) {
-            header('Location: /new_injaz/orders');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/orders');
             exit;
         }
 
@@ -454,7 +454,7 @@ class OrderController
     public function update(): void
     {
         if (!Permissions::has_permission('order_edit', $this->conn)) {
-            header('Location: /new_injaz/orders');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/orders');
             exit;
         }
 
@@ -523,12 +523,12 @@ class OrderController
                 }
             }
             MessageSystem::setSuccess("تم تحديث الطلب بنجاح!");
-            header("Location: /new_injaz/orders");
+            header("Location: " . $_ENV['BASE_PATH'] . "/orders");
             exit;
         } else {
             // Handle error
             MessageSystem::setError("حدث خطأ أثناء تحديث الطلب: " . $stmt->error);
-            header("Location: /new_injaz/orders/edit?id=" . $id);
+            header("Location: " . $_ENV['BASE_PATH'] . "/orders/edit?id=" . $id);
             exit;
         }
     }
@@ -536,7 +536,7 @@ class OrderController
     public function destroy(): void
     {
         if (!Permissions::has_permission('order_delete', $this->conn)) {
-            header('Location: /new_injaz/orders');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/orders');
             exit;
         }
 
@@ -555,12 +555,12 @@ class OrderController
 
         if ($stmt->execute()) {
             MessageSystem::setSuccess("تم حذف الطلب بنجاح!");
-            header("Location: /new_injaz/orders");
+            header("Location: " . $_ENV['BASE_PATH'] . "/orders");
             exit;
         } else {
             // Handle error
             MessageSystem::setError("حدث خطأ أثناء حذف الطلب: " . $stmt->error);
-            header("Location: /new_injaz/orders");
+            header("Location: " . $_ENV['BASE_PATH'] . "/orders");
             exit;
         }
     }
@@ -599,5 +599,38 @@ class OrderController
             $stmt->execute();
             // ...redirect...
         }
+    }
+
+    public function rate(): void
+    {
+        $order_id = $_POST['order_id'] ?? null;
+        $type = $_POST['type'] ?? null; // 'design' or 'execution'
+        $rating = $_POST['rating'] ?? null;
+
+        if ($order_id && $type && $rating !== null) {
+            if ($type === 'design') {
+                $stmt = $this->conn->prepare("UPDATE orders SET design_rating = ? WHERE order_id = ?");
+            } elseif ($type === 'execution') {
+                $stmt = $this->conn->prepare("UPDATE orders SET execution_rating = ? WHERE order_id = ?");
+            } else {
+                http_response_code(400);
+                echo "Invalid rating type";
+                exit;
+            }
+            $stmt->bind_param("ii", $rating, $order_id);
+            if ($stmt->execute()) {
+                echo "success";
+                exit;
+            } else {
+                // سجل الخطأ في ملف أو اطبعه مباشرة للتشخيص
+                error_log("DB Error (OrderController/rate): " . $stmt->error);
+                http_response_code(500);
+                echo "DB Error: " . $stmt->error;
+                exit;
+            }
+        }
+        http_response_code(400);
+        echo "Missing data";
+        exit;
     }
 }

@@ -312,4 +312,21 @@ class Helpers
         }
         return htmlspecialchars($summary);
     }
+
+    // Helper functions for URL paths
+    public static function url($path = '') {
+        return $_ENV['BASE_PATH'] . $path;
+    }
+
+    public static function asset($path) {
+        return self::url('/public/assets/' . $path);
+    }
+
+    public static function css($filename) {
+        return self::url('/public/css/' . $filename);
+    }
+
+    public static function js($filename) {
+        return self::url('/public/js/' . $filename);
+    }
 }

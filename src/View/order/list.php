@@ -1,6 +1,17 @@
 <?php
 // src/View/order/list.php
 ?>
+<style>
+    /* تصحيح اتجاه حقول التاريخ */
+    .date-input-rtl::-webkit-calendar-picker-indicator {
+        right: auto;
+        left: 0.5rem;
+    }
+    .date-input-rtl {
+        text-align: right;
+        direction: ltr;
+    }
+</style>
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
@@ -46,13 +57,13 @@
                                 <div>
                                     <div class="d-flex align-items-center gap-1">
                                         <label for="date_from">من تاريخ</label>
-                                        <input type="date" name="date_from" id="date_from" class="form-control form-control-sm" value="<?= htmlspecialchars($filter_date_from ?? '') ?>">
+                                        <input type="date" name="date_from" id="date_from" class="form-control form-control-sm date-input-rtl" value="<?= htmlspecialchars($filter_date_from ?? '') ?>">
                                     </div>
                                 </div>
                                 <div>
                                     <div class="d-flex align-items-center gap-1">
                                         <label for="date_to">إلى تاريخ</label>
-                                        <input type="date" name="date_to" id="date_to" class="form-control form-control-sm" value="<?= htmlspecialchars($filter_date_to ?? '') ?>">
+                                        <input type="date" name="date_to" id="date_to" class="form-control form-control-sm date-input-rtl" value="<?= htmlspecialchars($filter_date_to ?? '') ?>">
                                     </div>
                                 </div>
                                 <div>
@@ -422,7 +433,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         .then(data => {
                             if (data.success) {
                                 if (whatsappPhone && whatsappOrderId) {
-                                    const whatsappMessage = `العميل العزيز، تم تحديث حالة طلبكم رقم ${whatsappOrderId}. شكراً لتعاملكم معنا.`;
+                                    const whatsappMessage = `العميل العزيز، طلبكم رقم ${whatsappOrderId} جاهز للتسليم. شكراً لتعاملكم معنا.`;
                                     const encodedMessage = encodeURIComponent(whatsappMessage);
                                     const internationalPhone = '966' + whatsappPhone.substring(1);
                                     const whatsappUrl = `https://wa.me/${internationalPhone}?text=${encodedMessage}`;

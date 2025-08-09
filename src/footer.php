@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(data => {
                     if (data.success) {
                         if (whatsappPhone && whatsappOrderId) {
-                            const whatsappMessage = `العميل العزيز، تم تحديث حالة طلبكم رقم ${whatsappOrderId}. شكراً لتعاملكم معنا.`;
+                            const whatsappMessage = `العميل العزيز، طلبكم رقم ${whatsappOrderId} جاهز للتسليم. شكراً لتعاملكم معنا.`;
                             const encodedMessage = encodeURIComponent(whatsappMessage);
                             const internationalPhone = '966' + whatsappPhone.substring(1);
                             const whatsappUrl = `https://wa.me/${internationalPhone}?text=${encodedMessage}`;

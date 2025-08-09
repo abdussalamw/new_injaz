@@ -4,7 +4,7 @@
 // Load employee data
 $employee_id = $_GET['id'] ?? null;
 if (!$employee_id) {
-    header("Location: /new_injaz/employees");
+    header("Location: " . $_ENV['BASE_PATH'] . "/employees");
     exit;
 }
 
@@ -15,7 +15,7 @@ $result = $stmt->get_result();
 $employee = $result->fetch_assoc();
 
 if (!$employee) {
-    header("Location: /new_injaz/employees");
+    header("Location: " . $_ENV['BASE_PATH'] . "/employees");
     exit;
 }
 
@@ -54,12 +54,12 @@ $page_title = "صلاحيات الموظف: " . htmlspecialchars($employee['name
                         <i class="bi bi-check-lg"></i>
                         حفظ الصلاحيات
                     </button>
-                    <a href="/new_injaz/employees" class="btn btn-sm btn-secondary ms-2">عودة</a>
+                    <a href="<?= \App\Core\Helpers::url('/employees') ?>" class="btn btn-sm btn-secondary ms-2">عودة</a>
                 </div>
             </div>
 
             <!-- Form في الشاشة المتبقية -->
-            <form method="POST" action="/new_injaz/employees/permissions" id="permissions-form" style="height: calc(100vh - 120px);">
+            <form method="POST" action="<?= \App\Core\Helpers::url('/employees/permissions') ?>" id="permissions-form" style="height: calc(100vh - 120px);">
                 <input type="hidden" name="employee_id" value="<?= htmlspecialchars($employee_id) ?>">
                 <div class="row h-100" style="max-height: calc(100vh - 120px); overflow-y: auto;">
                     <input type="hidden" name="employee_id" value="<?= htmlspecialchars($employee_id) ?>">

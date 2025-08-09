@@ -18,7 +18,7 @@
                                 <i class="bi bi-search"></i>
                             </button>
                             <?php if (!empty($_GET['search'])): ?>
-                                <a href="/new_injaz/products" class="btn btn-outline-light" title="مسح البحث">
+                                <a href="<?= \App\Core\Helpers::url('/products') ?>" class="btn btn-outline-light" title="مسح البحث">
                                     <i class="bi bi-x"></i>
                                 </a>
                             <?php endif; ?>
@@ -43,7 +43,7 @@
                     
                     <!-- أزرار الإجراءات -->
                     <div class="mb-3 d-flex flex-wrap gap-2">
-                        <a href="/new_injaz/products/add" class="btn btn-success">
+                        <a href="<?= \App\Core\Helpers::url('/products/add') ?>" class="btn btn-success">
                             <i class="bi bi-plus-circle me-1"></i>
                             إضافة منتج جديد
                         </a>
@@ -83,10 +83,10 @@
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">
-                                            <a href="/new_injaz/products/edit?id=<?= $row['product_id'] ?>" class="btn btn-outline-primary btn-sm" title="تعديل">
+                                            <a href="<?= \App\Core\Helpers::url('/products/edit?id=' . $row['product_id']) ?>" class="btn btn-outline-primary btn-sm" title="تعديل">
                                                 <i class="bi bi-pencil"></i> تفاصيل
                                             </a>
-                                            <a href="/new_injaz/products/confirm-delete?id=<?= $row['product_id'] ?>" class="btn btn-outline-danger btn-sm" title="حذف">
+                                            <a href="<?= \App\Core\Helpers::url('/products/confirm-delete?id=' . $row['product_id']) ?>" class="btn btn-outline-danger btn-sm" title="حذف">
                                                 <i class="bi bi-trash"></i>
                                             </a>
                                         </div>

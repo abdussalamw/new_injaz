@@ -1,0 +1,25 @@
+/* ...existing code... */
+
+/* Sidebar transition */
+.sidebar {
+    transition: width 0.3s cubic-bezier(.4,0,.2,1);
+    /* ...existing code... */
+}
+
+/* Main content transition */
+.main-content {
+    transition: margin-right 0.3s cubic-bezier(.4,0,.2,1), width 0.3s cubic-bezier(.4,0,.2,1);
+    /* ...existing code... */
+}
+
+/* When sidebar is collapsed */
+.sidebar.collapsed {
+    width: 60px; /* أو أي عرض مصغر */
+}
+
+.main-content.sidebar-collapsed {
+    margin-right: 60px; /* نفس عرض الـ sidebar المصغر */
+    /* أو width: calc(100% - 60px); */
+}
+
+/* ...existing code... */

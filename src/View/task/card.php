@@ -161,7 +161,7 @@ if (!function_exists('get_current_responsible')) {
                 <!-- الصف الأول -->
                 <div class="col-6">
                     <?php if (has_card_permission('task_card_edit', $conn)): ?>
-                        <a href="/new_injaz/orders/edit?id=<?= $task_details['order_id'] ?>" class="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center" style="height: 35px;">
+                        <a href="<?= \App\Core\Helpers::url('/orders/edit?id=' . $task_details['order_id']) ?>" class="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center" style="height: 35px;">
                             <i class="bi bi-pencil-square me-1"></i>
                             <span class="small">تفاصيل</span>
                         </a>

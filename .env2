@@ -1,0 +1,9 @@
+# Database Configuration
+DB_HOST=localhost
+DB_USERNAME=u458742541_injaz
+DB_PASSWORD=En202112
+DB_NAME=u458742541_injaz
+# Application Settings
+APP_ENV=production
+APP_DEBUG=false
+BASE_PATH=

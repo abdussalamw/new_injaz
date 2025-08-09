@@ -18,7 +18,7 @@
                                 <i class="bi bi-search"></i>
                             </button>
                             <?php if (!empty($_GET['search'])): ?>
-                                <a href="/new_injaz/employees" class="btn btn-outline-light" title="مسح البحث">
+                                <a href="<?= \App\Core\Helpers::url('/employees') ?>" class="btn btn-outline-light" title="مسح البحث">
                                     <i class="bi bi-x"></i>
                                 </a>
                             <?php endif; ?>
@@ -43,7 +43,7 @@
                     
                     <!-- أزرار الإجراءات -->
                     <div class="mb-3 d-flex flex-wrap gap-2">
-                        <a href="/new_injaz/employees/add" class="btn btn-success">
+                        <a href="<?= \App\Core\Helpers::url('/employees/add') ?>" class="btn btn-success">
                             <i class="bi bi-person-plus me-1"></i>
                             إضافة موظف جديد
                         </a>
@@ -86,13 +86,13 @@
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">
-                                            <a href="/new_injaz/employees/edit?id=<?= $row['employee_id'] ?>" class="btn btn-outline-primary btn-sm" title="تعديل">
+                                            <a href="<?= \App\Core\Helpers::url('/employees/edit?id=' . $row['employee_id']) ?>" class="btn btn-outline-primary btn-sm" title="تعديل">
                                                 <i class="bi bi-pencil"></i> تفاصيل
                                             </a>
-                                            <a href="/new_injaz/employees/permissions?id=<?= $row['employee_id'] ?>" class="btn btn-outline-info btn-sm" title="الصلاحيات">
+                                            <a href="<?= \App\Core\Helpers::url('/employees/permissions?id=' . $row['employee_id']) ?>" class="btn btn-outline-info btn-sm" title="الصلاحيات">
                                                 <i class="bi bi-shield-check"></i> الصلاحيات
                                             </a>
-                                            <a href="/new_injaz/employees/confirm-delete?id=<?= $row['employee_id'] ?>" class="btn btn-outline-danger btn-sm" title="حذف">
+                                            <a href="<?= \App\Core\Helpers::url('/employees/confirm-delete?id=' . $row['employee_id']) ?>" class="btn btn-outline-danger btn-sm" title="حذف">
                                                 <i class="bi bi-trash"></i>
                                             </a>
                                         </div>

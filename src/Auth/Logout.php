@@ -16,9 +16,12 @@ if (ini_get("session.use_cookies")) {
     );
 }
 
+// Additional cookie cleanup
+setcookie('PHPSESSID', '', time() - 3600, '/', '', false, true);
+
 // Destroy the session
 session_destroy();
 
-// Redirect to login page
-header("Location: /new_injaz/login");
+// Redirect to login route
+header("Location: " . $_ENV['BASE_PATH'] . "/login");
 exit;

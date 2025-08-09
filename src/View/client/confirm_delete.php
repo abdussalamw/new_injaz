@@ -22,7 +22,7 @@
                             <li><strong>البريد الإلكتروني:</strong> <?= htmlspecialchars($client['email']) ?></li>
                         </ul>
                         <p class="text-muted">يجب حذف جميع الطلبات المرتبطة بهذا العميل أولاً قبل حذفه.</p>
-                        <a href="/new_injaz/clients" class="btn btn-secondary">العودة للقائمة</a>
+                        <a href="<?= \App\Core\Helpers::url('/clients') ?>" class="btn btn-secondary">العودة للقائمة</a>
                     <?php else: ?>
                         <div class="alert alert-danger">
                             <strong>تحذير!</strong> هذا الإجراء لا يمكن التراجع عنه.

@@ -24,8 +24,8 @@ class InitialTasksQuery
         $types = "";
 
         if (Permissions::has_permission('order_view_all', $conn)) {
-            // إخفاء المهام المكتملة أو المدفوعة أو الملغية (أي شرط يكفي)
-            $where_clauses[] = "TRIM(o.status) != 'مكتمل' AND TRIM(o.payment_status) != 'مدفوع' AND TRIM(o.status) != 'ملغي'";
+            // إخفاء المهام التي تحقق شرطين: مكتملة ومدفوعة، أو الملغية
+            $where_clauses[] = "NOT (TRIM(o.status) = 'مكتمل' AND TRIM(o.payment_status) = 'مدفوع') AND TRIM(o.status) != 'ملغي'";
 
             if (!empty($filter_employee)) {
                 $employee_role_query = $conn->prepare("SELECT role FROM employees WHERE employee_id = ?");
@@ -75,8 +75,8 @@ class InitialTasksQuery
                 $types .= "sss";
             }
         } elseif (Permissions::has_permission('order_view_own', $conn)) {
-            // إخفاء المهام المكتملة والمدفوعة كاملاً، وكذلك الملغية للموظفين
-            $where_clauses = ["(o.status != 'مكتمل' OR o.payment_status != 'مدفوع') AND o.status != 'ملغي'"];
+            // إخفاء المهام التي تحقق شرطين: مكتملة ومدفوعة، أو الملغية للموظفين
+            $where_clauses = ["NOT (TRIM(o.status) = 'مكتمل' AND TRIM(o.payment_status) = 'مدفوع') AND TRIM(o.status) != 'ملغي'"];
             
             switch ($user_role) {
                 case 'مصمم':

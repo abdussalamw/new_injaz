@@ -18,7 +18,7 @@
                                 <i class="bi bi-search"></i>
                             </button>
                             <?php if (!empty($_GET['search'])): ?>
-                                <a href="/new_injaz/clients" class="btn btn-outline-light" title="مسح البحث">
+                                <a href="<?= \App\Core\Helpers::url('/clients') ?>" class="btn btn-outline-light" title="مسح البحث">
                                     <i class="bi bi-x"></i>
                                 </a>
                             <?php endif; ?>
@@ -44,15 +44,15 @@
                     
                     <!-- أزرار الإجراءات -->
                     <div class="mb-3 d-flex flex-wrap gap-2">
-                        <a href="/new_injaz/clients/add" class="btn btn-success">
+                        <a href="<?= \App\Core\Helpers::url('/clients/add') ?>" class="btn btn-success">
                             <i class="bi bi-plus-circle me-1"></i>
                             إضافة عميل جديد
                         </a>
-                        <a href="/new_injaz/clients/export" class="btn btn-outline-primary">
+                        <a href="<?= \App\Core\Helpers::url('/clients/export') ?>" class="btn btn-outline-primary">
                             <i class="bi bi-download me-1"></i>
                             تصدير (CSV)
                         </a>
-                        <form method="POST" action="/new_injaz/clients/import" enctype="multipart/form-data" style="display: inline;">
+                        <form method="POST" action="<?= \App\Core\Helpers::url('/clients/import') ?>" enctype="multipart/form-data" style="display: inline;">
                             <input type="file" name="csv_file" accept=".csv" required style="display: none;" id="csv_file" onchange="this.form.submit();">
                             <label for="csv_file" class="btn btn-outline-secondary" style="cursor: pointer;">
                                 <i class="bi bi-upload me-1"></i>
@@ -95,10 +95,10 @@
                     </td>
                     <td>
                         <div class="btn-group btn-group-sm" role="group">
-                            <a href="/new_injaz/clients/edit?id=<?= $row['client_id'] ?>" class="btn btn-outline-primary btn-sm" title="تعديل">
+                            <a href="<?= \App\Core\Helpers::url('/clients/edit?id=' . $row['client_id']) ?>" class="btn btn-outline-primary btn-sm" title="تعديل">
                                 <i class="bi bi-pencil"></i> تفاصيل
                             </a>
-                            <a href="/new_injaz/clients/confirm-delete?id=<?= $row['client_id'] ?>" class="btn btn-outline-danger btn-sm" title="حذف">
+                            <a href="<?= \App\Core\Helpers::url('/clients/confirm-delete?id=' . $row['client_id']) ?>" class="btn btn-outline-danger btn-sm" title="حذف">
                                 <i class="bi bi-trash"></i>
                             </a>
                         </div>

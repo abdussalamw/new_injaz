@@ -5,9 +5,12 @@ return [
     '/' => [
         'GET' => ['file' => 'src/View/dashboard.php', 'auth' => true]
     ],
+    '/dashboard' => [
+        'GET' => ['file' => 'src/View/dashboard.php', 'auth' => true]
+    ],
     '/login' => [
-        'GET' => ['file' => 'src/View/login_form.php', 'auth' => false],
-        'POST' => ['file' => 'src/Auth/Login.php', 'auth' => false]
+        'GET' => ['controller' => ['App\Auth\Login', 'show'], 'auth' => false],
+        'POST' => ['controller' => ['App\Auth\Login', 'handle'], 'auth' => false]
     ],
     '/logout' => [
         'GET' => ['file' => 'src/Auth/Logout.php', 'auth' => true]

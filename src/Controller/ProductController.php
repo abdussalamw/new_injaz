@@ -18,7 +18,7 @@ class ProductController
     public function index(): void
     {
         if (!Permissions::has_permission('product_view', $this->conn)) {
-            header('Location: /new_injaz/');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/');
             exit;
         }
 
@@ -37,7 +37,7 @@ class ProductController
     public function add(): void
     {
         if (!Permissions::has_permission('product_add', $this->conn)) {
-            header('Location: /new_injaz/products');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/products');
             exit;
         }
         $page_title = 'إضافة منتج جديد';
@@ -48,7 +48,7 @@ class ProductController
     public function store(): void
     {
         if (!Permissions::has_permission('product_add', $this->conn)) {
-            header('Location: /new_injaz/products');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/products');
             exit;
         }
 
@@ -61,7 +61,7 @@ class ProductController
         $stmt->bind_param("ssss", $name, $default_size, $default_material, $default_details);
 
         if ($stmt->execute()) {
-            header("Location: /new_injaz/products");
+            header("Location: " . $_ENV['BASE_PATH'] . "/products");
             exit;
         } else {
             $error = "خطأ في إضافة المنتج";
@@ -74,7 +74,7 @@ class ProductController
     public function edit(): void
     {
         if (!Permissions::has_permission('product_edit', $this->conn)) {
-            header('Location: /new_injaz/products');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/products');
             exit;
         }
 
@@ -105,7 +105,7 @@ class ProductController
     public function update(): void
     {
         if (!Permissions::has_permission('product_edit', $this->conn)) {
-            header('Location: /new_injaz/products');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/products');
             exit;
         }
 
@@ -125,7 +125,7 @@ class ProductController
         $stmt->bind_param("ssssi", $name, $default_size, $default_material, $default_details, $id);
 
         if ($stmt->execute()) {
-            header("Location: /new_injaz/products");
+            header("Location: " . $_ENV['BASE_PATH'] . "/products");
             exit;
         } else {
             $error = "خطأ في تحديث البيانات";
@@ -143,7 +143,7 @@ class ProductController
     public function confirmDelete(): void
     {
         if (!Permissions::has_permission('product_delete', $this->conn)) {
-            header('Location: /new_injaz/products');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/products');
             exit;
         }
 
@@ -181,7 +181,7 @@ class ProductController
     public function destroy(): void
     {
         if (!Permissions::has_permission('product_delete', $this->conn)) {
-            header('Location: /new_injaz/products');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/products');
             exit;
         }
 
@@ -215,7 +215,7 @@ class ProductController
         $stmt->bind_param("i", $id);
 
         if ($stmt->execute()) {
-            header("Location: /new_injaz/products");
+            header("Location: " . $_ENV['BASE_PATH'] . "/products");
             exit;
         } else {
             $error = "حدث خطأ أثناء حذف المنتج: " . $stmt->error;

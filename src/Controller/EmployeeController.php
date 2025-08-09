@@ -17,7 +17,7 @@ class EmployeeController
     public function index(): void
     {
         if (!Permissions::has_permission('employee_view', $this->conn)) {
-            header('Location: /new_injaz/');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/');
             exit;
         }
 
@@ -50,7 +50,7 @@ class EmployeeController
     public function add(): void
     {
         if (!Permissions::has_permission('employee_add', $this->conn)) {
-            header('Location: /new_injaz/employees');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/employees');
             exit;
         }
         $page_title = 'إضافة موظف جديد';
@@ -61,7 +61,7 @@ class EmployeeController
     public function store(): void
     {
         if (!Permissions::has_permission('employee_add', $this->conn)) {
-            header('Location: /new_injaz/employees');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/employees');
             exit;
         }
 
@@ -93,7 +93,7 @@ class EmployeeController
         $stmt->bind_param("sssss", $name, $role, $phone, $email, $password_hash);
 
         if ($stmt->execute()) {
-            header("Location: /new_injaz/employees");
+            header("Location: " . $_ENV['BASE_PATH'] . "/employees");
             exit;
         } else {
             $error = "خطأ في إضافة الموظف";
@@ -106,7 +106,7 @@ class EmployeeController
     public function edit(): void
     {
         if (!Permissions::has_permission('employee_edit', $this->conn)) {
-            header('Location: /new_injaz/employees');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/employees');
             exit;
         }
 
@@ -137,7 +137,7 @@ class EmployeeController
     public function update(): void
     {
         if (!Permissions::has_permission('employee_edit', $this->conn)) {
-            header('Location: /new_injaz/employees');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/employees');
             exit;
         }
 
@@ -178,7 +178,7 @@ class EmployeeController
         }
 
         if ($stmt->execute()) {
-            header("Location: /new_injaz/employees");
+            header("Location: " . $_ENV['BASE_PATH'] . "/employees");
             exit;
         } else {
             $error = "خطأ في تحديث البيانات";
@@ -196,7 +196,7 @@ class EmployeeController
     public function permissions(): void
     {
         if (!Permissions::has_permission('employee_permissions_edit', $this->conn)) {
-            header('Location: /new_injaz/employees');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/employees');
             exit;
         }
 
@@ -227,7 +227,7 @@ class EmployeeController
     public function updatePermissions(): void
     {
         if (!Permissions::has_permission('employee_permissions_edit', $this->conn)) {
-            header('Location: /new_injaz/employees');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/employees');
             exit;
         }
 
@@ -252,14 +252,14 @@ class EmployeeController
             }
         }
 
-        header("Location: /new_injaz/employees");
+        header("Location: " . $_ENV['BASE_PATH'] . "/employees");
         exit;
     }
 
     public function destroy(): void
     {
         if (!Permissions::has_permission('employee_delete', $this->conn)) {
-            header('Location: /new_injaz/employees');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/employees');
             exit;
         }
 
@@ -274,7 +274,7 @@ class EmployeeController
         $stmt->bind_param("i", $id);
 
         if ($stmt->execute()) {
-            header("Location: /new_injaz/employees");
+            header("Location: " . $_ENV['BASE_PATH'] . "/employees");
             exit;
         } else {
             http_response_code(500);
@@ -285,7 +285,7 @@ class EmployeeController
     public function confirmDelete(): void
     {
         if (!Permissions::has_permission('employee_delete', $this->conn)) {
-            header('Location: /new_injaz/employees');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/employees');
             exit;
         }
 

@@ -54,7 +54,10 @@ class Login
                     }
                 }
 
-                header('Location: /new_injaz/dashboard.php');
+                // إعادة التوجيه بعد تسجيل الدخول
+                $basePath = $_ENV['BASE_PATH'] ?? '';
+                if (empty($basePath)) $basePath = '/';
+                header('Location: ' . rtrim($basePath, '/') . '/dashboard');
                 exit;
             } else {
                 $error = "كلمة المرور غير صحيحة.";

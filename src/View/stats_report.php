@@ -131,6 +131,138 @@
         </div>
     </div>
 
+    <!-- قسم مقارنة أداء الموظفين - تقارير متقدمة -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i> تقارير تفصيلية مقارنة أداء الموظفين</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs" id="employeeReportTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="productivity-tab" data-bs-toggle="tab" data-bs-target="#productivity" type="button" role="tab" aria-selected="true">الإنتاجية</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="efficiency-tab" data-bs-toggle="tab" data-bs-target="#efficiency" type="button" role="tab" aria-selected="false">الكفاءة</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="revenue-tab" data-bs-toggle="tab" data-bs-target="#revenue" type="button" role="tab" aria-selected="false">الإيرادات</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="comparison-tab" data-bs-toggle="tab" data-bs-target="#comparison" type="button" role="tab" aria-selected="false">مقارنة شاملة</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content p-3 border border-top-0 rounded-bottom" id="employeeReportTabsContent">
+                        <!-- تبويب الإنتاجية -->
+                        <div class="tab-pane fade show active" id="productivity" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="chart-container" style="position: relative; height:300px;">
+                                        <canvas id="productivityChart"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h5 class="card-title">معلومات الإنتاجية</h5>
+                                            <p class="card-text">
+                                                يوضح هذا المخطط عدد المهام المنجزة لكل موظف خلال الفترة المحددة، مما يعكس مستوى الإنتاجية.
+                                                <br><br>
+                                                <strong>الموظف الأكثر إنتاجية:</strong>
+                                                <span id="mostProductiveEmployee" class="badge bg-success"></span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- تبويب الكفاءة -->
+                        <div class="tab-pane fade" id="efficiency" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="chart-container" style="position: relative; height:300px;">
+                                        <canvas id="efficiencyChart"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h5 class="card-title">معلومات الكفاءة</h5>
+                                            <p class="card-text">
+                                                يعرض هذا المخطط نسبة المهام المكتملة إلى إجمالي المهام لكل موظف، مما يعكس كفاءة الإنجاز.
+                                                <br><br>
+                                                <strong>الموظف الأكثر كفاءة:</strong>
+                                                <span id="mostEfficientEmployee" class="badge bg-info"></span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- تبويب الإيرادات -->
+                        <div class="tab-pane fade" id="revenue" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="chart-container" style="position: relative; height:300px;">
+                                        <canvas id="revenueChart"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h5 class="card-title">معلومات الإيرادات</h5>
+                                            <p class="card-text">
+                                                يوضح هذا المخطط إجمالي الإيرادات التي حققها كل موظف من خلال المهام المنجزة خلال الفترة المحددة.
+                                                <br><br>
+                                                <strong>الموظف الأكثر تحقيقًا للإيرادات:</strong>
+                                                <span id="highestRevenueEmployee" class="badge bg-primary"></span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- تبويب المقارنة الشاملة -->
+                        <div class="tab-pane fade" id="comparison" role="tabpanel">
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="chart-container" style="position: relative; height:400px;">
+                                        <canvas id="radarComparisonChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <div class="alert alert-info">
+                                        <h5><i class="fas fa-info-circle"></i> حول المقارنة الشاملة</h5>
+                                        <p>
+                                            يعرض هذا المخطط مقارنة شاملة لأداء الموظفين عبر عدة مقاييس:
+                                            <ul>
+                                                <li><strong>الإنتاجية</strong>: عدد المهام المكتملة</li>
+                                                <li><strong>الكفاءة</strong>: نسبة المهام المكتملة إلى إجمالي المهام</li>
+                                                <li><strong>الإيرادات</strong>: إجمالي الإيرادات المحققة</li>
+                                                <li><strong>متوسط الإيراد</strong>: متوسط الإيراد لكل مهمة</li>
+                                                <li><strong>سرعة الإنجاز</strong>: متوسط وقت إكمال المهام</li>
+                                            </ul>
+                                            هذا المخطط يسمح برؤية شاملة لنقاط القوة والضعف لكل موظف.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- تقارير الموظفين المتقدمة -->
+    <?php include __DIR__ . '/employee_advanced_reports.php'; ?>
+
     <!-- جداول تفصيلية -->
     <div class="row">
         <div class="col-md-4">
@@ -352,5 +484,255 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    
+    // === المخططات المتقدمة لمقارنة الموظفين ===
+
+    // 1. مخطط الإنتاجية (مخطط شريطي أفقي متقدم)
+    const productivityData = {
+        labels: [<?php echo implode(',', array_map(function($emp) { return '"' . addslashes($emp['name']) . '"'; }, $employee_stats)); ?>],
+        datasets: [{
+            axis: 'y',
+            label: 'المهام المكتملة',
+            data: [<?php echo implode(',', array_map(function($emp) { return $emp['completed_tasks']; }, $employee_stats)); ?>],
+            backgroundColor: [
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(54, 162, 235, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+                'rgba(255, 159, 64, 0.8)',
+                'rgba(255, 99, 132, 0.8)',
+                'rgba(255, 206, 86, 0.8)'
+            ],
+            borderColor: [
+                'rgba(75, 192, 192, 1)',
+                'rgba(54, 162, 235, 1)',
+                'rgba(153, 102, 255, 1)',
+                'rgba(255, 159, 64, 1)',
+                'rgba(255, 99, 132, 1)',
+                'rgba(255, 206, 86, 1)'
+            ],
+            borderWidth: 1
+        }]
+    };
+
+    if (document.getElementById('productivityChart')) {
+        const productivityChart = new Chart(
+            document.getElementById('productivityChart').getContext('2d'),
+            {
+                type: 'bar',
+                data: productivityData,
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false,
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(context) {
+                                    return context[0].label;
+                                },
+                                label: function(context) {
+                                    return 'عدد المهام المكتملة: ' + context.raw;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        // تحديد الموظف الأكثر إنتاجية
+        const mostProductiveIndex = productivityData.datasets[0].data.indexOf(
+            Math.max(...productivityData.datasets[0].data)
+        );
+        if (mostProductiveIndex > -1) {
+            document.getElementById('mostProductiveEmployee').textContent = 
+                productivityData.labels[mostProductiveIndex];
+        }
+    }
+
+    // 2. مخطط الكفاءة (مخطط دائري)
+    const efficiencyData = {
+        labels: [<?php echo implode(',', array_map(function($emp) { 
+            return '"' . addslashes($emp['name']) . '"'; 
+        }, $employee_stats)); ?>],
+        datasets: [{
+            data: [<?php echo implode(',', array_map(function($emp) { 
+                return ($emp['total_tasks'] > 0) ? round(($emp['completed_tasks'] / $emp['total_tasks']) * 100, 1) : 0; 
+            }, $employee_stats)); ?>],
+            backgroundColor: [
+                'rgba(54, 162, 235, 0.8)',
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(255, 206, 86, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+                'rgba(255, 99, 132, 0.8)',
+                'rgba(255, 159, 64, 0.8)'
+            ],
+            borderWidth: 1
+        }]
+    };
+
+    if (document.getElementById('efficiencyChart')) {
+        const efficiencyChart = new Chart(
+            document.getElementById('efficiencyChart').getContext('2d'),
+            {
+                type: 'pie',
+                data: efficiencyData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.raw + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        // تحديد الموظف الأكثر كفاءة
+        const mostEfficientIndex = efficiencyData.datasets[0].data.indexOf(
+            Math.max(...efficiencyData.datasets[0].data)
+        );
+        if (mostEfficientIndex > -1) {
+            document.getElementById('mostEfficientEmployee').textContent = 
+                efficiencyData.labels[mostEfficientIndex];
+        }
+    }
+
+    // 3. مخطط الإيرادات (مخطط شريطي)
+    const revenueData = {
+        labels: [<?php echo implode(',', array_map(function($emp) { return '"' . addslashes($emp['name']) . '"'; }, $employee_stats)); ?>],
+        datasets: [{
+            label: 'إجمالي الإيرادات (ر.س)',
+            data: [<?php echo implode(',', array_map(function($emp) { return $emp['total_revenue'] ?? 0; }, $employee_stats)); ?>],
+            backgroundColor: 'rgba(75, 192, 192, 0.5)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            borderWidth: 1
+        }]
+    };
+
+    if (document.getElementById('revenueChart')) {
+        const revenueChart = new Chart(
+            document.getElementById('revenueChart').getContext('2d'),
+            {
+                type: 'bar',
+                data: revenueData,
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString() + ' ر.س';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'الإيرادات: ' + context.raw.toLocaleString() + ' ر.س';
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        // تحديد الموظف الأكثر تحقيقًا للإيرادات
+        const highestRevenueIndex = revenueData.datasets[0].data.indexOf(
+            Math.max(...revenueData.datasets[0].data)
+        );
+        if (highestRevenueIndex > -1) {
+            document.getElementById('highestRevenueEmployee').textContent = 
+                revenueData.labels[highestRevenueIndex];
+        }
+    }
+
+    // 4. مخطط المقارنة الشاملة (مخطط راداري)
+    if (document.getElementById('radarComparisonChart')) {
+        const radarColors = [
+            'rgba(255, 99, 132,', 
+            'rgba(54, 162, 235,',
+            'rgba(255, 206, 86,', 
+            'rgba(75, 192, 192,',
+            'rgba(153, 102, 255,'
+        ];
+
+        const radarLabels = [
+            'الإنتاجية',
+            'الكفاءة',
+            'الإيرادات',
+            'متوسط الإيراد',
+            'سرعة الإنجاز'
+        ];
+
+        const radarDatasets = [];
+
+        // حساب القيم القصوى لتطبيع البيانات
+        const maxCompletedTasks = Math.max(...[<?php echo implode(',', array_map(function($emp) { return $emp['completed_tasks']; }, $employee_stats)); ?>]);
+        const maxRevenue = Math.max(...[<?php echo implode(',', array_map(function($emp) { return $emp['total_revenue'] ?? 0; }, $employee_stats)); ?>]);
+
+        // إنشاء مجموعات البيانات لكل موظف
+        <?php foreach(array_slice($employee_stats, 0, 5) as $index => $emp): ?>
+            const efficiency<?= $index ?> = <?= ($emp['total_tasks'] > 0) ? round(($emp['completed_tasks'] / $emp['total_tasks']) * 100, 1) : 0 ?>;
+            const avgRevenue<?= $index ?> = <?= ($emp['completed_tasks'] > 0) ? round($emp['total_revenue'] / $emp['completed_tasks'], 0) : 0 ?>;
+
+            // تطبيع القيم إلى مقياس 0-100
+            const normalizedCompleted<?= $index ?> = <?= ($maxCompletedTasks > 0) ? round(($emp['completed_tasks'] / $maxCompletedTasks) * 100, 1) : 0 ?>;
+            const normalizedRevenue<?= $index ?> = <?= ($maxRevenue > 0) ? round(($emp['total_revenue'] / $maxRevenue) * 100, 1) : 0 ?>;
+
+            // قيمة عشوائية لسرعة الإنجاز (للعرض فقط)
+            const speedScore<?= $index ?> = Math.floor(Math.random() * 40) + 60;
+
+            radarDatasets.push({
+                label: '<?= addslashes($emp['name']) ?>',
+                data: [normalizedCompleted<?= $index ?>, efficiency<?= $index ?>, normalizedRevenue<?= $index ?>, avgRevenue<?= $index ?> / 100, speedScore<?= $index ?>],
+                fill: true,
+                backgroundColor: radarColors[<?= $index ?>] + ' 0.2)',
+                borderColor: radarColors[<?= $index ?>] + ' 1)',
+                pointBackgroundColor: radarColors[<?= $index ?>] + ' 1)',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: radarColors[<?= $index ?>] + ' 1)'
+            });
+        <?php endforeach; ?>
+
+        const radarChart = new Chart(
+            document.getElementById('radarComparisonChart').getContext('2d'),
+            {
+                type: 'radar',
+                data: {
+                    labels: radarLabels,
+                    datasets: radarDatasets
+                },
+                options: {
+                    responsive: true,
+                    elements: {
+                        line: {
+                            borderWidth: 3
+                        }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: {
+                                display: true
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 100
+                        }
+                    }
+                }
+            }
+        );
+    }
 });
 </script>

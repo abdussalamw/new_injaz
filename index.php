@@ -34,12 +34,22 @@ $db = new \App\Core\Database(
 );
 $conn = $db->getConnection();
 
-// 2. Include header
-require_once __DIR__ . '/src/header.php';
+// 2. Include header (skip for login page)
+$request_uri_temp = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$base_path_temp = $_ENV['BASE_PATH'];
+if (str_starts_with($request_uri_temp, $base_path_temp)) {
+    $request_uri_temp = substr($request_uri_temp, strlen($base_path_temp));
+}
+if (empty($request_uri_temp)) {
+    $request_uri_temp = '/';
+}
+if ($request_uri_temp !== '/login') {
+    require_once __DIR__ . '/src/header.php';
+}
 
 // 3. Routing System
 $request_uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$base_path = '/new_injaz'; // Define your base path here
+$base_path = $_ENV['BASE_PATH']; // Get base path from environment settings
 
 if (str_starts_with($request_uri, $base_path)) {
     $request_uri = substr($request_uri, strlen($base_path));
@@ -85,9 +95,6 @@ if (array_key_exists($request_uri, $routes)) {
 
             $controller = new $controller_class($conn);
             $controller->$controller_method();
-        } elseif ($request_uri === '/login' && $request_method === 'POST') {
-            $login = new \App\Auth\Login($conn);
-            $login->handle();
         } else {
             http_response_code(500);
             echo "<h1>Internal Server Error: Route definition incomplete.</h1>";

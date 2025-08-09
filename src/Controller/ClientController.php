@@ -18,7 +18,7 @@ class ClientController
     public function index(): void
     {
         if (!Permissions::has_permission('client_view', $this->conn)) {
-            header('Location: /new_injaz/');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/');
             exit;
         }
 
@@ -59,7 +59,7 @@ class ClientController
     public function add(): void
     {
         if (!Permissions::has_permission('client_add', $this->conn)) {
-            header('Location: /new_injaz/clients');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/clients');
             exit;
         }
         $page_title = 'إضافة عميل جديد';
@@ -70,7 +70,7 @@ class ClientController
     public function store(): void
     {
         if (!Permissions::has_permission('client_add', $this->conn)) {
-            header('Location: /new_injaz/clients');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/clients');
             exit;
         }
 
@@ -93,7 +93,7 @@ class ClientController
 
         if ($stmt->execute()) {
             MessageSystem::setSuccess("تم إضافة العميل بنجاح!");
-            header("Location: /new_injaz/clients");
+            header("Location: " . $_ENV['BASE_PATH'] . "/clients");
             exit;
         } else {
             // Handle error
@@ -107,7 +107,7 @@ class ClientController
     public function edit(): void
     {
         if (!Permissions::has_permission('client_edit', $this->conn)) {
-            header('Location: /new_injaz/clients');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/clients');
             exit;
         }
 
@@ -138,7 +138,7 @@ class ClientController
     public function update(): void
     {
         if (!Permissions::has_permission('client_edit', $this->conn)) {
-            header('Location: /new_injaz/clients');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/clients');
             exit;
         }
 
@@ -174,7 +174,7 @@ class ClientController
 
         if ($stmt->execute()) {
             MessageSystem::setSuccess("تم تحديث بيانات العميل بنجاح!");
-            header("Location: /new_injaz/clients");
+            header("Location: " . $_ENV['BASE_PATH'] . "/clients");
             exit;
         } else {
             // Handle error
@@ -194,7 +194,7 @@ class ClientController
     public function confirmDelete(): void
     {
         if (!Permissions::has_permission('client_delete', $this->conn)) {
-            header('Location: /new_injaz/clients');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/clients');
             exit;
         }
 
@@ -232,7 +232,7 @@ class ClientController
     public function export(): void
     {
         if (!Permissions::has_permission('client_export', $this->conn)) {
-            header('Location: /new_injaz/clients');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/clients');
             exit;
         }
 
@@ -268,7 +268,7 @@ class ClientController
     public function import(): void
     {
         if (!Permissions::has_permission('client_import', $this->conn)) {
-            header('Location: /new_injaz/clients');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/clients');
             exit;
         }
 
@@ -340,7 +340,7 @@ class ClientController
     public function destroy(): void
     {
         if (!Permissions::has_permission('client_delete', $this->conn)) {
-            header('Location: /new_injaz/clients');
+            header('Location: ' . $_ENV['BASE_PATH'] . '/clients');
             exit;
         }
 
@@ -360,7 +360,7 @@ class ClientController
 
         if ($row['count'] > 0) {
             MessageSystem::setError("لا يمكن حذف هذا العميل لأنه مرتبط بطلبات موجودة. يجب حذف الطلبات المرتبطة أولاً.");
-            header("Location: /new_injaz/clients");
+            header("Location: " . $_ENV['BASE_PATH'] . "/clients");
             exit;
             $page_title = 'العملاء';
             $sort_column_key = $_GET['sort'] ?? 'client_id';
@@ -377,11 +377,11 @@ class ClientController
 
         if ($stmt->execute()) {
             MessageSystem::setSuccess("تم حذف العميل بنجاح!");
-            header("Location: /new_injaz/clients");
+            header("Location: " . $_ENV['BASE_PATH'] . "/clients");
             exit;
         } else {
             MessageSystem::setError("حدث خطأ أثناء حذف العميل: " . $stmt->error);
-            header("Location: /new_injaz/clients");
+            header("Location: " . $_ENV['BASE_PATH'] . "/clients");
             exit;
             $page_title = 'العملاء';
             $sort_column_key = $_GET['sort'] ?? 'client_id';

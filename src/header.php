@@ -36,7 +36,7 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/new_injaz/public/assets/style.css">
+    <link rel="stylesheet" href="<?= \App\Core\Helpers::asset('style.css') ?>">
     <style>
         body { font-family: 'Tajawal', Arial, sans-serif; background: #faf6f4; }
         .main-navbar { background: #D44759; }
@@ -199,8 +199,8 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
 </head>
 <body>
 <nav class="navbar main-navbar navbar-expand-lg shadow-sm px-3">
-    <a class="navbar-brand d-flex align-items-center" href="/new_injaz/">
-        <img src="/new_injaz/public/assets/logoenjaz.jpg" class="me-2" alt="Logo">
+    <a class="navbar-brand d-flex align-items-center" href="<?= \App\Core\Helpers::url('/') ?>">
+        <img src="<?= \App\Core\Helpers::asset('logoenjaz.jpg') ?>" class="me-2" alt="Logo">
         <span class="fw-bold">إنجاز الإعلامية</span>
         <?php if (!empty($page_title)): ?>
             <span class="text-light ms-2" style="font-size: 14px; font-weight: normal; opacity: 0.9;">
@@ -280,7 +280,7 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
             </ul>
         </div>
         <span class="text-white me-3 d-none d-sm-inline">مرحبًا، <?= htmlspecialchars($_SESSION['user_name']) ?></span>
-        <a href="/new_injaz/logout.php" class="btn btn-light btn-sm">تسجيل الخروج <i class="bi bi-box-arrow-right"></i></a>
+        <a href="<?= \App\Core\Helpers::url('/logout') ?>" class="btn btn-light btn-sm">تسجيل الخروج <i class="bi bi-box-arrow-right"></i></a>
         <?php endif; ?>
     </div>
 </nav>
@@ -298,7 +298,7 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
         </li>
         <?php if (\App\Core\Permissions::has_permission('dashboard_view', $conn)): ?>
             <li class="nav-item">
-              <a class="nav-link<?= ($_SERVER['REQUEST_URI'] == '/new_injaz/' || $_SERVER['REQUEST_URI'] == '/new_injaz/index.php') ? ' active' : '' ?>" href="/new_injaz/">
+              <a class="nav-link<?= ($_SERVER['REQUEST_URI'] == \App\Core\Helpers::url('/') || $_SERVER['REQUEST_URI'] == \App\Core\Helpers::url('/index.php')) ? ' active' : '' ?>" href="<?= \App\Core\Helpers::url('/') ?>">
                 <i class="bi bi-speedometer2"></i>
                 <span>لوحة التحكم</span>
               </a>
@@ -306,7 +306,7 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
         <?php endif; ?>
         <?php if (\App\Core\Permissions::has_permission('order_view_all', $conn) || \App\Core\Permissions::has_permission('order_view_own', $conn)): ?>
             <li class="nav-item">
-              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/new_injaz/orders')) ? ' active' : '' ?>" href="/new_injaz/orders">
+              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], \App\Core\Helpers::url('/orders'))) ? ' active' : '' ?>" href="<?= \App\Core\Helpers::url('/orders') ?>">
                 <i class="bi bi-clipboard-check"></i>
                 <span>الطلبات</span>
               </a>
@@ -314,7 +314,7 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
         <?php endif; ?>
         <?php if (\App\Core\Permissions::has_permission('client_view', $conn)): ?>
             <li class="nav-item">
-              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/new_injaz/clients')) ? ' active' : '' ?>" href="/new_injaz/clients">
+              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], \App\Core\Helpers::url('/clients'))) ? ' active' : '' ?>" href="<?= \App\Core\Helpers::url('/clients') ?>">
                 <i class="bi bi-people"></i>
                 <span>العملاء</span>
               </a>
@@ -322,7 +322,7 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
         <?php endif; ?>
         <?php if (\App\Core\Permissions::has_permission('product_view', $conn)): ?>
             <li class="nav-item">
-              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/new_injaz/products')) ? ' active' : '' ?>" href="/new_injaz/products">
+              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], \App\Core\Helpers::url('/products'))) ? ' active' : '' ?>" href="<?= \App\Core\Helpers::url('/products') ?>">
                 <i class="bi bi-box-seam"></i>
                 <span>المنتجات</span>
               </a>
@@ -330,7 +330,7 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
         <?php endif; ?>
         <?php if (\App\Core\Permissions::has_permission('employee_view', $conn)): ?>
             <li class="nav-item">
-              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/new_injaz/employees')) ? ' active' : '' ?>" href="/new_injaz/employees">
+              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], \App\Core\Helpers::url('/employees'))) ? ' active' : '' ?>" href="<?= \App\Core\Helpers::url('/employees') ?>">
                 <i class="bi bi-person-badge"></i>
                 <span>الموظفون</span>
               </a>
@@ -338,7 +338,7 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
         <?php endif; ?>
         <?php if (\App\Core\Permissions::has_permission('dashboard_reports_view', $conn) || \App\Core\Permissions::has_permission('order_view_own', $conn)): ?>
             <li class="nav-item">
-              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], '/new_injaz/reports')) ? ' active' : '' ?>" href="/new_injaz/reports/timeline">
+              <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], \App\Core\Helpers::url('/reports'))) ? ' active' : '' ?>" href="<?= \App\Core\Helpers::url('/reports/timeline') ?>">
                 <i class="bi bi-graph-up"></i>
                 <span>الجدول الزمني للمراحل</span>
               </a>

@@ -20,8 +20,8 @@ class AuthCheck
 
     public static function redirect(string $path): void
     {
-        // Add base path for proper redirection
-        $base_path = '/new_injaz';
+        // Add base path for proper redirection using environment setting
+        $base_path = $_ENV['BASE_PATH'];
         if (!str_starts_with($path, $base_path) && !str_starts_with($path, 'http')) {
             $path = $base_path . $path;
         }
