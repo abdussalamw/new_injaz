@@ -182,6 +182,8 @@
 
 <script>
     const BASE_URL = '<?= $base_path ?>'; // Defined in public/index.php
+    console.log('BASE_URL:', BASE_URL);
+    console.log('Full API URL:', BASE_URL + '/api/ratings');
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.rating-stars').forEach(function(ratingContainer) {
         const stars = ratingContainer.querySelectorAll('.star');
@@ -221,6 +223,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function submitRating(orderId, stage, rating, container) {
+        console.log('submitRating called with:', {orderId, stage, rating});
+        console.log('Sending to URL:', BASE_URL + '/api/ratings');
+
         Swal.fire({
             title: 'جاري حفظ التقييم...',
             allowOutsideClick: false,
@@ -239,8 +244,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 rating: rating
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+            return response.json();
+        })
         .then(data => {
+            console.log('Response data:', data);
             if (data.success) {
                 const stars = container.querySelectorAll('.star');
                 stars.forEach(function(star, index) {
@@ -263,8 +273,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            Swal.fire('خطأ فني!', 'حدث خطأ أثناء حفظ التقييم.', 'error');
+            console.error('Fetch Error:', error);
+            console.error('Error details:', error.message);
+            Swal.fire('خطأ فني!', 'حدث خطأ أثناء حفظ التقييم: ' + error.message, 'error');
         });
     }
 });

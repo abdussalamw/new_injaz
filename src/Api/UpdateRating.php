@@ -5,6 +5,9 @@ namespace App\Api;
 
 use App\Core\Permissions;
 
+// Set JSON header
+header('Content-Type: application/json; charset=utf-8');
+
 // Note: The router handles session_start, db_connection, and auth checks.
 
 // Check if $conn is available and is a valid mysqli connection
@@ -88,6 +91,8 @@ if ($stmt->execute()) {
         'message' => 'تم حفظ التقييم بنجاح',
         'rating' => $rating
     ]);
+    exit;
 } else {
     echo json_encode(['success' => false, 'message' => 'فشل في حفظ التقييم: ' . $conn->error]);
 }
+exit;

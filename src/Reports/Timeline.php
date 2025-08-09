@@ -89,6 +89,9 @@ if (!empty($params)) {
 $stmt->execute();
 $result = $stmt->get_result();
 
+// Define base_path for JavaScript in timeline_report.php  
+$base_path = rtrim($_SERVER['REQUEST_SCHEME'] . '://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['SCRIPT_NAME']), '/');
+
 require_once __DIR__ . '/../View/timeline_report.php';
 
 require_once __DIR__ . '/../footer.php';
