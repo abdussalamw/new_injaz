@@ -43,7 +43,7 @@ if (str_starts_with($request_uri_temp, $base_path_temp)) {
 if (empty($request_uri_temp)) {
     $request_uri_temp = '/';
 }
-if ($request_uri_temp !== '/login') {
+if ($request_uri_temp !== '/login' && !str_starts_with($request_uri_temp, '/api/')) {
     require_once __DIR__ . '/src/header.php';
 }
 

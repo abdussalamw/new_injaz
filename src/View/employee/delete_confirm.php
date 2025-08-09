@@ -43,14 +43,14 @@ $page_title = "تأكيد حذف الموظف";
                     </div>
 
                     <div class="d-flex justify-content-center gap-3">
-                        <form method="POST" action="/new_injaz/employees/delete" class="d-inline">
+                        <form method="POST" action="<?= $_ENV['BASE_PATH'] ?>/employees/delete" class="d-inline">
                             <input type="hidden" name="id" value="<?= htmlspecialchars($employee['employee_id']) ?>">
                             <button type="submit" class="btn btn-danger px-4">
                                 <i class="bi bi-trash"></i>
                                 نعم، احذف الموظف
                             </button>
                         </form>
-                        <a href="/new_injaz/employees" class="btn btn-secondary px-4">
+                        <a href="<?= $_ENV['BASE_PATH'] ?>/employees" class="btn btn-secondary px-4">
                             <i class="bi bi-x-circle"></i>
                             إلغاء
                         </a>

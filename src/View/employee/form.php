@@ -18,7 +18,7 @@ $email = $employee['email'] ?? '';
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
 
-    <form method="POST" action="<?= $is_edit ? '/new_injaz/employees/update' : '/new_injaz/employees' ?>">
+    <form method="POST" action="<?= $is_edit ? $_ENV['BASE_PATH'] . '/employees/update' : $_ENV['BASE_PATH'] . '/employees' ?>">
         <?php if ($is_edit): ?>
             <input type="hidden" name="id" value="<?= htmlspecialchars($employee['employee_id']) ?>">
         <?php endif; ?>
@@ -60,7 +60,7 @@ $email = $employee['email'] ?? '';
             </div>
         </div>
         <button class="btn btn-primary mt-3" type="submit">حفظ</button>
-        <a href="/new_injaz/employees" class="btn btn-secondary mt-3">عودة للقائمة</a>
+        <a href="<?= $_ENV['BASE_PATH'] ?>/employees" class="btn btn-secondary mt-3">عودة للقائمة</a>
     </form>
 </div>
 

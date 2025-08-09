@@ -18,7 +18,7 @@ $default_details = $product['default_details'] ?? '';
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
     
-    <form method="POST" action="<?= $is_edit ? '/new_injaz/products/update' : '/new_injaz/products' ?>">
+    <form method="POST" action="<?= $is_edit ? $_ENV['BASE_PATH'] . '/products/update' : $_ENV['BASE_PATH'] . '/products' ?>">
         <?php if ($is_edit): ?>
             <input type="hidden" name="id" value="<?= htmlspecialchars($product['product_id']) ?>">
         <?php endif; ?>
@@ -42,6 +42,6 @@ $default_details = $product['default_details'] ?? '';
             </div>
         </div>
         <button class="btn btn-primary mt-3" type="submit">حفظ</button>
-        <a href="/new_injaz/products" class="btn btn-secondary mt-3">عودة للقائمة</a>
+        <a href="<?= $_ENV['BASE_PATH'] ?>/products" class="btn btn-secondary mt-3">عودة للقائمة</a>
     </form>
 </div>

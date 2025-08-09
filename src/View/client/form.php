@@ -18,7 +18,7 @@ $email = $client['email'] ?? '';
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
     
-    <form method="POST" action="<?= $is_edit ? '/new_injaz/clients/update' : '/new_injaz/clients' ?>">
+    <form method="POST" action="<?= $is_edit ? $_ENV['BASE_PATH'] . '/clients/update' : $_ENV['BASE_PATH'] . '/clients' ?>">
         <?php if ($is_edit): ?>
             <input type="hidden" name="id" value="<?= htmlspecialchars($client['client_id']) ?>">
         <?php endif; ?>
@@ -49,7 +49,7 @@ $email = $client['email'] ?? '';
             </div>
         </div>
         <button class="btn btn-primary mt-3" type="submit">حفظ</button>
-        <a href="/new_injaz/clients" class="btn btn-secondary mt-3">عودة للقائمة</a>
+        <a href="<?= $_ENV['BASE_PATH'] ?>/clients" class="btn btn-secondary mt-3">عودة للقائمة</a>
     </form>
 </div>
 

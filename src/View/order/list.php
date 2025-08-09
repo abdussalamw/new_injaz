@@ -1,5 +1,97 @@
 <?php
 // src/View/order/list.php
+
+// إذا كان طلب AJAX، عرض الجدول فقط
+if (isset($is_ajax_request) && $is_ajax_request) {
+    // عرض الجدول فقط للطلبات AJAX
+    ?>
+    <table class="table table-bordered table-striped table-hover text-center table-sm" id="ordersMainTable">
+        <thead>
+            <tr>
+                <th style="width: 8%;"><?= \App\Core\Helpers::generate_sort_link('order_id', 'رقم الطلب', $sort_column_key ?? 'order_id', $sort_order ?? 'desc') ?></th>
+                <th style="width: 12%;"><?= \App\Core\Helpers::generate_sort_link('client_name', 'اسم العميل', $sort_column_key ?? 'order_id', $sort_order ?? 'desc') ?></th>
+                <th style="width: 15%;"><?= \App\Core\Helpers::generate_non_sort_column('ملخص المنتجات') ?></th>
+                <th style="width: 10%;"><?= \App\Core\Helpers::generate_sort_link('designer_name', 'المصمم المسؤول', $sort_column_key ?? 'order_id', $sort_order ?? 'desc') ?></th>
+                <th style="width: 10%;"><?= \App\Core\Helpers::generate_sort_link('status', 'حالة الطلب', $sort_column_key ?? 'order_id', $sort_order ?? 'desc') ?></th>
+                <th style="width: 10%;"><?= \App\Core\Helpers::generate_sort_link('payment_status', 'حالة الدفع', $sort_column_key ?? 'order_id', $sort_order ?? 'desc') ?></th>
+                <th style="width: 10%;"><?= \App\Core\Helpers::generate_sort_link('total_amount', 'المبلغ الإجمالي', $sort_column_key ?? 'order_id', $sort_order ?? 'desc') ?></th>
+                <th style="width: 10%;"><?= \App\Core\Helpers::generate_sort_link('order_date', 'تاريخ الإنشاء', $sort_column_key ?? 'order_id', $sort_order ?? 'desc') ?></th>
+                <th style="width: 15%;"><?= \App\Core\Helpers::generate_non_sort_column('الإجراءات') ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php if ($res && $res->num_rows > 0): ?>
+                <?php while($row = $res->fetch_assoc()): ?>
+                <tr>
+                    <td class="fw-bold text-primary">#<?= $row['order_id'] ?></td>
+                    <td class="text-start"><?= htmlspecialchars($row['client_name']) ?></td>
+                    <td class="text-start" style="max-width: 200px;"><?= \App\Core\Helpers::display_products_summary($row['products_summary']) ?></td>
+                    <td><?= htmlspecialchars($row['designer_name']) ?></td>
+                    <td>
+                        <?php
+                        $status_class = \App\Core\Helpers::get_status_badge_class($row['status']);
+                        echo "<span class='badge {$status_class}'>" . htmlspecialchars($row['status']) . "</span>";
+                        ?>
+                    </td>
+                    <td>
+                        <?php
+                        $payment_class = \App\Core\Helpers::get_payment_badge_class($row['payment_status']);
+                        echo "<span class='badge {$payment_class}'>" . htmlspecialchars($row['payment_status']) . "</span>";
+                        ?>
+                    </td>
+                    <td class="fw-bold text-success"><?= number_format($row['total_amount'], 0) ?> ر.س</td>
+                    <td class="text-muted"><?= date('Y-m-d', strtotime($row['order_date'])) ?></td>
+                    <td>
+                        <?php $actions = \App\Core\Helpers::get_next_actions($row, $user_role, $user_id, $conn, 'orders_page'); ?>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <a href="<?= $_ENV['BASE_PATH'] ?>/orders/edit?id=<?= $row['order_id'] ?>" class="btn btn-outline-secondary btn-sm" title="تفاصيل">
+                                <i class="bi bi-eye"></i> تفاصيل
+                            </a>
+                            <?php foreach ($actions as $action_key => $action_details): ?>
+                                <?php if ($action_key === 'change_status'): ?>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm <?= htmlspecialchars($action_details['class']) ?> dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="تغيير الحالة">
+                                            <i class="bi bi-arrow-repeat"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <?php foreach ($action_details['options'] as $next_status => $status_details): ?>
+                                                <li><a class="dropdown-item action-btn" href="#" data-action="change_status" data-value="<?= htmlspecialchars($next_status) ?>" data-order-id="<?= $row['order_id'] ?>" data-confirm-message="<?= htmlspecialchars($status_details['confirm_message']) ?>" <?php if (isset($status_details['whatsapp_action']) && $status_details['whatsapp_action']): ?> data-whatsapp-phone="<?= htmlspecialchars($row['client_phone']) ?>" data-whatsapp-order-id="<?= $row['order_id'] ?>" <?php endif; ?>><?= htmlspecialchars($status_details['label']) ?></a></li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </div>
+                                <?php else: ?>
+                                    <button class="btn btn-sm <?= htmlspecialchars($action_details['class']) ?> action-btn" data-action="<?= htmlspecialchars($action_key) ?>" data-order-id="<?= $row['order_id'] ?>" data-confirm-message="هل أنت متأكد من '<?= htmlspecialchars($action_details['label']) ?>'؟" title="<?= htmlspecialchars($action_details['label']) ?>">
+                                        <i class="bi <?= htmlspecialchars($action_details['icon']) ?>"></i>
+                                    </button>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                            <?php if (\App\Core\Permissions::has_permission('order_delete', $conn)): ?>
+                                <form method="POST" action="<?= $_ENV['BASE_PATH'] ?>/orders/delete" style="display: inline;" onsubmit="return confirm('هل أنت متأكد من حذف هذا الطلب نهائياً؟ لا يمكن التراجع عن هذا الإجراء.');">
+                                    <input type="hidden" name="id" value="<?= $row['order_id'] ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="حذف">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                    </td>
+                </tr>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <tr>
+                    <td colspan="9" class="text-center p-5">
+                        <div class="text-muted">
+                            <i class="bi bi-inbox fs-1"></i>
+                            <p class="mt-2">لا توجد طلبات متاحة</p>
+                        </div>
+                    </td>
+                </tr>
+            <?php endif; ?>
+        </tbody>
+    </table>
+    <?php
+    return;
+}
 ?>
 <style>
     /* تصحيح اتجاه حقول التاريخ */
@@ -29,7 +121,7 @@
                                 <i class="bi bi-search"></i>
                             </button>
                             <?php if (!empty($_GET['search'])): ?>
-                                <a href="/new_injaz/orders" class="btn btn-outline-light" title="مسح البحث">
+                                <a href="<?= $_ENV['BASE_PATH'] ?>/orders" class="btn btn-outline-light" title="مسح البحث">
                                     <i class="bi bi-x"></i>
                                 </a>
                             <?php endif; ?>
@@ -42,7 +134,7 @@
                     
                     <!-- أزرار الإجراءات -->
                     <div class="mb-3 d-flex flex-wrap gap-2">
-                        <a href="/new_injaz/orders/add" class="btn btn-success">
+                        <a href="<?= $_ENV['BASE_PATH'] ?>/orders/add" class="btn btn-success">
                             <i class="bi bi-plus-circle me-1"></i>
                             إضافة طلب جديد
                         </a>
@@ -200,7 +292,7 @@
                                                 $actions = \App\Core\Helpers::get_next_actions($row, $user_role, $user_id, $conn, 'orders_page');
                                             ?>
                                             <div class="btn-group btn-group-sm" role="group">
-                                                <a href="/new_injaz/orders/edit?id=<?= $row['order_id'] ?>" class="btn btn-outline-secondary btn-sm" title="تفاصيل">
+                                                <a href="<?= $_ENV['BASE_PATH'] ?>/orders/edit?id=<?= $row['order_id'] ?>" class="btn btn-outline-secondary btn-sm" title="تفاصيل">
                                                     <i class="bi bi-eye"></i> تفاصيل
                                                 </a>
 
@@ -240,7 +332,7 @@
                                                 <?php endforeach; ?>
 
                                                 <?php if (\App\Core\Permissions::has_permission('order_delete', $conn)): ?>
-                                                    <form method="POST" action="/new_injaz/orders/delete" style="display: inline;" onsubmit="return confirm('هل أنت متأكد من حذف هذا الطلب نهائياً؟ لا يمكن التراجع عن هذا الإجراء.');">
+                                                    <form method="POST" action="<?= $_ENV['BASE_PATH'] ?>/orders/delete" style="display: inline;" onsubmit="return confirm('هل أنت متأكد من حذف هذا الطلب نهائياً؟ لا يمكن التراجع عن هذا الإجراء.');">
                                                         <input type="hidden" name="id" value="<?= $row['order_id'] ?>">
                                                         <button type="submit" class="btn btn-sm btn-outline-danger" title="حذف">
                                                             <i class="bi bi-trash"></i>
@@ -330,7 +422,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         ordersTable.querySelector('tbody').innerHTML = '<tr><td colspan="9" class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">جاري التحميل...</span></div></td></tr>';
 
-        const newUrl = '/new_injaz/orders?' + urlParams.toString();
+        const newUrl = '<?= $_ENV['BASE_PATH'] ?>/orders?' + urlParams.toString();
         window.history.pushState({}, '', newUrl);
 
         fetch(newUrl, {
@@ -420,7 +512,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             didOpen: () => { Swal.showLoading(); }
                         });
 
-                        fetch('/new_injaz/ajax_order_actions.php', {
+                        fetch('<?= $_ENV['BASE_PATH'] ?>/api/orders/status', {
                             method: 'POST',
                             headers: { 
                                 'Content-Type': 'application/json', 
@@ -467,7 +559,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function showPaymentUpdateModal(orderId) {
-        fetch(`/new_injaz/api/orders/details?id=${orderId}`)
+        fetch(`<?= $_ENV['BASE_PATH'] ?>/api/orders/details?id=${orderId}`)
             .then(response => response.json())
             .then(apiResponse => {
                 if (!apiResponse.success) {

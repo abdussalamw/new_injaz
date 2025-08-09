@@ -36,7 +36,7 @@
                             <li><strong>البريد الإلكتروني:</strong> <?= htmlspecialchars($client['email']) ?></li>
                         </ul>
                         <div class="mt-4">
-                            <form method="POST" action="/new_injaz/clients/delete" style="display: inline;">
+                            <form method="POST" action="<?= $_ENV['BASE_PATH'] ?>/clients/delete" style="display: inline;">
                                 <input type="hidden" name="id" value="<?= htmlspecialchars($client['client_id']) ?>">
                                 <button type="submit" class="btn btn-danger">نعم، احذف العميل</button>
                             </form>

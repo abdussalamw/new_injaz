@@ -53,6 +53,8 @@ class OrderController
         
         // إذا كان طلب AJAX، أرجع فقط محتوى الجدول
         if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+            // تحديد أنه طلب AJAX لتجنب عرض الهيدر والقائمة
+            $is_ajax_request = true;
             require_once __DIR__ . '/../View/order/list.php';
             return;
         }

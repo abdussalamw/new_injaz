@@ -21,7 +21,7 @@
                             <li><strong>المادة الافتراضية:</strong> <?= htmlspecialchars($product['default_material']) ?></li>
                         </ul>
                         <p class="text-muted">يجب حذف جميع الطلبات المرتبطة بهذا المنتج أولاً قبل حذفه.</p>
-                        <a href="/new_injaz/products" class="btn btn-secondary">العودة للقائمة</a>
+                        <a href="<?= $_ENV['BASE_PATH'] ?>/products" class="btn btn-secondary">العودة للقائمة</a>
                     <?php else: ?>
                         <div class="alert alert-danger">
                             <strong>تحذير!</strong> هذا الإجراء لا يمكن التراجع عنه.
@@ -34,11 +34,11 @@
                             <li><strong>المادة الافتراضية:</strong> <?= htmlspecialchars($product['default_material']) ?></li>
                         </ul>
                         <div class="mt-4">
-                            <form method="POST" action="/new_injaz/products/delete" style="display: inline;">
+                            <form method="POST" action="<?= $_ENV['BASE_PATH'] ?>/products/delete" style="display: inline;">
                                 <input type="hidden" name="id" value="<?= htmlspecialchars($product['product_id']) ?>">
                                 <button type="submit" class="btn btn-danger">نعم، احذف المنتج</button>
                             </form>
-                            <a href="/new_injaz/products" class="btn btn-secondary">إلغاء</a>
+                            <a href="<?= $_ENV['BASE_PATH'] ?>/products" class="btn btn-secondary">إلغاء</a>
                         </div>
                     <?php endif; ?>
                 </div>

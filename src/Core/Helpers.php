@@ -31,6 +31,28 @@ class Helpers
         return $classes[trim($status)] ?? 'status-default';
     }
 
+    public static function get_status_badge_class(string $status): string
+    {
+        $classes = [
+            'قيد التصميم' => 'bg-warning text-dark',
+            'قيد التنفيذ' => 'bg-info',
+            'جاهز للتسليم' => 'bg-primary',
+            'مكتمل' => 'bg-success',
+            'ملغي' => 'bg-danger',
+        ];
+        return $classes[trim($status)] ?? 'bg-secondary';
+    }
+
+    public static function get_payment_badge_class(string $payment_status): string
+    {
+        $classes = [
+            'مدفوع' => 'bg-success',
+            'مدفوع جزئياً' => 'bg-warning text-dark',
+            'غير مدفوع' => 'bg-danger',
+        ];
+        return $classes[trim($payment_status)] ?? 'bg-secondary';
+    }
+
     public static function get_payment_status_display(string $payment_status_from_db, float $total_amount, float $deposit_amount): string
     {
         $recalculated_status = '';

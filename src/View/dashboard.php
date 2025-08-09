@@ -305,7 +305,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         tasksContainer.innerHTML = '<div class="col-12 text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">جاري التحميل...</span></div></div>';
 
-        fetch('/new_injaz/api_tasks.php?' + urlParams.toString(), {
+        fetch('<?= $_ENV['BASE_PATH'] ?>/api/tasks?' + urlParams.toString(), {
             method: 'GET',
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -390,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         const requestData = { order_id: orderId, action: action, value: value };
 
-                        fetch('/new_injaz/ajax_order_actions.php', {
+                        fetch('<?= $_ENV['BASE_PATH'] ?>/api/orders/status', {
                             method: 'POST',
                             headers: { 
                                 'Content-Type': 'application/json', 

@@ -31,7 +31,7 @@ $notes = $order['notes'] ?? '';
     <?php if (!empty($error)): ?>
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
-    <form method="POST" action="<?= $is_edit ? '/new_injaz/orders/update' : '/new_injaz/orders' ?>" id="order-form">
+    <form method="POST" action="<?= $is_edit ? $_ENV['BASE_PATH'] . '/orders/update' : $_ENV['BASE_PATH'] . '/orders' ?>" id="order-form">
         <?php if ($is_edit): ?>
             <input type="hidden" name="id" value="<?= htmlspecialchars($order['order_id']) ?>">
         <?php endif; ?>
@@ -138,7 +138,7 @@ $notes = $order['notes'] ?? '';
 
             <div class="col-12 text-center mt-4">
                 <button class="btn btn-lg px-5 text-white" type="submit" style="background-color:#D44759;">حفظ</button>
-                <a href="/new_injaz/orders" class="btn btn-secondary ms-2">عودة للقائمة</a>
+                <a href="<?= $_ENV['BASE_PATH'] ?>/orders" class="btn btn-secondary ms-2">عودة للقائمة</a>
             </div>
         </div>
     </form>
@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
             autocompleteList.innerHTML = '';
             return;
         }
-        fetch(`/new_injaz/api/clients/search?query=${query}`)
+        fetch(`<?= $_ENV['BASE_PATH'] ?>/api/clients/search?query=${query}`)
             .then(response => response.json())
             .then(clients => {
                 autocompleteList.innerHTML = '';
