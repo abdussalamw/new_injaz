@@ -38,6 +38,12 @@ return [
     '/api/orders/details' => [
         'GET' => ['controller' => ['App\Api\ApiController', 'getOrderDetails'], 'auth' => true]
     ],
+    '/api/orders/confirm-payment' => [
+        'POST' => ['controller' => ['App\Api\ApiController', 'confirmPayment'], 'auth' => true]
+    ],
+    '/api/orders/confirm-delivery' => [
+        'POST' => ['controller' => ['App\Api\ApiController', 'confirmDelivery'], 'auth' => true]
+    ],
 
     // === Report Routes ===
     '/reports/financial' => [

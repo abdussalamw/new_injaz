@@ -46,12 +46,20 @@ if (!\App\Core\AuthCheck::isLoggedIn($conn)) {
 }
 
 // Get POST data
-$input = json_decode(file_get_contents('php://input'), true);
+$raw_input = file_get_contents('php://input');
+$input = json_decode($raw_input, true);
+
 $order_id = intval($input['order_id'] ?? 0);
 $action = $input['action'] ?? '';
 
+// تحسين التحقق من صحة البيانات
+if (empty($action)) {
+    echo json_encode(['success' => false, 'message' => 'نوع العملية غير محدد.']);
+    exit;
+}
+
 if ($order_id <= 0) {
-    echo json_encode(['success' => false, 'message' => 'معرف الطلب غير صحيح']);
+    echo json_encode(['success' => false, 'message' => 'معرف الطلب غير صحيح.']);
     exit;
 }
 
@@ -69,9 +77,20 @@ if (!$order) {
 $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['user_role'];
 
+$response = ['success' => false, 'message' => 'حدث خطأ غير متوقع.'];
+
 try {
+    // Start a transaction to ensure all database operations are atomic
+    $conn->begin_transaction();
+
+    $message = '';
+
     switch ($action) {
         case 'change_status':
+            if (!\App\Core\Permissions::has_permission('order_edit_status', $conn)) {
+                throw new Exception('ليس لديك الصلاحية لتغيير حالة الطلب.');
+            }
+
             $new_status = $input['value'] ?? '';
             if (empty($new_status)) {
                 throw new Exception('الحالة الجديدة غير محددة');
@@ -108,40 +127,95 @@ try {
                 $stmt->execute();
             }
             
-            echo json_encode(['success' => true, 'message' => "تم تحديث حالة الطلب إلى: $new_status"]);
+            $message = "تم تحديث حالة الطلب إلى: $new_status";
             break;
             
         case 'confirm_delivery':
+            // تبسيط فحص الصلاحيات - المدير يمكنه تأكيد التسليم دائماً
+            if ($user_role !== 'مدير' && $user_role !== 'admin' && !\App\Core\Permissions::has_permission('order_edit_status', $conn)) {
+                throw new Exception('ليس لديك الصلاحية لتأكيد التسليم.');
+            }
+
+            // تحسين رسالة التأكيد بناءً على حالة الدفع
+            $is_paid = ($order['payment_status'] === 'مدفوع');
+
             $stmt = $conn->prepare("UPDATE orders SET delivered_at = NOW(), status = 'مكتمل', updated_at = NOW() WHERE order_id = ?");
             $stmt->bind_param("i", $order_id);
             $stmt->execute();
             
-            echo json_encode(['success' => true, 'message' => 'تم تأكيد استلام العميل وتغيير الحالة إلى مكتمل']);
+            if ($is_paid) {
+                $message = 'تم تأكيد الاستلام. سيتم إخفاء الطلب من لوحة المهام لأنه مكتمل ومدفوع.';
+            } else {
+                $message = 'تم تأكيد استلام العميل. سيبقى الطلب ظاهراً في المهام لحين تسوية الدفع.';
+            }
+            
             break;
             
         case 'confirm_payment':
-            $stmt = $conn->prepare("UPDATE orders SET payment_settled_at = NOW(), payment_status = 'مدفوع', updated_at = NOW() WHERE order_id = ?");
+            // تبسيط فحص الصلاحيات - المدير يمكنه تأكيد الدفع دائماً
+            if ($user_role !== 'مدير' && $user_role !== 'admin' && !\App\Core\Permissions::has_permission('order_financial_settle', $conn)) {
+                throw new Exception('ليس لديك الصلاحية لتسوية الطلبات مالياً.');
+            }
+
+            // To make this action robust, we will settle all amounts automatically.
+            // The $order variable is already fetched at the top of the script.
+            $total_amount = $order['total_amount'];
+
+            // Ensure the order has a total amount to settle.
+            if (is_null($total_amount) || !is_numeric($total_amount) || floatval($total_amount) <= 0) {
+                throw new Exception('لا يمكن تأكيد الدفع. المبلغ الإجمالي للطلب غير محدد أو يساوي صفر.');
+            }
+
+            $stmt = $conn->prepare("
+                UPDATE orders SET 
+                    deposit_amount = total_amount, 
+                    remaining_amount = 0,
+                    payment_status = 'مدفوع', 
+                    payment_settled_at = NOW(), 
+                    updated_at = NOW() 
+                WHERE order_id = ?");
             $stmt->bind_param("i", $order_id);
             $stmt->execute();
             
-            echo json_encode(['success' => true, 'message' => 'تم تأكيد الدفع الكامل']);
+            // تحسين رسالة التأكيد بناءً على حالة التسليم
+            if ($order['status'] === 'مكتمل') {
+                $message = 'تم تأكيد الدفع الكامل. سيتم إخفاء الطلب من لوحة المهام لأنه مكتمل ومدفوع.';
+            } else {
+                $message = 'تم تأكيد الدفع الكامل وتسوية المبلغ بنجاح. سيبقى الطلب ظاهراً لحين تأكيد استلام العميل.';
+            }
+
             break;
             
         case 'close_order':
+            if (!\App\Core\Permissions::has_permission('order_edit_status', $conn)) { // Or a more specific permission
+                throw new Exception('ليس لديك الصلاحية لإغلاق الطلب.');
+            }
+
             $stmt = $conn->prepare("UPDATE orders SET status = 'مكتمل', updated_at = NOW() WHERE order_id = ?");
             $stmt->bind_param("i", $order_id);
             $stmt->execute();
             
-            echo json_encode(['success' => true, 'message' => 'تم إغلاق الطلب نهائياً']);
+            $message = 'تم إغلاق الطلب نهائياً';
             break;
             
         default:
             throw new Exception('إجراء غير معروف');
     }
     
+    // If we reached here, all operations were successful. Commit the transaction.
+    $conn->commit();
+    $response['success'] = true;
+    $response['message'] = $message;
+    
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    // If any operation failed, roll back the entire transaction.
+    $conn->rollback();
+    $response['message'] = $e->getMessage();
+} finally {
+    if (isset($conn)) {
+        $conn->close();
+    }
 }
 
-$conn->close();
+echo json_encode($response);
 ?>

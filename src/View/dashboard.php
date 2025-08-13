@@ -388,17 +388,30 @@ document.addEventListener('DOMContentLoaded', function () {
                             didOpen: () => { Swal.showLoading(); }
                         });
 
-                        const requestData = { order_id: orderId, action: action, value: value };
+                            // تحديد المسار المناسب لكل إجراء
+                            let apiUrl = '<?= $_ENV['BASE_PATH'] ?>/api/orders/status';
+                            if (action === 'confirm_payment') {
+                                apiUrl = '<?= $_ENV['BASE_PATH'] ?>/api/orders/confirm-payment';
+                            } else if (action === 'confirm_delivery') {
+                                apiUrl = '<?= $_ENV['BASE_PATH'] ?>/api/orders/confirm-delivery';
+                            }
 
-                        fetch('<?= $_ENV['BASE_PATH'] ?>/api/orders/status', {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json', 
-                                'Accept': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest'
-                            },
-                            body: JSON.stringify(requestData)
-                        })
+                            const requestData = { order_id: orderId };
+                            // فقط تغيير الحالة يحتاج value و action
+                            if (apiUrl.endsWith('/status')) {
+                                requestData.action = action;
+                                requestData.value = value;
+                            }
+
+                            fetch(apiUrl, {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json', 
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                body: JSON.stringify(requestData)
+                            })
                         .then(response => {
                             return response.json();
                         })

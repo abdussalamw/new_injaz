@@ -130,4 +130,106 @@ class ApiController
             $this->send_json_response(false, 'لم يتم العثور على الطلب.');
         }
     }
+
+    public function confirmDelivery(): void
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $order_id = intval($input['order_id'] ?? 0);
+
+        if ($order_id <= 0) {
+            $this->send_json_response(false, 'معرف الطلب غير صحيح');
+            return;
+        }
+
+        if (!Permissions::has_permission('order_edit_status', $this->conn)) {
+            $this->send_json_response(false, 'ليس لديك الصلاحية لتأكيد التسليم.');
+            return;
+        }
+
+        $this->conn->begin_transaction();
+        try {
+            $stmt = $this->conn->prepare("SELECT payment_status FROM orders WHERE order_id = ?");
+            $stmt->bind_param("i", $order_id);
+            $stmt->execute();
+            $order = $stmt->get_result()->fetch_assoc();
+
+            if (!$order) {
+                throw new \Exception('الطلب غير موجود');
+            }
+
+            $stmt = $this->conn->prepare("UPDATE orders SET delivered_at = NOW(), status = 'مكتمل', updated_at = NOW() WHERE order_id = ?");
+            $stmt->bind_param("i", $order_id);
+            $stmt->execute();
+
+            $is_paid = ($order['payment_status'] === 'مدفوع');
+            if ($is_paid) {
+                $message = 'تم تأكيد الاستلام. سيتم إخفاء الطلب من لوحة المهام لأنه مكتمل ومدفوع.';
+            } else {
+                $message = 'تم تأكيد استلام العميل. سيبقى الطلب ظاهراً في المهام لحين تسوية الدفع.';
+            }
+
+            $this->conn->commit();
+            $this->send_json_response(true, $message);
+        } catch (\Exception $e) {
+            $this->conn->rollback();
+            $this->send_json_response(false, $e->getMessage());
+        }
+    }
+
+    public function confirmPayment(): void
+    {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $order_id = intval($input['order_id'] ?? 0);
+
+        if ($order_id <= 0) {
+            $this->send_json_response(false, 'معرف الطلب غير صحيح');
+            return;
+        }
+
+        if (!Permissions::has_permission('order_financial_settle', $this->conn)) {
+            $this->send_json_response(false, 'ليس لديك الصلاحية لتسوية الطلبات مالياً.');
+            return;
+        }
+
+        $this->conn->begin_transaction();
+        try {
+            $stmt = $this->conn->prepare("SELECT total_amount, status FROM orders WHERE order_id = ?");
+            $stmt->bind_param("i", $order_id);
+            $stmt->execute();
+            $order = $stmt->get_result()->fetch_assoc();
+
+            if (!$order) {
+                throw new \Exception('الطلب غير موجود');
+            }
+
+            $total_amount = $order['total_amount'];
+            // السماح بتأكيد الدفع حتى لو كان المبلغ غير محدد أو صفر
+            if (is_null($total_amount) || !is_numeric($total_amount)) {
+                $total_amount = 0;
+            }
+
+            $stmt = $this->conn->prepare("
+                UPDATE orders SET 
+                    deposit_amount = total_amount, 
+                    remaining_amount = 0,
+                    payment_status = 'مدفوع', 
+                    payment_settled_at = NOW(), 
+                    updated_at = NOW() 
+                WHERE order_id = ?");
+            $stmt->bind_param("i", $order_id);
+            $stmt->execute();
+
+            if ($order['status'] === 'مكتمل') {
+                $message = 'تم تأكيد الدفع الكامل. سيتم إخفاء الطلب من لوحة المهام لأنه مكتمل ومدفوع.';
+            } else {
+                $message = 'تم تأكيد الدفع الكامل وتسوية المبلغ بنجاح. سيبقى الطلب ظاهراً لحين تأكيد استلام العميل.';
+            }
+
+            $this->conn->commit();
+            $this->send_json_response(true, $message);
+        } catch (\Exception $e) {
+            $this->conn->rollback();
+            $this->send_json_response(false, $e->getMessage());
+        }
+    }
 }

@@ -120,7 +120,7 @@ if (!function_exists('get_current_responsible')) {
         <?php endif; ?>
 
         <?php if (has_card_permission('task_card_view_client', $conn)): ?>
-            <h6 class="card-subtitle mb-2 text-muted">للعميل: <?= htmlspecialchars($task_details['client_name']) ?></h6>
+            <h6 class="card-subtitle mb-2 text-muted">للعميل: <?= htmlspecialchars($task_details['client_name']) ?> (<?= htmlspecialchars($task_details['order_id']) ?>)</h6>
         <?php endif; ?>
 
         <?php if ($user_role === 'محاسب' && has_card_permission('task_card_view_payment', $conn)): ?>
@@ -267,6 +267,108 @@ if (!function_exists('get_current_responsible')) {
                     <?php endif; ?>
                 </div>
             </div>
+                <script>
+                // تبسيط JavaScript ليستخدم نفس طريقة أزرار تحويل الحالة التي تعمل
+                document.addEventListener('DOMContentLoaded', function() {
+                    // زر تغيير الحالة يبقى كما هو بدون تعديل
+                    document.querySelectorAll('.action-btn[data-action="change_status"]').forEach(function(btn) {
+                        btn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const action = btn.getAttribute('data-action');
+                            const orderId = btn.getAttribute('data-order-id');
+                            const value = btn.getAttribute('data-value');
+                            const confirmMsg = btn.getAttribute('data-confirm-message') || 'هل أنت متأكد من هذا الإجراء؟';
+                            if (!orderId || !action || !value) return;
+                            if (confirm(confirmMsg)) {
+                                fetch('ajax_order_actions.php', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    },
+                                    body: JSON.stringify({ order_id: parseInt(orderId), action: action, value: value })
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        alert('تم بنجاح: ' + data.message);
+                                        window.location.reload();
+                                    } else {
+                                        alert('خطأ: ' + data.message);
+                                    }
+                                })
+                                .catch(error => {
+                                    alert('حدث خطأ فني');
+                                });
+                            }
+                        });
+                    });
+
+                    // زر تأكيد الدفع (API)
+                    document.querySelectorAll('.action-btn[data-action="confirm_payment"]').forEach(function(btn) {
+                        btn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const orderId = btn.getAttribute('data-order-id');
+                            const confirmMsg = btn.getAttribute('data-confirm-message') || 'هل أنت متأكد من تأكيد الدفع؟';
+                            if (!orderId) return;
+                            if (confirm(confirmMsg)) {
+                                fetch('/api/orders/confirm-payment', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    },
+                                    body: JSON.stringify({ order_id: parseInt(orderId) })
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        alert('تم بنجاح: ' + data.message);
+                                        window.location.reload();
+                                    } else {
+                                        alert('خطأ: ' + data.message);
+                                    }
+                                })
+                                .catch(error => {
+                                    alert('حدث خطأ فني');
+                                });
+                            }
+                        });
+                    });
+
+                    // زر تأكيد استلام العميل (API)
+                    document.querySelectorAll('.action-btn[data-action="confirm_delivery"]').forEach(function(btn) {
+                        btn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const orderId = btn.getAttribute('data-order-id');
+                            const confirmMsg = btn.getAttribute('data-confirm-message') || 'هل أنت متأكد من تأكيد استلام العميل للطلب؟';
+                            if (!orderId) return;
+                            if (confirm(confirmMsg)) {
+                                fetch('/api/orders/confirm-delivery', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    },
+                                    body: JSON.stringify({ order_id: parseInt(orderId) })
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        alert('تم بنجاح: ' + data.message);
+                                        window.location.reload();
+                                    } else {
+                                        alert('خطأ: ' + data.message);
+                                    }
+                                })
+                                .catch(error => {
+                                    alert('حدث خطأ فني');
+                                });
+                            }
+                        });
+                    });
+                });
+                </script>
         </div>
     </div>
 </div>

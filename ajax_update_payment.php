@@ -1,41 +1,63 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/src/Core/Database.php';
-require_once __DIR__ . '/src/Core/Permissions.php';
-require_once __DIR__ . '/vendor/autoload.php';
-
-// بدء الجلسة والتحقق من الاتصال
 session_start();
-$database = new \App\Core\Database();
-$conn = $database->getConnection();
 
-// التحقق من تسجيل الدخول
-if (!isset($_SESSION['user_id'])) {
-    http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'يجب تسجيل الدخول أولاً']);
+// Error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Load required files
+require_once __DIR__ . '/vendor/autoload.php';
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__)->load();
+
+require_once __DIR__ . '/src/Core/Database.php';
+require_once __DIR__ . '/src/Core/AuthCheck.php';
+require_once __DIR__ . '/src/Core/Permissions.php';
+
+// Set JSON header
+header('Content-Type: application/json');
+
+// Database connection
+try {
+    $db = new \App\Core\Database(
+        $_ENV['DB_HOST'],
+        $_ENV['DB_USERNAME'],
+        $_ENV['DB_PASSWORD'],
+        $_ENV['DB_NAME']
+    );
+    $conn = $db->getConnection();
+} catch (Exception $e) {
+    echo json_encode(['success' => false, 'message' => 'Database connection failed']);
     exit;
 }
 
-// التحقق من الصلاحيات
+// Check if user is logged in
+if (!\App\Core\AuthCheck::isLoggedIn($conn)) {
+    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+    exit;
+}
+
+
+// Check permissions
 if (!\App\Core\Permissions::has_permission('order_financial_settle', $conn)) {
-    http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'ليس لديك صلاحية لتحديث حالة الدفع']);
     exit;
 }
 
-// التحقق من طريقة الطلب
+// Check request method
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'طريقة طلب غير صحيحة']);
+    echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
     exit;
 }
 
-// التحقق من البيانات المطلوبة
-$order_id = intval($_POST['order_id'] ?? 0);
-$payment_amount = floatval($_POST['payment_amount'] ?? 0);
-$payment_method = trim($_POST['payment_method'] ?? '');
-$notes = trim($_POST['notes'] ?? '');
+// Get POST data (assuming JSON input for consistency)
+$input = json_decode(file_get_contents('php://input'), true);
+$order_id = intval($input['order_id'] ?? 0);
+$payment_amount = floatval($input['payment_amount'] ?? 0);
+$payment_method = trim($input['payment_method'] ?? '');
+$notes = trim($input['notes'] ?? '');
 
 if ($order_id <= 0) {
     echo json_encode(['success' => false, 'message' => 'معرف الطلب غير صحيح']);
@@ -53,11 +75,11 @@ if (empty($payment_method)) {
 }
 
 try {
-    // بدء المعاملة
+    // Start transaction
     $conn->begin_transaction();
 
-    // جلب بيانات الطلب الحالية
-    $order_query = "SELECT total_amount, deposit_amount, payment_status FROM orders WHERE order_id = ?";
+    // Fetch current order data (and lock the row for update)
+    $order_query = "SELECT total_amount, deposit_amount, notes FROM orders WHERE order_id = ? FOR UPDATE";
     $stmt = $conn->prepare($order_query);
     $stmt->bind_param("i", $order_id);
     $stmt->execute();
@@ -67,71 +89,64 @@ try {
         throw new Exception('الطلب غير موجود');
     }
 
+    // **Fundamental Check: Prevent any financial action on an order without a value**
+    if (is_null($order['total_amount']) || !is_numeric($order['total_amount']) || floatval($order['total_amount']) <= 0) {
+        throw new Exception('لا يمكن إضافة دفعة. المبلغ الإجمالي للطلب غير محدد أو يساوي صفر. يرجى تحديث بيانات الطلب أولاً.');
+    }
+
     $total_amount = floatval($order['total_amount']);
     $current_deposit = floatval($order['deposit_amount']);
     $new_deposit = $current_deposit + $payment_amount;
 
-    // التحقق من عدم تجاوز المبلغ الإجمالي
+    // Check for overpayment
     if ($new_deposit > $total_amount) {
         throw new Exception('مبلغ الدفعة يتجاوز المبلغ المتبقي. المتبقي: ' . number_format($total_amount - $current_deposit, 2) . ' ر.س');
     }
 
-    // تحديد حالة الدفع الجديدة
+    // Determine new payment status
     $new_payment_status = '';
     $payment_settled_at = null;
 
-    if ($new_deposit >= $total_amount) {
+    if (abs($new_deposit - $total_amount) < 0.01) { // Use a small tolerance for float comparison
         $new_payment_status = 'مدفوع';
         $payment_settled_at = date('Y-m-d H:i:s');
+        $new_deposit = $total_amount; // Correct any floating point inaccuracies
     } elseif ($new_deposit > 0) {
         $new_payment_status = 'مدفوع جزئياً';
     } else {
         $new_payment_status = 'غير مدفوع';
     }
 
-    // تحديث بيانات الطلب
+    // Prepare notes update
+    $notes_text = "دفعة جديدة: " . number_format($payment_amount, 2) . " ر.س عبر " . $payment_method;
+    if (!empty($notes)) {
+        $notes_text .= " - " . $notes;
+    }
+
+    // Efficiently update order data in a single query
     $update_query = "UPDATE orders SET
                      deposit_amount = ?,
                      remaining_amount = ?,
                      payment_status = ?,
                      payment_method = ?,
                      payment_settled_at = ?,
-                     last_update = NOW()
+                     notes = CONCAT_WS('\\n', notes, ?),
+                     updated_at = NOW()
                      WHERE order_id = ?";
 
     $remaining_amount = $total_amount - $new_deposit;
     $stmt = $conn->prepare($update_query);
-    $stmt->bind_param("ddsssi", $new_deposit, $remaining_amount, $new_payment_status, $payment_method, $payment_settled_at, $order_id);
+    $stmt->bind_param("ddssssi", $new_deposit, $remaining_amount, $new_payment_status, $payment_method, $payment_settled_at, $notes_text, $order_id);
 
     if (!$stmt->execute()) {
         throw new Exception('فشل في تحديث بيانات الطلب');
     }
 
-    // إضافة ملاحظة إذا تم توفيرها
-    if (!empty($notes)) {
-        $notes_text = "دفعة جديدة: " . number_format($payment_amount, 2) . " ر.س عبر " . $payment_method;
-        if (!empty($notes)) {
-            $notes_text .= " - " . $notes;
-        }
-
-        $current_notes_query = "SELECT notes FROM orders WHERE order_id = ?";
-        $stmt = $conn->prepare($current_notes_query);
-        $stmt->bind_param("i", $order_id);
-        $stmt->execute();
-        $current_notes = $stmt->get_result()->fetch_assoc()['notes'] ?? '';
-
-        $updated_notes = empty($current_notes) ? $notes_text : $current_notes . "\n" . $notes_text;
-
-        $update_notes_query = "UPDATE orders SET notes = ? WHERE order_id = ?";
-        $stmt = $conn->prepare($update_notes_query);
-        $stmt->bind_param("si", $updated_notes, $order_id);
-        $stmt->execute();
-    }
-
-    // إرسال إشعار للمدراء
-    $user_name = $_SESSION['user_name'] ?? 'مستخدم غير معروف';
+    // Send notification to managers
+    $user_name = $_SESSION['user_name'] ?? 'مستخدم';
     $notification_message = "💰 المحاسب {$user_name} حدث حالة الدفع للطلب #{$order_id} - الحالة الجديدة: {$new_payment_status}";
-    $notification_link = "edit_order.php?id={$order_id}";
+    $base_path = rtrim($_ENV['BASE_PATH'] ?? '/', '/');
+    $notification_link = "{$base_path}/orders/edit/{$order_id}"; // Assuming a route like this exists
 
     $managers_res = $conn->query("SELECT employee_id FROM employees WHERE role = 'مدير'");
     $stmt_notify = $conn->prepare("INSERT INTO notifications (employee_id, message, link) VALUES (?, ?, ?)");
@@ -142,11 +157,12 @@ try {
             $stmt_notify->execute();
         }
     }
+    $stmt_notify->close();
 
-    // تأكيد المعاملة
+    // Commit the transaction
     $conn->commit();
 
-    // إرسال الاستجابة
+    // Send response
     echo json_encode([
         'success' => true,
         'message' => 'تم تحديث حالة الدفع بنجاح',
@@ -157,11 +173,15 @@ try {
     ]);
 
 } catch (Exception $e) {
-    // التراجع عن المعاملة في حالة الخطأ
+    // Rollback transaction on error
     $conn->rollback();
 
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()
     ]);
+} finally {
+    if (isset($conn)) {
+        $conn->close();
+    }
 }

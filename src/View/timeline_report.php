@@ -11,16 +11,29 @@
                         الجدول الزمني للمراحل
                     </h5>
                     <?php if (\App\Core\Permissions::has_permission('dashboard_reports_view', $conn)): ?>
-                        <form method="get" class="d-flex align-items-center">
-                            <select name="employee" class="form-select form-select-sm me-2" onchange="this.form.submit()">
-                                <option value="">كل الموظفين</option>
-                                <?php foreach ($employees as $employee): ?>
-                                    <option value="<?= $employee['employee_id'] ?>" <?= $filter_employee == $employee['employee_id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($employee['name']) . ' (' . htmlspecialchars($employee['role']) . ')' ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <noscript><button type="submit" class="btn btn-sm btn-light">تطبيق</button></noscript>
+                        <form method="get" class="row g-2 align-items-center mb-0" style="width:100%;">
+                            <div class="col-md-3">
+                                <label for="date_from" class="form-label text-white mb-1">من تاريخ</label>
+                                <input type="date" name="date_from" id="date_from" class="form-control form-control-sm" value="<?= htmlspecialchars($_GET['date_from'] ?? '') ?>">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="date_to" class="form-label text-white mb-1">إلى تاريخ</label>
+                                <input type="date" name="date_to" id="date_to" class="form-control form-control-sm" value="<?= htmlspecialchars($_GET['date_to'] ?? '') ?>">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="employee" class="form-label text-white mb-1">الموظف</label>
+                                <select name="employee" id="employee" class="form-select form-select-sm">
+                                    <option value="">كل الموظفين</option>
+                                    <?php foreach ($employees as $employee): ?>
+                                        <option value="<?= $employee['employee_id'] ?>" <?= $filter_employee == $employee['employee_id'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($employee['name']) . ' (' . htmlspecialchars($employee['role']) . ')' ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-3 align-self-end">
+                                <button type="submit" class="btn btn-light btn-sm w-100 mt-2">تطبيق الفلتر</button>
+                            </div>
                         </form>
                     <?php endif; ?>
                 </div>
@@ -67,7 +80,11 @@
                                         }
                                         ?>
                                         <tr>
-                                            <td><strong>#<?= $row['order_id'] ?></strong></td>
+                                            <td>
+                                                <a href="<?= $_ENV['BASE_PATH'] ?>/orders/edit?id=<?= $row['order_id'] ?>" style="text-decoration:none;font-weight:bold;">
+                                                    #<?= $row['order_id'] ?>
+                                                </a>
+                                            </td>
                                             
                                             <td><?= htmlspecialchars($row['designer_name'] ?? 'N/A') ?></td>
                                             <td><small><?= !empty($row['order_date']) ? date('Y-m-d H:i', strtotime($row['order_date'])) : 'N/A' ?></small></td>
