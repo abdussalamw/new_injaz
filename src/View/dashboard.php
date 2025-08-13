@@ -390,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         const requestData = { order_id: orderId, action: action, value: value };
 
-                        fetch('<?= $_ENV['BASE_PATH'] ?>/api/orders/status', {
+                        fetch('ajax_order_actions.php', {
                             method: 'POST',
                             headers: { 
                                 'Content-Type': 'application/json', 
