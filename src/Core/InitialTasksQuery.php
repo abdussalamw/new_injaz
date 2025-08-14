@@ -32,7 +32,7 @@ class InitialTasksQuery
                 $employee_role_query->bind_param("i", $filter_employee);
                 $employee_role_query->execute();
                 $employee_role_result = $employee_role_query->get_result();
-                $employee_role = $employee_role_result->fetch_assoc()['role'] ?? '';
+                $employee_role = trim($employee_role_result->fetch_assoc()['role'] ?? '');
 
                 switch ($employee_role) {
                     case 'مصمم':
@@ -41,6 +41,8 @@ class InitialTasksQuery
                         $types .= "i";
                         break;
                     case 'معمل':
+                    case 'معمل التنفيذ':
+                    case 'المعمل التنفيذي':
                         $where_clauses[] = "o.workshop_id = ? AND TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم')";
                         $params[] = $filter_employee;
                         $types .= "i";
@@ -78,13 +80,15 @@ class InitialTasksQuery
             // إخفاء المهام التي تحقق شرطين: مكتملة ومدفوعة، أو الملغية للموظفين
             $where_clauses = ["NOT (TRIM(o.status) = 'مكتمل' AND TRIM(o.payment_status) = 'مدفوع') AND TRIM(o.status) != 'ملغي'"];
             
-            switch ($user_role) {
+            switch (trim($user_role)) {
                 case 'مصمم':
                     $where_clauses[] = "o.designer_id = ? AND TRIM(o.status) = 'قيد التصميم'";
                     $params[] = $user_id;
                     $types .= "i";
                     break;
                 case 'معمل':
+                case 'معمل التنفيذ':
+                case 'المعمل التنفيذي':
                     // يظهر له فقط قيد التنفيذ أو جاهز للتسليم (ولا يظهر مكتمل)
                     // ملاحظة: يجب ألا يتم تغيير الحالة إلى "مكتمل" إلا بعد تأكيد العميل فقط من الكنترولر
                     $where_clauses[] = "o.workshop_id = ? AND TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم')";
