@@ -74,8 +74,8 @@ if (!$order) {
     exit;
 }
 
-$user_id = $_SESSION['user_id'];
-$user_role = $_SESSION['user_role'];
+$user_id = \App\Core\RoleHelper::getCurrentUserId();
+$user_role = \App\Core\RoleHelper::getCurrentUserRole();
 
 $response = ['success' => false, 'message' => 'حدث خطأ غير متوقع.'];
 
@@ -109,7 +109,7 @@ try {
                 
                 // تعيين المعمل تلقائياً إذا لم يكن معيّن
                 if (empty($order['workshop_id'])) {
-                    // البحث عن أول موظف معمل متاح
+                    // البحث عن أول موظف معمل متاح (بدور معمل فقط)
                     $workshop_stmt = $conn->prepare("SELECT employee_id FROM employees WHERE role = 'معمل' ORDER BY employee_id LIMIT 1");
                     $workshop_stmt->execute();
                     $workshop_result = $workshop_stmt->get_result();
@@ -119,6 +119,8 @@ try {
                         $assign_stmt = $conn->prepare("UPDATE orders SET workshop_id = ? WHERE order_id = ?");
                         $assign_stmt->bind_param("ii", $workshop_id, $order_id);
                         $assign_stmt->execute();
+                        
+                        $message .= " وتم تعيين المعمل تلقائياً.";
                     }
                 }
             } elseif ($new_status === 'جاهز للتسليم' && empty($order['execution_completed_at'])) {
@@ -132,7 +134,7 @@ try {
             
         case 'confirm_delivery':
             // تبسيط فحص الصلاحيات - المدير يمكنه تأكيد التسليم دائماً
-            if ($user_role !== 'مدير' && $user_role !== 'admin' && !\App\Core\Permissions::has_permission('order_edit_status', $conn)) {
+            if (!\App\Core\RoleHelper::isManager() && !\App\Core\Permissions::has_permission('order_edit_status', $conn)) {
                 throw new Exception('ليس لديك الصلاحية لتأكيد التسليم.');
             }
 
@@ -153,7 +155,7 @@ try {
             
         case 'confirm_payment':
             // تبسيط فحص الصلاحيات - المدير يمكنه تأكيد الدفع دائماً
-            if ($user_role !== 'مدير' && $user_role !== 'admin' && !\App\Core\Permissions::has_permission('order_financial_settle', $conn)) {
+            if (!\App\Core\RoleHelper::isManager() && !\App\Core\Permissions::has_permission('order_financial_settle', $conn)) {
                 throw new Exception('ليس لديك الصلاحية لتسوية الطلبات مالياً.');
             }
 

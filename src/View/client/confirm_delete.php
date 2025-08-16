@@ -16,8 +16,7 @@
                         <h6>تفاصيل العميل:</h6>
                         <ul class="list-unstyled">
                             <li><strong>الرقم:</strong> <?= htmlspecialchars($client['client_id']) ?></li>
-                            <li><strong>اسم المؤسسة:</strong> <?= htmlspecialchars($client['company_name']) ?></li>
-                            <li><strong>الشخص المسؤول:</strong> <?= htmlspecialchars($client['contact_person']) ?></li>
+                            <li><strong>اسم الجهة:</strong> <?= htmlspecialchars($client['company_name']) ?></li>
                             <li><strong>الجوال:</strong> <?= htmlspecialchars($client['phone']) ?></li>
                             <li><strong>البريد الإلكتروني:</strong> <?= htmlspecialchars($client['email']) ?></li>
                         </ul>
@@ -30,8 +29,7 @@
                         <h6>هل أنت متأكد من حذف العميل التالي؟</h6>
                         <ul class="list-unstyled">
                             <li><strong>الرقم:</strong> <?= htmlspecialchars($client['client_id']) ?></li>
-                            <li><strong>اسم المؤسسة:</strong> <?= htmlspecialchars($client['company_name']) ?></li>
-                            <li><strong>الشخص المسؤول:</strong> <?= htmlspecialchars($client['contact_person']) ?></li>
+                            <li><strong>اسم الجهة:</strong> <?= htmlspecialchars($client['company_name']) ?></li>
                             <li><strong>الجوال:</strong> <?= htmlspecialchars($client['phone']) ?></li>
                             <li><strong>البريد الإلكتروني:</strong> <?= htmlspecialchars($client['email']) ?></li>
                         </ul>
@@ -40,7 +38,7 @@
                                 <input type="hidden" name="id" value="<?= htmlspecialchars($client['client_id']) ?>">
                                 <button type="submit" class="btn btn-danger">نعم، احذف العميل</button>
                             </form>
-                            <a href="/new_injaz/clients" class="btn btn-secondary">إلغاء</a>
+                            <a href="<?= \App\Core\Helpers::url('/clients') ?>" class="btn btn-secondary">إلغاء</a>
                         </div>
                     <?php endif; ?>
                 </div>

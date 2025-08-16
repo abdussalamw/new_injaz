@@ -35,10 +35,10 @@ class ClientController
         $types = '';
 
         if (!empty($search)) {
-            $where_clause = "WHERE company_name LIKE ? OR contact_person LIKE ? OR phone LIKE ? OR email LIKE ?";
+            $where_clause = "WHERE company_name LIKE ? OR phone LIKE ? OR email LIKE ?";
             $search_param = "%$search%";
-            $params = [$search_param, $search_param, $search_param, $search_param];
-            $types = 'ssss';
+            $params = [$search_param, $search_param, $search_param];
+            $types = 'sss';
         }
 
         $sql = "SELECT * FROM clients $where_clause ORDER BY $sort_column_sql $sort_order";
@@ -75,7 +75,6 @@ class ClientController
         }
 
         $company_name = $_POST['company_name'] ?? '';
-        $contact_person = $_POST['contact_person'] ?? '';
         $phone = $_POST['phone'] ?? '';
         $email = $_POST['email'] ?? '';
 
@@ -88,8 +87,8 @@ class ClientController
             return;
         }
 
-        $stmt = $this->conn->prepare("INSERT INTO clients (company_name, contact_person, phone, email) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("ssss", $company_name, $contact_person, $phone, $email);
+        $stmt = $this->conn->prepare("INSERT INTO clients (company_name, phone, email) VALUES (?, ?, ?)");
+        $stmt->bind_param("sss", $company_name, $phone, $email);
 
         if ($stmt->execute()) {
             MessageSystem::setSuccess("تم إضافة العميل بنجاح!");
@@ -150,7 +149,6 @@ class ClientController
         }
 
         $company_name = $_POST['company_name'] ?? '';
-        $contact_person = $_POST['contact_person'] ?? '';
         $phone = $_POST['phone'] ?? '';
         $email = $_POST['email'] ?? '';
 
@@ -169,8 +167,8 @@ class ClientController
             return;
         }
 
-        $stmt = $this->conn->prepare("UPDATE clients SET company_name = ?, contact_person = ?, phone = ?, email = ? WHERE client_id = ?");
-        $stmt->bind_param("ssssi", $company_name, $contact_person, $phone, $email, $id);
+        $stmt = $this->conn->prepare("UPDATE clients SET company_name = ?, phone = ?, email = ? WHERE client_id = ?");
+        $stmt->bind_param("sssi", $company_name, $phone, $email, $id);
 
         if ($stmt->execute()) {
             MessageSystem::setSuccess("تم تحديث بيانات العميل بنجاح!");
@@ -255,7 +253,6 @@ class ClientController
             fputcsv($output, [
                 $row['client_id'],
                 $row['company_name'],
-                $row['contact_person'],
                 $row['phone'],
                 $row['email']
             ]);
@@ -306,14 +303,13 @@ class ClientController
         $errors = 0;
 
         while (($data = fgetcsv($handle)) !== FALSE) {
-            if (count($data) >= 4) {
+            if (count($data) >= 3) {
                 $company_name = $data[1] ?? '';
-                $contact_person = $data[2] ?? '';
-                $phone = $data[3] ?? '';
-                $email = $data[4] ?? '';
+                $phone = $data[2] ?? '';
+                $email = $data[3] ?? '';
 
-                $stmt = $this->conn->prepare("INSERT INTO clients (company_name, contact_person, phone, email) VALUES (?, ?, ?, ?)");
-                $stmt->bind_param("ssss", $company_name, $contact_person, $phone, $email);
+                $stmt = $this->conn->prepare("INSERT INTO clients (company_name, phone, email) VALUES (?, ?, ?)");
+                $stmt->bind_param("sss", $company_name, $phone, $email);
                 
                 if ($stmt->execute()) {
                     $imported++;

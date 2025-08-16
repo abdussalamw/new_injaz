@@ -1,31 +1,52 @@
 <?php
-declare(strict_types=1);
+// البحث في العملاء - يعمل مع نظام التوجيه
+// This file is called from the router, which provides $conn
 
-namespace App\Api;
+header('Content-Type: application/json; charset=utf-8');
 
-use App\Core\Permissions;
-
-// Note: The router handles session_start, db_connection, and auth checks.
-
-header('Content-Type: application/json');
-
-if (!Permissions::has_permission('client_view', $conn)) {
-    echo json_encode([]);
-    exit;
+try {
+    // التحقق من اتصال قاعدة البيانات
+    if (!isset($conn) || !$conn) {
+        echo json_encode(['error' => 'اتصال قاعدة البيانات غير متوفر']);
+        exit;
+    }
+    
+    $query = $_GET['query'] ?? '';
+    
+    if (strlen($query) < 1) {
+        echo json_encode([]);
+        exit;
+    }
+    
+    // البحث في قاعدة البيانات
+    $search_param = "%" . $query . "%";
+    $stmt = $conn->prepare("
+        SELECT client_id, company_name, phone, email 
+        FROM clients 
+        WHERE company_name LIKE ? OR phone LIKE ? 
+        ORDER BY company_name ASC 
+        LIMIT 10
+    ");
+    
+    if (!$stmt) {
+        throw new Exception('فشل في إعداد الاستعلام: ' . $conn->error);
+    }
+    
+    $stmt->bind_param("ss", $search_param, $search_param);
+    
+    if (!$stmt->execute()) {
+        throw new Exception('فشل في تنفيذ الاستعلام: ' . $stmt->error);
+    }
+    
+    $result = $stmt->get_result();
+    $clients = $result->fetch_all(MYSQLI_ASSOC);
+    
+    echo json_encode($clients, JSON_UNESCAPED_UNICODE);
+    
+} catch (Exception $e) {
+    error_log("SearchClient Error: " . $e->getMessage());
+    echo json_encode([
+        'error' => true,
+        'message' => 'حدث خطأ في البحث'
+    ], JSON_UNESCAPED_UNICODE);
 }
-
-$query = $_GET['query'] ?? '';
-
-if (strlen($query) < 2) {
-    echo json_encode([]);
-    exit;
-}
-
-$stmt = $conn->prepare("SELECT client_id, company_name, contact_person, phone FROM clients WHERE company_name LIKE ? LIMIT 10");
-$search_query = "%" . $query . "%";
-$stmt->bind_param("s", $search_query);
-$stmt->execute();
-$result = $stmt->get_result();
-$clients = $result->fetch_all(MYSQLI_ASSOC);
-
-echo json_encode($clients);

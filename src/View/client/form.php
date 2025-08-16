@@ -9,7 +9,6 @@ $error = $error ?? null;
 
 // Set form values
 $company_name = $client['company_name'] ?? '';
-$contact_person = $client['contact_person'] ?? '';
 $phone = $client['phone'] ?? '';
 $email = $client['email'] ?? '';
 ?>
@@ -24,15 +23,11 @@ $email = $client['email'] ?? '';
         <?php endif; ?>
         
         <div class="row g-3">
-            <div class="col-md-4">
-                <label class="form-label">اسم المؤسسة</label>
-                <input type="text" class="form-control" name="company_name" value="<?= htmlspecialchars($company_name) ?>" required>
+            <div class="col-md-6">
+                <label class="form-label">اسم الجهة والشخص المسؤول <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" name="company_name" value="<?= htmlspecialchars($company_name) ?>" required placeholder="اكتب اسم الجهة والشخص المسؤول">
             </div>
-            <div class="col-md-4">
-                <label class="form-label">اسم الشخص المسؤول</label>
-                <input type="text" class="form-control" name="contact_person" value="<?= htmlspecialchars($contact_person) ?>">
-            </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <label class="form-label">الجوال <span class="text-danger">*</span></label>
                 <input type="tel" name="phone" id="phone_input" class="form-control" 
                        pattern="^05[0-9]{8}$" 
@@ -43,9 +38,9 @@ $email = $client['email'] ?? '';
                        value="<?= htmlspecialchars($phone) ?>">
                 <div class="form-text text-muted">مثال: 0501234567</div>
             </div>
-            <div class="col-md-4">
-                <label class="form-label">البريد الإلكتروني</label>
-                <input type="email" class="form-control" name="email" value="<?= htmlspecialchars($email) ?>">
+            <div class="col-md-6">
+                <label class="form-label">البريد الإلكتروني (اختياري)</label>
+                <input type="email" class="form-control" name="email" value="<?= htmlspecialchars($email) ?>" placeholder="email@example.com">
             </div>
         </div>
         <button class="btn btn-primary mt-3" type="submit">حفظ</button>

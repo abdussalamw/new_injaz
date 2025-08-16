@@ -48,8 +48,30 @@ class ApiController
         $stmt->bind_param("si", $new_status, $order_id);
 
         if ($stmt->execute()) {
-            // Optionally, log the status change
             // Helpers::log_activity('status_change', $_SESSION['user_id'], $order_id, "Status changed to {$new_status}");
+            
+            // --- إرسال إشعار ---
+            $user_name = $_SESSION['user_name'] ?? 'النظام';
+            $notification_message = "قام {$user_name} بتغيير حالة الطلب #{$order_id} إلى '{$new_status}'";
+            $notification_link = "/new_injaz/dashboard"; // رابط موحد للوحة التحكم
+
+            // جلب معرفات المدراء
+            $managers_res = $this->conn->query("SELECT employee_id FROM employees WHERE role = 'مدير'");
+            $managers = $managers_res->fetch_all(MYSQLI_ASSOC);
+
+            if (!empty($managers)) {
+                $stmt_notify = $this->conn->prepare("INSERT INTO notifications (employee_id, message, link) VALUES (?, ?, ?)");
+                foreach ($managers as $manager) {
+                    // لا نرسل إشعار للشخص الذي قام بالإجراء
+                    if ($manager['employee_id'] != $_SESSION['user_id']) {
+                        $stmt_notify->bind_param("iss", $manager['employee_id'], $notification_message, $notification_link);
+                        $stmt_notify->execute();
+                    }
+                }
+                $stmt_notify->close();
+            }
+            // --- نهاية إرسال الإشعار ---
+
             $this->send_json_response(true, 'تم تحديث حالة الطلب بنجاح.');
         } else {
             $this->send_json_response(false, 'فشل تحديث حالة الطلب.');

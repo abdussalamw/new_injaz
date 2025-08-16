@@ -145,8 +145,7 @@ try {
     // Send notification to managers
     $user_name = $_SESSION['user_name'] ?? 'مستخدم';
     $notification_message = "💰 المحاسب {$user_name} حدث حالة الدفع للطلب #{$order_id} - الحالة الجديدة: {$new_payment_status}";
-    $base_path = rtrim($_ENV['BASE_PATH'] ?? '/', '/');
-    $notification_link = "{$base_path}/orders/edit/{$order_id}"; // Assuming a route like this exists
+    $notification_link = "/new_injaz/dashboard";
 
     $managers_res = $conn->query("SELECT employee_id FROM employees WHERE role = 'مدير'");
     $stmt_notify = $conn->prepare("INSERT INTO notifications (employee_id, message, link) VALUES (?, ?, ?)");

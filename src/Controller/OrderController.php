@@ -81,21 +81,21 @@ class OrderController
         $types = "";
 
         if (Permissions::has_permission('order_view_all', $this->conn)) {
-            // المدير يرى جميع الطلبات ما عدا المهام المكتملة والمدفوعة
-            $where_clauses[] = "NOT (TRIM(o.status) = 'مكتمل' AND TRIM(o.payment_status) = 'مدفوع') AND TRIM(o.status) != 'ملغي'";
-
-            if (!empty($filter_status)) {
-                $where_clauses[] = "o.status = ?";
-                $params[] = $filter_status;
-                $types .= "s";
-            }
-
+            // المدير يرى جميع الطلبات (مكتملة وغير مكتملة)
+            // بدون أي فلتر للحالة - هذا للصفحة العامة للطلبات
+            
             if (!empty($filter_employee)) {
                 // البحث في المصمم أو المعمل
                 $where_clauses[] = "(o.designer_id = ? OR o.workshop_id = ?)";
                 $params[] = $filter_employee;
                 $params[] = $filter_employee;
                 $types .= "ii";
+            }
+
+            if (!empty($filter_status)) {
+                $where_clauses[] = "o.status = ?";
+                $params[] = $filter_status;
+                $types .= "s";
             }
 
             if (!empty($filter_payment)) {
@@ -126,78 +126,22 @@ class OrderController
                 $types .= "s";
             }
         } elseif (Permissions::has_permission('order_view_own', $this->conn)) {
-            switch ($user_role) {
-                case 'مصمم':
-                    $where_clauses[] = "o.designer_id = ? AND TRIM(o.status) = 'قيد التصميم'";
-                    $params[] = $user_id;
-                    $types .= "i";
-                    // تطبيق الفلاتر الإضافية للمصمم فقط
-                    if (!empty($filter_status)) {
-                        $where_clauses[] = "o.status = ?";
-                        $params[] = $filter_status;
-                        $types .= "s";
-                    }
-                    if (!empty($filter_payment)) {
-                        $where_clauses[] = "o.payment_status = ?";
-                        $params[] = $filter_payment;
-                        $types .= "s";
-                    }
-                    if (!empty($search_query)) {
-                        $where_clauses[] = "(o.order_id LIKE ? OR c.company_name LIKE ?)";
-                        $search_param = "%$search_query%";
-                        $params[] = $search_param;
-                        $params[] = $search_param;
-                        $types .= "ss";
-                    }
-                    if (!empty($filter_date_from)) {
-                        $where_clauses[] = "DATE(o.order_date) >= ?";
-                        $params[] = $filter_date_from;
-                        $types .= "s";
-                    }
-                    if (!empty($filter_date_to)) {
-                        $where_clauses[] = "DATE(o.order_date) <= ?";
-                        $params[] = $filter_date_to;
-                        $types .= "s";
-                    }
-                    break;
-                case 'معمل':
-                    // يظهر له فقط قيد التنفيذ أو جاهز للتسليم (ولا يظهر مكتمل)
-                    $where_clauses[] = "o.workshop_id = ? AND TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم')";
-                    $params[] = $user_id;
-                    $types .= "i";
-                    // لا تطبق أي فلترة إضافية هنا!
-                    break;
-                case 'محاسب':
-                    $where_clauses[] = "o.payment_status != 'مدفوع'";
-                    // يمكن تطبيق الفلاتر هنا إذا أردت
-                    break;
-                default:
-                    $where_clauses[] = "1=0"; // لا يرى شيء
-                    break;
-            }
+            // استخدام الفئة الموحدة للموظفين الذين يرون طلباتهم فقط
+            $role_conditions = \App\Core\RoleBasedQuery::buildRoleBasedConditions(
+                $user_role,
+                $user_id,
+                '', // لا فلتر موظف محدد
+                $filter_status,
+                $filter_payment,
+                $search_query,
+                $this->conn
+            );
+            
+            $where_clauses = array_merge($where_clauses, $role_conditions['where_clauses']);
+            $params = array_merge($params, $role_conditions['params']);
+            $types .= $role_conditions['types'];
 
-            // تطبيق الفلاتر للموظف
-            if (!empty($filter_status)) {
-                $where_clauses[] = "o.status = ?";
-                $params[] = $filter_status;
-                $types .= "s";
-            }
-
-            if (!empty($filter_payment)) {
-                $where_clauses[] = "o.payment_status = ?";
-                $params[] = $filter_payment;
-                $types .= "s";
-            }
-
-            if (!empty($search_query)) {
-                $where_clauses[] = "(o.order_id LIKE ? OR c.company_name LIKE ?)";
-                $search_param = "%$search_query%";
-                $params[] = $search_param;
-                $params[] = $search_param;
-                $types .= "ss";
-            }
-
-            // فلتر التاريخ للموظفين
+            // إضافة فلاتر التاريخ للموظفين
             if (!empty($filter_date_from)) {
                 $where_clauses[] = "DATE(o.order_date) >= ?";
                 $params[] = $filter_date_from;
@@ -319,7 +263,6 @@ class OrderController
         // Logic to create a new client if one doesn't exist
         if (empty($client_id)) {
             $company_name = $_POST['company_name'] ?? '';
-            $contact_person = $_POST['contact_person'] ?? '';
             $phone = $_POST['phone'] ?? '';
             
             if (!empty($company_name) && !empty($phone)) {
@@ -334,24 +277,40 @@ class OrderController
                     $products_result = $this->conn->query("SELECT product_id, name FROM products ORDER BY name");
                     $products_array = $products_result->fetch_all(MYSQLI_ASSOC);
 
-                    // Fetch employees (designers)
+                    // Fetch employees (designers and workshop)
                     $employees_array = [];
+                    $workshop_employees = [];
                     if ($_SESSION['user_role'] === 'مدير') {
                         $employees_result = $this->conn->query("SELECT employee_id, name FROM employees WHERE role IN ('مصمم', 'مدير') ORDER BY name");
                         $employees_array = $employees_result->fetch_all(MYSQLI_ASSOC);
+                        
+                        $workshop_result = $this->conn->query("SELECT employee_id, name FROM employees WHERE role = 'معمل' ORDER BY name");
+                        $workshop_employees = $workshop_result->fetch_all(MYSQLI_ASSOC);
                     }
                     
                     require_once __DIR__ . '/../View/order/form.php';
                     return;
                 }
                 
-                $stmt = $this->conn->prepare("INSERT INTO clients (company_name, contact_person, phone) VALUES (?, ?, ?)");
-                $stmt->bind_param("sss", $company_name, $contact_person, $phone);
-                $stmt->execute();
-                $client_id = $this->conn->insert_id;
+                // التحقق من عدم وجود جهة بنفس الاسم والجوال لتجنب التكرار
+                $check_stmt = $this->conn->prepare("SELECT client_id FROM clients WHERE company_name = ? AND phone = ?");
+                $check_stmt->bind_param("ss", $company_name, $phone);
+                $check_stmt->execute();
+                $existing_client = $check_stmt->get_result()->fetch_assoc();
+                
+                if ($existing_client) {
+                    // استخدام الجهة الموجودة
+                    $client_id = $existing_client['client_id'];
+                } else {
+                    // إنشاء جهة جديدة
+                    $stmt = $this->conn->prepare("INSERT INTO clients (company_name, phone) VALUES (?, ?)");
+                    $stmt->bind_param("ss", $company_name, $phone);
+                    $stmt->execute();
+                    $client_id = $this->conn->insert_id;
+                }
             } else {
                 // Handle error: client info is required
-                // For now, we'll just redirect back
+                MessageSystem::setError("يجب إدخال اسم الجهة ورقم الجوال");
                 header('Location: ' . $_ENV['BASE_PATH'] . '/orders/add');
                 exit;
             }
@@ -359,7 +318,21 @@ class OrderController
 
         $due_date = $_POST['due_date'] ?? '';
         $priority = $_POST['priority'] ?? '';
-        $designer_id = $_POST['designer_id'] ?? $_SESSION['user_id'];
+        
+        // تحسين منطق تعيين المصمم
+        $designer_id = null;
+        if (isset($_POST['designer_id']) && !empty($_POST['designer_id'])) {
+            $designer_id = $_POST['designer_id'];
+        } elseif (\App\Core\RoleHelper::getCurrentUserRole() === 'مصمم') {
+            // المصمم فقط يمكن أن يعين نفسه تلقائياً
+            $designer_id = $_SESSION['user_id'];
+        } else {
+            // للأدوار الأخرى، يجب اختيار مصمم صراحة
+            MessageSystem::setError("يجب اختيار المسؤول عن التصميم.");
+            header("Location: " . $_ENV['BASE_PATH'] . "/orders/add");
+            exit;
+        }
+        
         $total_amount = $_POST['total_amount'] ?? 0;
         $deposit_amount = $_POST['deposit_amount'] ?? 0;
         $payment_method = $_POST['payment_method'] ?? '';
@@ -419,7 +392,7 @@ class OrderController
             return;
         }
 
-        $stmt = $this->conn->prepare("SELECT o.*, c.company_name, c.contact_person, c.phone FROM orders o JOIN clients c ON o.client_id = c.client_id WHERE o.order_id = ?");
+        $stmt = $this->conn->prepare("SELECT o.*, c.company_name, c.phone FROM orders o JOIN clients c ON o.client_id = c.client_id WHERE o.order_id = ?");
         $stmt->bind_param("i", $id);
         $stmt->execute();
         $result = $stmt->get_result();

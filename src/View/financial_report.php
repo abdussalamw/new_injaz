@@ -42,7 +42,7 @@
                         </div>
                         <div class="col-md-3 d-flex align-items-end">
                             <button type="submit" class="btn btn-success me-2">تطبيق الفلتر</button>
-                            <a href="/reports/financial" class="btn btn-outline-secondary me-2">إعادة تعيين</a>
+                            <a href="dashboard.php?tab=reports" class="btn btn-outline-secondary me-2">إعادة تعيين</a>
                             <button type="button" class="btn btn-info" onclick="exportToExcel()">تصدير Excel</button>
                         </div>
                     </form>
@@ -117,7 +117,6 @@
                             <thead class="table-dark">
                                 <tr>
                                     <th>العميل</th>
-                                    <th>الشخص المسؤول</th>
                                     <th>الهاتف</th>
                                     <th>عدد الطلبات</th>
                                     <th>إجمالي المبلغ</th>
@@ -131,11 +130,9 @@
                                 <?php foreach ($client_stats as $client): ?>
                                 <tr>
                                     <td><strong><?= htmlspecialchars($client['company_name']) ?></strong></td>
-                                    <td><?= htmlspecialchars($client['contact_person']) ?></td>
                                     <td><?= htmlspecialchars($client['phone']) ?></td>
                                     <td><span class="badge bg-primary"><?= $client['total_orders'] ?></span></td>
                                     <td><?= number_format($client['total_amount'], 0) ?> ر.س</td>
-                                    <td><?= number_format($client['total_deposits'], 0) ?> ر.س</td>
                                     <td>
                                         <span class="badge <?= $client['remaining_balance'] > 0 ? 'bg-warning' : 'bg-success' ?>">
                                             <?= number_format($client['remaining_balance'], 0) ?> ر.س
@@ -149,7 +146,7 @@
                                         </small>
                                     </td>
                                     <td>
-                                        <a href="/reports/financial?report_client=<?= $client['client_id'] ?>&report_start_date=<?= $start_date ?>&report_end_date=<?= $end_date ?>" 
+                                        <a href="dashboard.php?tab=reports&report_client=<?= $client['client_id'] ?>&report_start_date=<?= $start_date ?>&report_end_date=<?= $end_date ?>" 
                                            class="btn btn-sm btn-outline-primary">
                                             <i class="fas fa-eye"></i> التفاصيل
                                         </a>
@@ -179,7 +176,7 @@
                         <?php endif; ?>
                     </h5>
                     <?php if (!empty($selected_client)): ?>
-                        <a href="/reports/financial?report_start_date=<?= $start_date ?>&report_end_date=<?= $end_date ?>" 
+                        <a href="dashboard.php?tab=reports&report_start_date=<?= $start_date ?>&report_end_date=<?= $end_date ?>" 
                            class="btn btn-sm btn-secondary">
                             <i class="fas fa-arrow-left"></i> العودة لجميع العملاء
                         </a>

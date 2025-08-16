@@ -24,7 +24,7 @@ if ($res && $res->num_rows > 0) {
     while ($row = $res->fetch_assoc()) {
         echo '<div class="col-md-6 col-lg-4">';
         $task_details = $row;
-        $actions = Helpers::get_next_actions($row, $_SESSION['user_role'], $_SESSION['user_id'], $conn, 'dashboard');
+        $actions = Helpers::get_next_actions($row, \App\Core\RoleHelper::getCurrentUserRole(), \App\Core\RoleHelper::getCurrentUserId(), $conn, 'dashboard');
         include __DIR__ . '/../View/task/card.php';
         echo '</div>';
     }

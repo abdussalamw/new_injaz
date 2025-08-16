@@ -65,10 +65,9 @@
             <thead>
                 <tr>
                     <th style="width: 8%;"><?= \App\Core\Helpers::generate_sort_link('client_id', 'رقم العميل', $sort_column_key, $sort_order) ?></th>
-                    <th style="width: 25%;"><?= \App\Core\Helpers::generate_sort_link('company_name', 'اسم المؤسسة', $sort_column_key, $sort_order) ?></th>
-                    <th style="width: 20%;"><?= \App\Core\Helpers::generate_sort_link('contact_person', 'الشخص المسؤول', $sort_column_key, $sort_order) ?></th>
-                    <th style="width: 15%;">رقم الجوال</th>
-                    <th style="width: 20%;"><?= \App\Core\Helpers::generate_sort_link('email', 'البريد الإلكتروني', $sort_column_key, $sort_order) ?></th>
+                    <th style="width: 35%;"><?= \App\Core\Helpers::generate_sort_link('company_name', 'اسم الجهة والشخص المسؤول', $sort_column_key, $sort_order) ?></th>
+                    <th style="width: 20%;">رقم الجوال</th>
+                    <th style="width: 25%;"><?= \App\Core\Helpers::generate_sort_link('email', 'البريد الإلكتروني', $sort_column_key, $sort_order) ?></th>
                     <th style="width: 12%;">الإجراءات</th>
                 </tr>
             </thead>
@@ -77,7 +76,6 @@
                 <tr>
                     <td class="fw-bold text-primary"><?= $row['client_id'] ?></td>
                     <td class="text-start"><?= htmlspecialchars($row['company_name']) ?></td>
-                    <td><?= htmlspecialchars($row['contact_person']) ?></td>
                     <td>
                         <?php if (!empty($row['phone'])): ?>
                             <a href="<?= \App\Core\Helpers::format_whatsapp_link($row['phone']) ?>" target="_blank" class="text-decoration-none text-dark" title="فتح واتساب">

@@ -94,10 +94,8 @@ $initial_sort_by = $_GET['sort_by'] ?? 'latest';
 
 $res = \App\Core\InitialTasksQuery::fetch_tasks($conn, $initial_filter_status, $initial_filter_employee, $initial_filter_payment, $initial_filter_search, $initial_sort_by);
 
-
-
 // 5. تحديد العنوان والتبويب النشط
-$dashboard_title = \App\Core\Permissions::has_permission('order_view_own', $conn) && !\App\Core\Permissions::has_permission('order_view_all', $conn) ? 'المهام الموكلة إليك' : 'أحدث المهام النشطة';
+$dashboard_title = \App\Core\RoleHelper::getDashboardTitle($conn);
 $active_tab = $_GET['tab'] ?? 'tasks';
 $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab === 'reports' ? 'CustomReports' : 'Tasks');
 ?>
@@ -252,7 +250,7 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
                             <?php 
                             $task_details = $row;
                             // تحديد الإجراءات المتاحة بناءً على حالة المهمة ودور المستخدم
-                            $actions = \App\Core\Helpers::get_next_actions($row, $_SESSION['user_role'], $_SESSION['user_id'], $conn, 'dashboard'); 
+                            $actions = \App\Core\Helpers::get_next_actions($row, \App\Core\RoleHelper::getCurrentUserRole(), \App\Core\RoleHelper::getCurrentUserId(), $conn, 'dashboard'); 
                             include __DIR__ . '/task/card.php'; 
                             ?>
                         </div>
@@ -287,6 +285,32 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll(".tab-link").forEach(link => link.classList.remove("active"));
         document.getElementById(tabName).classList.add("active");
         evt.currentTarget.classList.add("active");
+
+        // تحديث رابط الصفحة للحفاظ على حالة التبويب عند التحديث
+        const url = new URL(window.location);
+        let tabKey = 'tasks'; // Default tab
+        if (tabName === 'StatsReports') {
+            tabKey = 'stats';
+        } else if (tabName === 'CustomReports') {
+            tabKey = 'reports';
+        }
+        url.searchParams.set('tab', tabKey);
+        
+        // إزالة بارامترات الفلترة الخاصة بالتبويبات الأخرى لتجنب التداخل
+        if (tabKey !== 'tasks') {
+            url.searchParams.delete('status');
+            url.searchParams.delete('employee');
+            url.searchParams.delete('payment');
+            url.searchParams.delete('search');
+            url.searchParams.delete('sort_by');
+        }
+        if (tabKey !== 'stats') {
+            url.searchParams.delete('period');
+            url.searchParams.delete('custom_date');
+            url.searchParams.delete('stats_employee');
+        }
+
+        history.pushState({}, '', url);
     }
     
     // Make it globally accessible

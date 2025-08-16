@@ -98,16 +98,55 @@
                                                 </div>
                                             </td>
 
-                                            <td><?= htmlspecialchars($row['workshop_name'] ?? 'N/A') ?></td>
-                                            <td><small><?= !empty($row['design_completed_at']) ? date('Y-m-d H:i', strtotime($row['design_completed_at'])) : '-' ?></small></td>
-                                            <td><small><?= !empty($row['execution_completed_at']) ? date('Y-m-d H:i', strtotime($row['execution_completed_at'])) : '-' ?></small></td>
-                                            <td><span class="badge bg-light text-dark"><?= $execution_duration ?? '-' ?></span></td>
                                             <td>
-                                                <div class="rating-stars" data-order-id="<?= $row['order_id'] ?>" data-stage="execution">
-                                                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                                                        <span class="star <?= $i <= ($row['execution_rating'] / 2) ? 'active' : '' ?>" data-rating="<?= $i ?>" title="<?= $i ?>/5">★</span>
-                                                    <?php endfor; ?>
-                                                </div>
+                                                <?php 
+                                                // عرض اسم المعمل فقط إذا بدأت مرحلة التنفيذ فعلياً
+                                                if (!empty($row['design_completed_at']) && $row['status'] !== 'قيد التصميم') {
+                                                    echo htmlspecialchars($row['workshop_name'] ?? 'غير معين');
+                                                } else {
+                                                    echo '-';
+                                                }
+                                                ?>
+                                            </td>
+                                            <td>
+                                                <small>
+                                                    <?php 
+                                                    // عرض تاريخ بداية التنفيذ فقط إذا بدأت مرحلة التنفيذ فعلياً
+                                                    if (!empty($row['design_completed_at']) && $row['status'] !== 'قيد التصميم') {
+                                                        echo date('Y-m-d H:i', strtotime($row['design_completed_at']));
+                                                    } else {
+                                                        echo '-';
+                                                    }
+                                                    ?>
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <small>
+                                                    <?php 
+                                                    // عرض تاريخ نهاية التنفيذ فقط إذا انتهت مرحلة التنفيذ فعلياً
+                                                    if (!empty($row['execution_completed_at'])) {
+                                                        echo date('Y-m-d H:i', strtotime($row['execution_completed_at']));
+                                                    } else {
+                                                        echo '-';
+                                                    }
+                                                    ?>
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark">
+                                                    <?= (!empty($row['design_completed_at']) && $row['status'] !== 'قيد التصميم') ? ($execution_duration ?? '-') : '-' ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <?php if (!empty($row['design_completed_at']) && $row['status'] !== 'قيد التصميم'): ?>
+                                                    <div class="rating-stars" data-order-id="<?= $row['order_id'] ?>" data-stage="execution">
+                                                        <?php for ($i = 1; $i <= 5; $i++): ?>
+                                                            <span class="star <?= $i <= ($row['execution_rating'] / 2) ? 'active' : '' ?>" data-rating="<?= $i ?>" title="<?= $i ?>/5">★</span>
+                                                        <?php endfor; ?>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <span class="text-muted">-</span>
+                                                <?php endif; ?>
                                             </td>
 
                                             <td><strong class="badge bg-dark"><?= $total_duration ?? '-' ?></strong></td>

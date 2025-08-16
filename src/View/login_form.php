@@ -13,7 +13,7 @@ use App\Core\Helpers;
     <style>
         body { 
             font-family: 'Tajawal', Arial, sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: white;
             min-height: 100vh;
         }
         .welcome-header {
@@ -115,13 +115,6 @@ use App\Core\Helpers;
             </small>
         </div>
     </div>
-</div>
-
-<!-- Footer -->
-<div style="position: fixed; bottom: 10px; width: 100%; text-center;">
-    <small style="color: rgba(255,255,255,0.8);">
-        © 2024 إنجاز الإعلامية - جميع الحقوق محفوظة
-    </small>
 </div>
 
 </body>

@@ -41,7 +41,8 @@ if (!function_exists('format_whatsapp_link')) {
 }
 
 // تأكد من وجود متغير user_role
-$user_role = $_SESSION['user_role'] ?? 'غير محدد';
+$user_role = \App\Core\RoleHelper::getCurrentUserRole();
+$user_id = \App\Core\RoleHelper::getCurrentUserId();
 
 // دالة لتحديد المسؤول الحالي حسب حالة الطلب
 if (!function_exists('get_current_responsible')) {
@@ -123,7 +124,7 @@ if (!function_exists('get_current_responsible')) {
             <h6 class="card-subtitle mb-2 text-muted">للعميل: <?= htmlspecialchars($task_details['client_name']) ?> (<?= htmlspecialchars($task_details['order_id']) ?>)</h6>
         <?php endif; ?>
 
-        <?php if ($user_role === 'محاسب' && has_card_permission('task_card_view_payment', $conn)): ?>
+        <?php if (\App\Core\RoleHelper::isAccountant() && has_card_permission('task_card_view_payment', $conn)): ?>
             <div class="mb-3">
                 <small class="text-muted d-block mb-1">حالة الدفع</small>
                 <?= get_payment_status_display($task_details['payment_status'], $task_details['total_amount'], $task_details['deposit_amount']) ?>
@@ -146,7 +147,7 @@ if (!function_exists('get_current_responsible')) {
                 <?php
                 // تحديد تاريخ بدء العداد بناءً على دور المستخدم وحالة المهمة
                 $countdown_start_date = $task_details['order_date']; // التاريخ الافتراضي
-                if ($user_role === 'معمل' && !empty($task_details['design_completed_at'])) {
+                if (\App\Core\RoleHelper::isWorkshop() && !empty($task_details['design_completed_at'])) {
                     // إذا كان المستخدم معملاً والمهمة قد بدأت مرحلة التنفيذ، ابدأ العداد من وقت انتهاء التصميم
                     $countdown_start_date = $task_details['design_completed_at'];
                 }

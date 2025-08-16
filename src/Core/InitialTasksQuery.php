@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use App\Core\RoleBasedQuery;
+
 class InitialTasksQuery
 {
     public static function fetch_tasks(\mysqli $conn, string $filter_status = '', string $filter_employee = '', string $filter_payment = '', string $search_query = '', string $sort_by = 'latest'): \mysqli_result|false
@@ -19,120 +21,86 @@ class InitialTasksQuery
                 LEFT JOIN products p ON oi.product_id = p.product_id
                 LEFT JOIN employees e ON o.designer_id = e.employee_id";
 
-        $where_clauses = [];
-        $params = [];
-        $types = "";
-
+        // استخدام الفئة الموحدة لبناء شروط الفلترة
         if (Permissions::has_permission('order_view_all', $conn)) {
-            // إخفاء المهام التي تحقق شرطين: مكتملة ومدفوعة، أو الملغية
-            $where_clauses[] = "NOT (TRIM(o.status) = 'مكتمل' AND TRIM(o.payment_status) = 'مدفوع') AND TRIM(o.status) != 'ملغي'";
-
+            // للمستخدمين الذين يمكنهم رؤية جميع الطلبات (مثل المدير)
             if (!empty($filter_employee)) {
-                $employee_role_query = $conn->prepare("SELECT role FROM employees WHERE employee_id = ?");
-                $employee_role_query->bind_param("i", $filter_employee);
-                $employee_role_query->execute();
-                $employee_role_result = $employee_role_query->get_result();
-                $employee_role = $employee_role_result->fetch_assoc()['role'] ?? '';
-
-                switch ($employee_role) {
-                    case 'مصمم':
-                        $where_clauses[] = "o.designer_id = ? AND TRIM(o.status) = 'قيد التصميم'";
-                        $params[] = $filter_employee;
-                        $types .= "i";
-                        break;
-                    case 'معمل':
-                        $where_clauses[] = "o.workshop_id = ? AND TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم')";
-                        $params[] = $filter_employee;
-                        $types .= "i";
-                        break;
-                    case 'محاسب':
-                        $where_clauses[] = "o.payment_settled_at IS NULL AND o.total_amount > 0";
-                        break;
-                    default:
-                        // للأدوار الأخرى، عرض جميع الطلبات النشطة
-                        $where_clauses[] = "o.status IN ('جديد', 'قيد التصميم', 'قيد التنفيذ', 'جاهز للتسليم')";
-                        break;
-                }
+                // إذا كان هناك فلتر لموظف محدد
+                $conditions = RoleBasedQuery::buildRoleBasedConditions(
+                    '', // دور فارغ لاستخدام منطق فلترة الموظف المحدد
+                    $user_id,
+                    $filter_employee,
+                    $filter_status,
+                    $filter_payment,
+                    $search_query,
+                    $conn
+                );
             } else {
-                if (!empty($filter_status)) {
-                    $where_clauses[] = "o.status = ?";
-                    $params[] = $filter_status;
-                    $types .= "s";
-                }
-            }
-
-            if (!empty($filter_payment)) {
-                $where_clauses[] = "o.payment_status = ?";
-                $params[] = $filter_payment;
-                $types .= "s";
-            }
-            if (!empty($search_query)) {
-                $where_clauses[] = "(o.order_id LIKE ? OR c.company_name LIKE ? OR p.name LIKE ?)";
-                $search_param = "%$search_query%";
-                $params[] = $search_param;
-                $params[] = $search_param;
-                $params[] = $search_param;
-                $types .= "sss";
+                // رؤية جميع الطلبات بدون فلتر موظف محدد
+                $conditions = RoleBasedQuery::buildRoleBasedConditions(
+                    'مدير',
+                    $user_id,
+                    '',
+                    $filter_status,
+                    $filter_payment,
+                    $search_query,
+                    $conn
+                );
             }
         } elseif (Permissions::has_permission('order_view_own', $conn)) {
-            // إخفاء المهام التي تحقق شرطين: مكتملة ومدفوعة، أو الملغية للموظفين
-            $where_clauses = ["NOT (TRIM(o.status) = 'مكتمل' AND TRIM(o.payment_status) = 'مدفوع') AND TRIM(o.status) != 'ملغي'"];
-            
-            switch ($user_role) {
-                case 'مصمم':
-                    $where_clauses[] = "o.designer_id = ? AND TRIM(o.status) = 'قيد التصميم'";
-                    $params[] = $user_id;
-                    $types .= "i";
-                    break;
-                case 'معمل':
-                    // يظهر له فقط قيد التنفيذ أو جاهز للتسليم (ولا يظهر مكتمل)
-                    // ملاحظة: يجب ألا يتم تغيير الحالة إلى "مكتمل" إلا بعد تأكيد العميل فقط من الكنترولر
-                    $where_clauses[] = "o.workshop_id = ? AND TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم')";
-                    $params[] = $user_id;
-                    $types .= "i";
-                    break;
-                case 'محاسب':
-                    $where_clauses[] = "o.payment_settled_at IS NULL AND o.total_amount > 0";
-                    break;
-                default:
-                    $where_clauses[] = "1=0";
-                    break;
-            }
+            // المستخدم يرى طلباته فقط حسب دوره
+            $conditions = RoleBasedQuery::buildRoleBasedConditions(
+                $user_role,
+                $user_id,
+                '', // لا نمرر filter_employee لأنه يرى طلباته فقط
+                $filter_status,
+                $filter_payment,
+                $search_query,
+                $conn
+            );
         } else {
-            $where_clauses[] = "1=0";
+            // لا يملك أي صلاحية
+            $conditions = [
+                'where_clauses' => ['1=0'],
+                'params' => [],
+                'types' => ''
+            ];
         }
 
-        if (!empty($where_clauses)) {
-            $sql .= " WHERE " . implode(" AND ", $where_clauses);
+        // بناء الاستعلام
+        if (!empty($conditions['where_clauses'])) {
+            $sql .= " WHERE " . implode(" AND ", $conditions['where_clauses']);
         }
         
-        $order_by_clause = '';
-        switch ($sort_by) {
-            case 'latest':
-                $order_by_clause = 'o.order_date DESC';
-                break;
-            case 'oldest':
-                $order_by_clause = 'o.order_date ASC';
-                break;
-            case 'payment':
-                $order_by_clause = 'o.payment_status ASC, o.order_date DESC';
-                break;
-            case 'employee':
-                $order_by_clause = 'e.name ASC, o.order_date DESC';
-                break;
-            default:
-                $order_by_clause = 'o.order_date DESC';
-                break;
-        }
-
+        // ترتيب النتائج
+        $order_by_clause = self::getOrderByClause($sort_by);
         $sql .= " GROUP BY o.order_id ORDER BY " . $order_by_clause;
 
-        
+        // تنفيذ الاستعلام
         $stmt = $conn->prepare($sql);
-        if (!empty($params)) {
-            $stmt->bind_param($types, ...$params);
+        if (!empty($conditions['params'])) {
+            $stmt->bind_param($conditions['types'], ...$conditions['params']);
         }
         $stmt->execute();
         return $stmt->get_result();
+    }
+
+    /**
+     * الحصول على جملة الترتيب
+     */
+    private static function getOrderByClause(string $sort_by): string
+    {
+        switch ($sort_by) {
+            case 'latest':
+                return 'o.order_date DESC';
+            case 'oldest':
+                return 'o.order_date ASC';
+            case 'payment':
+                return 'o.payment_status ASC, o.order_date DESC';
+            case 'employee':
+                return 'e.name ASC, o.order_date DESC';
+            default:
+                return 'o.order_date DESC';
+        }
     }
 }

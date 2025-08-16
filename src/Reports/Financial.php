@@ -32,7 +32,6 @@ $base_query = "
         o.payment_status,
         o.notes,
         c.company_name,
-        c.contact_person,
         c.phone,
         c.email,
         c.client_id,
@@ -102,7 +101,6 @@ if (empty($selected_client)) {
         SELECT 
             c.client_id,
             c.company_name,
-            c.contact_person,
             c.phone,
             COUNT(o.order_id) as total_orders,
             SUM(o.total_amount) as total_amount,
@@ -113,7 +111,7 @@ if (empty($selected_client)) {
             COUNT(CASE WHEN o.payment_status = 'غير مدفوع' THEN 1 END) as unpaid_orders
         FROM clients c
         LEFT JOIN orders o ON c.client_id = o.client_id AND o.order_date BETWEEN ? AND ?
-        GROUP BY c.client_id, c.company_name, c.contact_person, c.phone
+        GROUP BY c.client_id, c.company_name, c.phone
         HAVING total_orders > 0
         ORDER BY remaining_balance DESC";
     

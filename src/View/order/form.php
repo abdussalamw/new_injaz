@@ -16,7 +16,6 @@ $error = $error ?? null;
 // Set form values for both add and edit, falling back to defaults
 $client_id = $order['client_id'] ?? '';
 $company_name = $order['company_name'] ?? '';
-$contact_person = $order['contact_person'] ?? '';
 $phone = $order['phone'] ?? '';
 $due_date = $order['due_date'] ?? date('Y-m-d');
 $priority = $order['priority'] ?? 'متوسط';
@@ -39,26 +38,33 @@ $notes = $order['notes'] ?? '';
         <div class="row g-3">
             <div class="row g-3">
                 <fieldset class="border p-3 rounded mb-2">
-                    <legend class="float-none w-auto px-2 h6">معلومات الجهة</legend>
+                    <legend class="float-none w-auto px-2 h6"><i class="fas fa-building me-2"></i>معلومات الجهة</legend>
                     <div class="row">
-                        <div class="col-md-6">
-                            <label class="form-label">اسم الجهة واسم الشخص المسؤول</label>
+                        <div class="col-md-8">
+                            <label class="form-label"><i class="fas fa-building me-2"></i>اسم الجهة والشخص المسؤول <span class="text-danger">*</span></label>
                             <div class="position-relative">
-                                <input type="text" name="company_name" id="company_name_input" class="form-control" autocomplete="off" required value="<?= htmlspecialchars($company_name) ?>">
+                                <input type="text" name="company_name" id="company_name_input" class="form-control" autocomplete="off" required value="<?= htmlspecialchars($company_name) ?>" placeholder="اكتب اسم الجهة والشخص المسؤول...">
                                 <input type="hidden" name="client_id" id="client_id_hidden" value="<?= htmlspecialchars($client_id) ?>">
-                                <div id="autocomplete-list" class="list-group position-absolute w-100" style="z-index: 1000;"></div>
+                                <div id="autocomplete-list" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 300px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
+                                <small class="form-text text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    ابدأ بالكتابة للبحث في الجهات الموجودة أو إنشاء جهة جديدة
+                                </small>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">الجوال <span class="text-danger">*</span></label>
-                            <input type="tel" name="phone" id="phone_input" class="form-control" 
-                                   pattern="^05[0-9]{8}$" 
-                                   placeholder="05xxxxxxxx" 
-                                   title="يجب أن يبدأ الرقم بـ 05 ويتكون من 10 أرقام"
-                                   maxlength="10" 
-                                   required 
-                                   value="<?= htmlspecialchars($phone) ?>">
-                            <div class="form-text text-muted">مثال: 0501234567</div>
+                        <div class="col-md-4">
+                            <label class="form-label"><i class="fas fa-phone me-2"></i>الجوال <span class="text-danger">*</span></label>
+                            <div class="position-relative">
+                                <input type="tel" name="phone" id="phone_input" class="form-control" 
+                                       pattern="^05[0-9]{8}$" 
+                                       placeholder="05xxxxxxxx" 
+                                       title="يجب أن يبدأ الرقم بـ 05 ويتكون من 10 أرقام"
+                                       maxlength="10" 
+                                       required 
+                                       value="<?= htmlspecialchars($phone) ?>">
+                                <i class="fas fa-lock position-absolute" id="phone_lock" style="left: 10px; top: 50%; transform: translateY(-50%); display: none; color: #6c757d;"></i>
+                                <div class="form-text text-muted">مثال: 0501234567</div>
+                            </div>
                         </div>
                     </div>
                 </fieldset>
@@ -92,16 +98,27 @@ $notes = $order['notes'] ?? '';
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">المسؤول عن التصميم</label>
-                            <?php if ($_SESSION['user_role'] === 'مدير'): ?>
+                            <?php if (\App\Core\RoleHelper::isManager()): ?>
                                 <select name="designer_id" class="form-select" required>
                                     <option value="">اختر المسؤول...</option>
                                     <?php foreach ($employees_array as $d_row): ?>
-                                        <option value="<?= $d_row['employee_id'] ?>" <?= ($designer_id == $d_row['employee_id']) ? 'selected' : '' ?>><?= htmlspecialchars($d_row['name']) ?></option>
+                                        <?php if ($d_row['role'] === 'مصمم' || $d_row['role'] === 'مدير'): ?>
+                                            <option value="<?= $d_row['employee_id'] ?>" <?= ($designer_id == $d_row['employee_id']) ? 'selected' : '' ?>><?= htmlspecialchars($d_row['name']) ?></option>
+                                        <?php endif; ?>
                                     <?php endforeach; ?>
                                 </select>
-                            <?php else: ?>
+                            <?php elseif (\App\Core\RoleHelper::getCurrentUserRole() === 'مصمم'): ?>
                                 <p class="form-control-plaintext bg-light border rounded-pill px-3"><?= htmlspecialchars($_SESSION['user_name']) ?></p>
                                 <input type="hidden" name="designer_id" value="<?= $_SESSION['user_id'] ?>">
+                            <?php else: ?>
+                                <select name="designer_id" class="form-select" required>
+                                    <option value="">اختر المسؤول...</option>
+                                    <?php foreach ($employees_array as $d_row): ?>
+                                        <?php if ($d_row['role'] === 'مصمم' || $d_row['role'] === 'مدير'): ?>
+                                            <option value="<?= $d_row['employee_id'] ?>" <?= ($designer_id == $d_row['employee_id']) ? 'selected' : '' ?>><?= htmlspecialchars($d_row['name']) ?></option>
+                                        <?php endif; ?>
+                                    <?php endforeach; ?>
+                                </select>
                             <?php endif; ?>
                         </div>
 
@@ -141,47 +158,247 @@ $notes = $order['notes'] ?? '';
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Client Autocomplete Logic
+    // Client Autocomplete Logic - محسن للبحث الديناميكي
     const companyInput = document.getElementById('company_name_input');
     const phoneInput = document.getElementById('phone_input');
     const clientIdHidden = document.getElementById('client_id_hidden');
     const autocompleteList = document.getElementById('autocomplete-list');
+    const phoneLock = document.getElementById('phone_lock');
+    
+    let searchTimeout;
 
-    companyInput.addEventListener('keyup', function() {
-        const query = this.value;
-        clientIdHidden.value = '';
+    function performSearch() {
+        const query = companyInput.value.trim();
+        
+        // إعادة تعيين القيم عند تغيير البحث
+        if (!clientIdHidden.value || companyInput.value !== companyInput.dataset.selectedValue) {
+            clientIdHidden.value = '';
+            phoneInput.readOnly = false;
+            companyInput.dataset.selectedValue = '';
+        }
+
         if (query.length < 1) {
             autocompleteList.innerHTML = '';
             return;
         }
-        fetch(`<?= $_ENV['BASE_PATH'] ?>/api/clients/search?query=${query}`)
-            .then(response => response.json())
+
+        // إظهار مؤشر التحميل
+        autocompleteList.innerHTML = '<span class="list-group-item text-muted"><i class="fas fa-spinner fa-spin me-2"></i>جاري البحث...</span>';
+
+        fetch(`/new_injaz/direct_search.php?query=${encodeURIComponent(query)}`)
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    return response.text().then(text => {
+                        console.error('Expected JSON, got:', text);
+                        throw new Error('Server returned non-JSON response');
+                    });
+                }
+                
+                return response.json();
+            })
             .then(clients => {
+                console.log('Received clients:', clients);
                 autocompleteList.innerHTML = '';
+                
+                if (clients.error) {
+                    autocompleteList.innerHTML = `
+                        <div class="list-group-item text-danger text-center py-3">
+                            <i class="fas fa-exclamation-triangle mb-2" style="font-size: 2rem;"></i>
+                            <p class="mb-0">خطأ: ${clients.message}</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
                 if (clients.length > 0) {
-                    clients.forEach(client => {
+                    clients.forEach((client, index) => {
                         const item = document.createElement('a');
                         item.href = '#';
-                        item.classList.add('list-group-item', 'list-group-item-action');
-                        item.textContent = client.company_name;
+                        item.classList.add('list-group-item', 'list-group-item-action', 'd-flex', 'justify-content-between', 'align-items-start');
+                        item.style.transition = 'all 0.3s ease';
+                        
+                        // تحسين عرض النتائج
+                        const mainDiv = document.createElement('div');
+                        mainDiv.classList.add('flex-grow-1');
+                        
+                        const companyName = document.createElement('h6');
+                        companyName.classList.add('mb-1', 'fw-bold', 'text-dark');
+                        companyName.textContent = client.company_name;
+                        mainDiv.appendChild(companyName);
+                        
+                        const phoneDiv = document.createElement('small');
+                        phoneDiv.classList.add('text-success', 'd-flex', 'align-items-center');
+                        phoneDiv.innerHTML = `<i class="fas fa-phone me-1"></i>${client.phone}`;
+                        
+                        // إضافة مؤشر بصري للاختيار
+                        const selectIcon = document.createElement('i');
+                        selectIcon.classList.add('fas', 'fa-chevron-left', 'text-muted', 'ms-2');
+                        
+                        item.appendChild(mainDiv);
+                        item.appendChild(phoneDiv);
+                        item.appendChild(selectIcon);
+                        
+                        // تأثير hover
+                        item.addEventListener('mouseenter', function() {
+                            this.style.backgroundColor = '#f8f9fa';
+                            selectIcon.style.color = '#007bff';
+                        });
+                        
+                        item.addEventListener('mouseleave', function() {
+                            this.style.backgroundColor = '';
+                            selectIcon.style.color = '';
+                        });
+                        
                         item.addEventListener('click', function(e) {
                             e.preventDefault();
+                            
+                            // تأثير الاختيار
+                            this.style.backgroundColor = '#d4edda';
+                            
+                            // ملء البيانات تلقائياً
                             companyInput.value = client.company_name;
+                            companyInput.dataset.selectedValue = client.company_name;
                             phoneInput.value = client.phone;
                             clientIdHidden.value = client.client_id;
+                            
+                            // منع التعديل على البيانات المحددة مسبقاً
+                            phoneInput.readOnly = true;
+                            
+                            // إضافة مؤشر بصري للحقول المقفلة
+                            phoneInput.classList.add('bg-light');
+                            phoneLock.style.display = 'block';
+                            
                             autocompleteList.innerHTML = '';
+                            
+                            // عرض رسالة تأكيد
+                            showClientSelectedMessage(client.company_name);
                         });
+                        
                         autocompleteList.appendChild(item);
                     });
+                    
+                    // إضافة خيار إنشاء عميل جديد
+                    const newClientItem = document.createElement('a');
+                    newClientItem.href = '#';
+                    newClientItem.classList.add('list-group-item', 'list-group-item-action', 'text-primary', 'fw-bold', 'border-top');
+                    newClientItem.style.backgroundColor = '#f8f9fa';
+                    newClientItem.innerHTML = '<i class="fas fa-plus me-2"></i>إنشاء جهة جديدة بهذا الاسم';
+                    newClientItem.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        clearClientSelection();
+                        autocompleteList.innerHTML = '';
+                    });
+                    autocompleteList.appendChild(newClientItem);
+                    
                 } else {
-                    autocompleteList.innerHTML = '<span class="list-group-item text-muted">لا توجد نتائج (سيتم إنشاء مؤسسة جديدة)</span>';
+                    autocompleteList.innerHTML = `
+                        <div class="list-group-item text-center py-3">
+                            <i class="fas fa-info-circle text-primary mb-2" style="font-size: 2rem;"></i>
+                            <p class="mb-1 text-muted">لا توجد جهات مطابقة</p>
+                            <small class="text-muted">سيتم إنشاء جهة جديدة باسم: <strong>${query}</strong></small>
+                        </div>
+                    `;
                 }
+            })
+            .catch(error => {
+                console.error('خطأ في البحث:', error);
+                autocompleteList.innerHTML = `
+                    <div class="list-group-item text-center py-3 text-danger">
+                        <i class="fas fa-exclamation-triangle mb-2" style="font-size: 2rem;"></i>
+                        <p class="mb-0">حدث خطأ في البحث</p>
+                        <small>الرجاء المحاولة مرة أخرى</small>
+                    </div>
+                `;
             });
+    }
+
+    function clearClientSelection() {
+        clientIdHidden.value = '';
+        phoneInput.readOnly = false;
+        phoneInput.classList.remove('bg-light');
+        phoneLock.style.display = 'none';
+        companyInput.dataset.selectedValue = '';
+        hideClientSelectedMessage();
+        
+        // إضافة تأثير بصري لإعادة التفعيل
+        phoneInput.style.transition = 'all 0.3s ease';
+        phoneInput.style.borderColor = '#007bff';
+        setTimeout(() => {
+            phoneInput.style.borderColor = '';
+        }, 1000);
+    }
+
+    function showClientSelectedMessage(companyName) {
+        // إزالة الرسالة السابقة إن وجدت
+        hideClientSelectedMessage();
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.id = 'client-selected-message';
+        messageDiv.classList.add('alert', 'alert-success', 'alert-dismissible', 'fade', 'show', 'mt-2', 'border-0');
+        messageDiv.style.borderLeft = '4px solid #28a745';
+        messageDiv.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas fa-check-circle me-2 text-success"></i>
+                <div class="flex-grow-1">
+                    <strong>تم اختيار الجهة:</strong> ${companyName}
+                    <br><small class="text-muted">البيانات محفوظة ومحمية من التعديل</small>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="clearClientSelection()">
+                    <i class="fas fa-edit me-1"></i>تعديل البيانات
+                </button>
+            </div>
+        `;
+        
+        companyInput.parentNode.appendChild(messageDiv);
+        
+        // تأثير ظهور مع تأخير
+        setTimeout(() => {
+            messageDiv.classList.add('show');
+        }, 100);
+    }
+
+    function hideClientSelectedMessage() {
+        const messageDiv = document.getElementById('client-selected-message');
+        if (messageDiv) {
+            messageDiv.remove();
+        }
+    }
+
+    // جعل clearClientSelection متاحة عالمياً
+    window.clearClientSelection = clearClientSelection;
+
+    // البحث عند الكتابة مع تأخير
+    companyInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(performSearch, 300); // تأخير 300ms
     });
 
+    // البحث الفوري عند التركيز إذا كان هناك نص
+    companyInput.addEventListener('focus', function() {
+        if (this.value.length > 0 && !clientIdHidden.value) {
+            performSearch();
+        }
+    });
+
+    // إخفاء القائمة عند النقر خارجها
     document.addEventListener('click', function(e) {
-        if (e.target !== companyInput) {
+        if (!companyInput.contains(e.target) && !autocompleteList.contains(e.target)) {
             autocompleteList.innerHTML = '';
+        }
+    });
+
+    // تنظيف البيانات عند تعديل اسم الجهة يدوياً
+    companyInput.addEventListener('input', function() {
+        if (this.value !== this.dataset.selectedValue && clientIdHidden.value) {
+            clearClientSelection();
         }
     });
 

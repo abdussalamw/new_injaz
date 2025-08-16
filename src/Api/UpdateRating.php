@@ -78,7 +78,7 @@ if ($stmt->execute()) {
         
         if ($employee_id) {
             $notification_message = "تم تقييم مرحلة {$stage_name} للطلب #{$order_id} ({$order_info['company_name']}) بدرجة {$rating}/10";
-            $notification_link = "/reports/timeline";
+            $notification_link = "/new_injaz/dashboard?tab=reports";
             
             $notif_stmt = $conn->prepare("INSERT INTO notifications (employee_id, message, link, created_at) VALUES (?, ?, ?, NOW())");
             $notif_stmt->bind_param("iss", $employee_id, $notification_message, $notification_link);

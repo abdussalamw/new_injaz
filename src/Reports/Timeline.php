@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace App\Reports;
 
 use App\Core\Permissions;
+use App\Core\RoleBasedQuery;
+use App\Core\RoleHelper;
 use DateTime;
 
 // Note: The router handles session_start, db_connection, and auth checks.
@@ -16,8 +18,8 @@ if (!Permissions::has_permission('dashboard_reports_view', $conn) && !Permission
     exit;
 }
 
-$user_id = $_SESSION['user_id'] ?? 0;
-$user_role = $_SESSION['user_role'] ?? 'guest';
+$user_id = RoleHelper::getCurrentUserId();
+$user_role = RoleHelper::getCurrentUserRole();
 
 $employees = [];
 if (Permissions::has_permission('dashboard_reports_view', $conn)) {
@@ -29,34 +31,31 @@ if (Permissions::has_permission('dashboard_reports_view', $conn)) {
 
 $filter_employee = $_GET['employee'] ?? '';
 
+// فلترة بسيطة للخط الزمني - يظهر جميع الطلبات (مكتملة وغير مكتملة)
 $where_clauses = [];
 $params = [];
 $types = "";
 
 if (Permissions::has_permission('dashboard_reports_view', $conn)) {
+    // للمديرين - يمكنهم فلترة بأي موظف
     if (!empty($filter_employee)) {
-        $stmt_emp_role = $conn->prepare("SELECT role FROM employees WHERE employee_id = ?");
-        $stmt_emp_role->bind_param("i", $filter_employee);
-        $stmt_emp_role->execute();
-        $result_emp_role = $stmt_emp_role->get_result();
-        $employee_role = $result_emp_role->fetch_assoc()['role'] ?? '';
-
-        if ($employee_role === 'معمل') {
-            $where_clauses[] = "o.workshop_id = ?";
-        } else {
-            $where_clauses[] = "o.designer_id = ?";
-        }
+        // البحث في المصمم أو المعمل
+        $where_clauses[] = "(o.designer_id = ? OR o.workshop_id = ?)";
         $params[] = $filter_employee;
-        $types .= "i";
+        $params[] = $filter_employee;
+        $types .= "ii";
     }
 } else {
-    if ($user_role === 'معمل') {
+    // للموظفين - يرون طلباتهم فقط
+    if (\App\Core\RoleHelper::isWorkshop()) {
         $where_clauses[] = "o.workshop_id = ?";
+        $params[] = $user_id;
+        $types .= "i";
     } else {
         $where_clauses[] = "o.designer_id = ?";
+        $params[] = $user_id;
+        $types .= "i";
     }
-    $params[] = $user_id;
-    $types .= "i";
 }
 
 // استخدام الدوال من Helpers class
