@@ -242,7 +242,7 @@ class OrderController
         $employees_array = [];
         $workshop_employees = [];
         if ($_SESSION['user_role'] === 'مدير') {
-            $employees_result = $this->conn->query("SELECT employee_id, name FROM employees WHERE role IN ('مصمم', 'مدير') ORDER BY name");
+            $employees_result = $this->conn->query("SELECT employee_id, name, role FROM employees WHERE role IN ('مصمم', 'مدير') ORDER BY name");
             $employees_array = $employees_result->fetch_all(MYSQLI_ASSOC);
             
             $workshop_result = $this->conn->query("SELECT employee_id, name FROM employees WHERE role = 'معمل' ORDER BY name");
@@ -281,7 +281,7 @@ class OrderController
                     $employees_array = [];
                     $workshop_employees = [];
                     if ($_SESSION['user_role'] === 'مدير') {
-                        $employees_result = $this->conn->query("SELECT employee_id, name FROM employees WHERE role IN ('مصمم', 'مدير') ORDER BY name");
+                        $employees_result = $this->conn->query("SELECT employee_id, name, role FROM employees WHERE role IN ('مصمم', 'مدير') ORDER BY name");
                         $employees_array = $employees_result->fetch_all(MYSQLI_ASSOC);
                         
                         $workshop_result = $this->conn->query("SELECT employee_id, name FROM employees WHERE role = 'معمل' ORDER BY name");
@@ -415,7 +415,7 @@ class OrderController
         // Fetch employees (designers)
         $employees_array = [];
         if ($_SESSION['user_role'] === 'مدير') {
-            $employees_result = $this->conn->query("SELECT employee_id, name FROM employees WHERE role IN ('مصمم', 'مدير') ORDER BY name");
+            $employees_result = $this->conn->query("SELECT employee_id, name, role FROM employees WHERE role IN ('مصمم', 'مدير') ORDER BY name");
             $employees_array = $employees_result->fetch_all(MYSQLI_ASSOC);
         }
 

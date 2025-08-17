@@ -100,11 +100,19 @@
 
                                             <td>
                                                 <?php 
-                                                // عرض اسم المعمل فقط إذا بدأت مرحلة التنفيذ فعلياً
+                                                // عرض اسم المعمل مع معالجة أفضل للحالات المختلفة
                                                 if (!empty($row['design_completed_at']) && $row['status'] !== 'قيد التصميم') {
-                                                    echo htmlspecialchars($row['workshop_name'] ?? 'غير معين');
+                                                    if (!empty($row['workshop_name'])) {
+                                                        echo htmlspecialchars($row['workshop_name']);
+                                                    } elseif (!empty($row['workshop_id'])) {
+                                                        // إذا كان هناك workshop_id لكن الاسم غير موجود (مشكلة في البيانات)
+                                                        echo '<span class="text-warning">معمل غير معروف (ID: ' . htmlspecialchars($row['workshop_id']) . ')</span>';
+                                                    } else {
+                                                        // لا يوجد معمل معين
+                                                        echo '<span class="text-muted">غير معين</span>';
+                                                    }
                                                 } else {
-                                                    echo '-';
+                                                    echo '<span class="text-muted">-</span>';
                                                 }
                                                 ?>
                                             </td>

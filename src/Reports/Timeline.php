@@ -69,6 +69,7 @@ if (!empty($where_clauses)) {
 $sql = "SELECT o.order_id, o.order_date, o.status, o.design_completed_at, o.execution_completed_at,
                o.delivered_at, o.design_rating, o.execution_rating, c.company_name as client_name,
                e.name as designer_name, w.name as workshop_name,
+               o.designer_id, o.workshop_id, -- إضافة IDs للتشخيص
                o.total_amount, o.deposit_amount, o.payment_status,
                COALESCE(GROUP_CONCAT(DISTINCT p.name SEPARATOR ', '), 'لا يوجد منتجات') as products_summary
         FROM orders o
@@ -78,7 +79,10 @@ $sql = "SELECT o.order_id, o.order_date, o.status, o.design_completed_at, o.exec
         LEFT JOIN order_items oi ON o.order_id = oi.order_id
         LEFT JOIN products p ON oi.product_id = p.product_id
         $where_clause
-        GROUP BY o.order_id
+        GROUP BY o.order_id, o.order_date, o.status, o.design_completed_at, o.execution_completed_at,
+                 o.delivered_at, o.design_rating, o.execution_rating, c.company_name,
+                 e.name, w.name, o.designer_id, o.workshop_id,
+                 o.total_amount, o.deposit_amount, o.payment_status
         ORDER BY o.order_date DESC";
 
 $stmt = $conn->prepare($sql);

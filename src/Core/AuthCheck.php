@@ -28,4 +28,22 @@ class AuthCheck
         header("Location: " . $path);
         exit;
     }
+
+    /**
+     * التحقق من المصادقة للـ APIs - يعيد JSON بدلاً من إعادة التوجيه
+     */
+    public static function requireApiAuth(\mysqli $conn): bool
+    {
+        if (!self::isLoggedIn($conn)) {
+            http_response_code(401);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'error' => true,
+                'message' => 'Authentication required',
+                'redirect' => $_ENV['BASE_PATH'] . '/login'
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        return true;
+    }
 }

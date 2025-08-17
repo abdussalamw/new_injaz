@@ -185,19 +185,40 @@ document.addEventListener('DOMContentLoaded', function() {
         // إظهار مؤشر التحميل
         autocompleteList.innerHTML = '<span class="list-group-item text-muted"><i class="fas fa-spinner fa-spin me-2"></i>جاري البحث...</span>';
 
-        fetch(`/new_injaz/direct_search.php?query=${encodeURIComponent(query)}`)
+    // تحديد مسار API بشكل موحد اعتماداً على BASE_PATH (لتفادي اختلاف السلوك محلياً وعلى الاستضافة)
+    // القاعدة الذهبية: تعديل غير كسري - استبدال منطق التفريع بمنطق موحد آمن
+    const basePath = '<?= rtrim($_ENV['BASE_PATH'], '/') ?>'; // قد يكون '' أو '/new_injaz'
+    const apiPath = basePath ? `${basePath}/api/clients/search` : '/api/clients/search';
+        
+        fetch(`${apiPath}?query=${encodeURIComponent(query)}`, {
+                credentials: 'include',  // إرسال الكوكيز مع الطلب
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
             .then(response => {
-                console.log('Response status:', response.status);
-                console.log('Response headers:', response.headers);
+                // التحقق من إعادة التوجيه للتسجيل
+                if (response.redirected && response.url.includes('/login')) {
+                    throw new Error('AUTHENTICATION_REQUIRED');
+                }
+                
+                // التحقق من رمز الحالة 401 (غير مصرح)
+                if (response.status === 401) {
+                    throw new Error('AUTHENTICATION_REQUIRED');
+                }
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.text().then(text => {
+                        console.log('Server Error Response:', text);
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    });
                 }
                 
                 const contentType = response.headers.get('content-type');
                 if (!contentType || !contentType.includes('application/json')) {
                     return response.text().then(text => {
-                        console.error('Expected JSON, got:', text);
+                        console.log('Non-JSON Response:', text);
                         throw new Error('Server returned non-JSON response');
                     });
                 }
@@ -205,7 +226,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return response.json();
             })
             .then(clients => {
-                console.log('Received clients:', clients);
                 autocompleteList.innerHTML = '';
                 
                 if (clients.error) {
@@ -309,14 +329,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                console.error('خطأ في البحث:', error);
-                autocompleteList.innerHTML = `
-                    <div class="list-group-item text-center py-3 text-danger">
-                        <i class="fas fa-exclamation-triangle mb-2" style="font-size: 2rem;"></i>
-                        <p class="mb-0">حدث خطأ في البحث</p>
-                        <small>الرجاء المحاولة مرة أخرى</small>
-                    </div>
-                `;
+                console.log('Search Error:', error.message);
+                
+                if (error.message === 'AUTHENTICATION_REQUIRED') {
+                    autocompleteList.innerHTML = `
+                        <div class="list-group-item text-center py-3 text-warning">
+                            <i class="fas fa-exclamation-triangle mb-2" style="font-size: 2rem;"></i>
+                            <p class="mb-1">انتهت جلسة العمل</p>
+                            <small>الرجاء <a href="<?= $_ENV['BASE_PATH'] ?>/login" class="text-primary">تسجيل الدخول</a> مرة أخرى</small>
+                        </div>
+                    `;
+                } else {
+                    autocompleteList.innerHTML = `
+                        <div class="list-group-item text-center py-3 text-danger">
+                            <i class="fas fa-exclamation-triangle mb-2" style="font-size: 2rem;"></i>
+                            <p class="mb-0">حدث خطأ في البحث</p>
+                            <small>الرجاء المحاولة مرة أخرى أو تحديث الصفحة</small>
+                        </div>
+                    `;
+                }
             });
     }
 

@@ -109,18 +109,27 @@ try {
                 
                 // تعيين المعمل تلقائياً إذا لم يكن معيّن
                 if (empty($order['workshop_id'])) {
-                    // البحث عن أول موظف معمل متاح (بدور معمل فقط)
-                    $workshop_stmt = $conn->prepare("SELECT employee_id FROM employees WHERE role = 'معمل' ORDER BY employee_id LIMIT 1");
+                    // البحث عن أفضل موظف معمل متاح (أولوية للمعامل، ثانياً المديرين)
+                    $workshop_stmt = $conn->prepare("
+                        SELECT employee_id, name, role 
+                        FROM employees 
+                        WHERE role IN ('معمل', 'مدير') 
+                        ORDER BY CASE WHEN role = 'معمل' THEN 1 ELSE 2 END, employee_id 
+                        LIMIT 1
+                    ");
                     $workshop_stmt->execute();
                     $workshop_result = $workshop_stmt->get_result();
                     
                     if ($workshop_row = $workshop_result->fetch_assoc()) {
                         $workshop_id = $workshop_row['employee_id'];
+                        $workshop_name = $workshop_row['name'];
                         $assign_stmt = $conn->prepare("UPDATE orders SET workshop_id = ? WHERE order_id = ?");
                         $assign_stmt->bind_param("ii", $workshop_id, $order_id);
                         $assign_stmt->execute();
                         
-                        $message .= " وتم تعيين المعمل تلقائياً.";
+                        $message .= " وتم تعيين المعمل ($workshop_name) تلقائياً.";
+                    } else {
+                        $message .= " تحذير: لم يتم العثور على معمل متاح للتعيين.";
                     }
                 }
             } elseif ($new_status === 'جاهز للتسليم' && empty($order['execution_completed_at'])) {
