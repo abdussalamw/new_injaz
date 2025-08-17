@@ -13,7 +13,14 @@ if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQ
 }
 
 $filter_status = $_GET['status'] ?? '';
-$filter_employee = $_GET['employee'] ?? '';
+// تنقية معرّف الموظف لمنع محارف مخفية على الاستضافة تؤدي لتفسيره كـ 0
+$raw_employee = $_GET['employee'] ?? '';
+if (is_string($raw_employee)) { $raw_employee = trim($raw_employee); }
+if ($raw_employee !== '' && preg_match('/^\d+$/u', $raw_employee)) {
+    $filter_employee = $raw_employee; // قيمة رقمية سليمة كنص
+} else {
+    $filter_employee = ''; // إهمال أي قيمة غير رقمية صافية
+}
 $filter_payment = $_GET['payment'] ?? '';
 $filter_search = $_GET['search'] ?? '';
 $sort_by = $_GET['sort_by'] ?? 'latest';

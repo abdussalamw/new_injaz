@@ -7,14 +7,14 @@ class AuthCheck
 {
     public static function isLoggedIn(\mysqli $conn): bool
     {
-        // التحقق مما إذا كان user_id موجودًا في الجلسة
-        if (!isset($_SESSION['user_id'])) {
+        // التحقق مما إذا كان employee_id موجودًا في الجلسة
+        if (!isset($_SESSION['employee_id'])) {
             return false;
         }
 
         // يمكنك إضافة منطق إضافي هنا للتحقق من صلاحية الجلسة
         // مثلاً، التحقق من صلاحية المستخدم في قاعدة البيانات إذا لزم الأمر
-        // For now, we assume if user_id is set, they are logged in.
+        // For now, we assume if employee_id is set, they are logged in.
         return true;
     }
 

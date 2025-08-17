@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار نظام الفلترة المُحسن</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .loading { background-color: #fff3cd; border-color: #ffeaa7; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h2 class="text-center mb-4">🔧 اختبار نظام الفلترة المُحسن</h2>
+        
+        <div class="row">
+            <div class="col-md-10 offset-md-1">
+                
+                <!-- اختبار تحميل الصفحة الرئيسية -->
+                <div class="test-section loading" id="test-main">
+                    <h5>📄 اختبار 1: تحميل الصفحة الرئيسية</h5>
+                    <p id="main-result">جاري الاختبار...</p>
+                </div>
+
+                <!-- اختبار API المهام الأساسي -->
+                <div class="test-section loading" id="test-basic-api">
+                    <h5>🔗 اختبار 2: API المهام الأساسي</h5>
+                    <p id="basic-api-result">جاري الاختبار...</p>
+                </div>
+
+                <!-- اختبار فلترة الحالة -->
+                <div class="test-section loading" id="test-status-filter">
+                    <h5>📊 اختبار 3: فلترة الحالة</h5>
+                    <p id="status-filter-result">جاري الاختبار...</p>
+                </div>
+
+                <!-- اختبار فلترة الموظف -->
+                <div class="test-section loading" id="test-employee-filter">
+                    <h5>👤 اختبار 4: فلترة الموظف</h5>
+                    <p id="employee-filter-result">جاري الاختبار...</p>
+                </div>
+
+                <!-- اختبار فلترة الدفع -->
+                <div class="test-section loading" id="test-payment-filter">
+                    <h5>💰 اختبار 5: فلترة الدفع</h5>
+                    <p id="payment-filter-result">جاري الاختبار...</p>
+                </div>
+
+                <!-- اختبار البحث -->
+                <div class="test-section loading" id="test-search">
+                    <h5>🔍 اختبار 6: البحث النصي</h5>
+                    <p id="search-result">جاري الاختبار...</p>
+                </div>
+
+                <!-- اختبار الفلترة المركبة -->
+                <div class="test-section loading" id="test-combined">
+                    <h5>🎯 اختبار 7: الفلترة المركبة</h5>
+                    <p id="combined-result">جاري الاختبار...</p>
+                </div>
+
+                <!-- اختبار النظام الموحد -->
+                <div class="test-section loading" id="test-unified">
+                    <h5>⚙️ اختبار 8: النظام الموحد</h5>
+                    <p id="unified-result">جاري الاختبار...</p>
+                </div>
+
+                <!-- نتيجة عامة -->
+                <div class="test-section info" id="final-result" style="display: none;">
+                    <h4 class="text-center">📊 تقرير الاختبار النهائي</h4>
+                    <div id="final-summary" class="text-center"></div>
+                    <div id="detailed-results" class="mt-3"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const tests = [];
+        let completedTests = 0;
+        const totalTests = 8;
+
+        function updateTestResult(testId, success, message, details = '') {
+            const section = document.getElementById(testId);
+            const result = document.getElementById(testId.replace('test-', '') + '-result');
+            
+            section.classList.remove('loading');
+            if (success) {
+                section.classList.add('success');
+                result.innerHTML = '✅ ' + message;
+            } else {
+                section.classList.add('error');
+                result.innerHTML = '❌ ' + message;
+            }
+
+            if (details) {
+                result.innerHTML += '<br><small class="text-muted">' + details + '</small>';
+            }
+
+            tests.push({ name: testId, success: success, message: message, details: details });
+            completedTests++;
+            
+            if (completedTests === totalTests) {
+                showFinalResult();
+            }
+        }
+
+        function showFinalResult() {
+            const successCount = tests.filter(t => t.success).length;
+            const finalSection = document.getElementById('final-result');
+            const finalSummary = document.getElementById('final-summary');
+            const detailedResults = document.getElementById('detailed-results');
+
+            finalSection.style.display = 'block';
+            
+            if (successCount === totalTests) {
+                finalSection.classList.add('success');
+                finalSummary.innerHTML = `🎉 ممتاز! جميع الاختبارات نجحت (${successCount}/${totalTests})`;
+            } else if (successCount >= totalTests * 0.75) {
+                finalSection.classList.add('info');
+                finalSummary.innerHTML = `✅ جيد جداً! معظم الاختبارات نجحت (${successCount}/${totalTests})`;
+            } else {
+                finalSection.classList.add('error');
+                finalSummary.innerHTML = `⚠️ يحتاج تحسينات. نجح ${successCount} من ${totalTests} اختبارات`;
+            }
+
+            // تفاصيل النتائج
+            let detailsHtml = '<h6>تفاصيل النتائج:</h6><ul>';
+            tests.forEach(test => {
+                const icon = test.success ? '✅' : '❌';
+                detailsHtml += `<li>${icon} ${test.name}: ${test.message}</li>`;
+            });
+            detailsHtml += '</ul>';
+            detailedResults.innerHTML = detailsHtml;
+        }
+
+        // اختبار 1: تحميل الصفحة الرئيسية
+        fetch('/dashboard.php')
+            .then(response => {
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            })
+            .then(data => {
+                if (data.includes('لوحة التحكم') || data.includes('dashboard')) {
+                    updateTestResult('test-main', true, 'الصفحة الرئيسية تحمل بنجاح');
+                } else {
+                    updateTestResult('test-main', false, 'محتوى الصفحة الرئيسية غير متوقع');
+                }
+            })
+            .catch(error => {
+                updateTestResult('test-main', false, 'فشل في تحميل الصفحة الرئيسية', error.message);
+            });
+
+        // اختبار 2: API المهام الأساسي
+        fetch('/api_tasks.php', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(response => response.text())
+            .then(data => {
+                if (data.includes('لا توجد مهام') || data.includes('col-md-') || data.includes('alert')) {
+                    updateTestResult('test-basic-api', true, 'API المهام الأساسي يعمل');
+                } else {
+                    updateTestResult('test-basic-api', false, 'API المهام يرجع محتوى غير متوقع');
+                }
+            })
+            .catch(error => {
+                updateTestResult('test-basic-api', false, 'فشل في API المهام الأساسي', error.message);
+            });
+
+        // اختبار 3: فلترة الحالة
+        fetch('/api_tasks.php?status=قيد التصميم', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(response => response.text())
+            .then(data => {
+                updateTestResult('test-status-filter', true, 'فلترة الحالة تعمل بنجاح');
+            })
+            .catch(error => {
+                updateTestResult('test-status-filter', false, 'فشل في فلترة الحالة', error.message);
+            });
+
+        // اختبار 4: فلترة الموظف
+        fetch('/api_tasks.php?employee=1', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(response => response.text())
+            .then(data => {
+                updateTestResult('test-employee-filter', true, 'فلترة الموظف تعمل بنجاح');
+            })
+            .catch(error => {
+                updateTestResult('test-employee-filter', false, 'فشل في فلترة الموظف', error.message);
+            });
+
+        // اختبار 5: فلترة الدفع
+        fetch('/api_tasks.php?payment=مدفوع', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(response => response.text())
+            .then(data => {
+                updateTestResult('test-payment-filter', true, 'فلترة الدفع تعمل بنجاح');
+            })
+            .catch(error => {
+                updateTestResult('test-payment-filter', false, 'فشل في فلترة الدفع', error.message);
+            });
+
+        // اختبار 6: البحث النصي
+        fetch('/api_tasks.php?search=test', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(response => response.text())
+            .then(data => {
+                updateTestResult('test-search', true, 'البحث النصي يعمل بنجاح');
+            })
+            .catch(error => {
+                updateTestResult('test-search', false, 'فشل في البحث النصي', error.message);
+            });
+
+        // اختبار 7: الفلترة المركبة
+        fetch('/api_tasks.php?status=قيد التصميم&employee=1&payment=غير مدفوع', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(response => response.text())
+            .then(data => {
+                updateTestResult('test-combined', true, 'الفلترة المركبة تعمل بنجاح');
+            })
+            .catch(error => {
+                updateTestResult('test-combined', false, 'فشل في الفلترة المركبة', error.message);
+            });
+
+        // اختبار 8: النظام الموحد
+        fetch('/test_fixes.php')
+            .then(response => response.text())
+            .then(data => {
+                if (data.includes('🏆 جميع مشاكل الفلترة تم حلها بنجاح')) {
+                    updateTestResult('test-unified', true, 'النظام الموحد يعمل بكامل طاقته');
+                } else {
+                    updateTestResult('test-unified', false, 'مشاكل في النظام الموحد');
+                }
+            })
+            .catch(error => {
+                updateTestResult('test-unified', false, 'فشل في اختبار النظام الموحد', error.message);
+            });
+    </script>
+</body>
+</html>

@@ -81,9 +81,14 @@ if (\App\Core\Permissions::has_permission('dashboard_reports_view', $conn)) {
     $overall_stats['total'] = $overall_stats['closed'] + $overall_stats['open'];
 }
 
-// 3. بيانات الفلاتر
-$employees_res = $conn->query("SELECT employee_id, name FROM employees ORDER BY name");
-$employees_list = $employees_res->fetch_all(MYSQLI_ASSOC);
+// 3. بيانات الفلاتر - عرض جميع الموظفين
+if (\App\Core\Permissions::has_permission('order_view_all', $conn)) {
+    $employees_res = $conn->query("SELECT employee_id, name, role FROM employees ORDER BY name");
+    $employees_list = $employees_res->fetch_all(MYSQLI_ASSOC);
+} else {
+    // للموظفين - لا حاجة لقائمة فلترة الموظفين (يرون مهامهم فقط)
+    $employees_list = [];
+}
 
 // 4. جلب المهام الأولية (بدون فلترة)
 $initial_filter_status = $_GET['status'] ?? '';

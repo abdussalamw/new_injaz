@@ -9,8 +9,18 @@ class InitialTasksQuery
 {
     public static function fetch_tasks(\mysqli $conn, string $filter_status = '', string $filter_employee = '', string $filter_payment = '', string $search_query = '', string $sort_by = 'latest'): \mysqli_result|false
     {
-        $user_id = $_SESSION['user_id'] ?? 0;
-        $user_role = $_SESSION['user_role'] ?? 'guest';
+        $user_id = $_SESSION['employee_id'] ?? 0;
+        $user_role = $_SESSION['role'] ?? 'guest';
+
+        // تنقية معرف الموظف القادم من الفلتر (لتجنب مشاكل محارف غير مرئية على الاستضافة)
+        if ($filter_employee !== '') {
+            $clean_emp = trim($filter_employee);
+            if (!preg_match('/^\d+$/u', $clean_emp)) {
+                $filter_employee = ''; // تجاهل قيمة غير نقية
+            } else {
+                $filter_employee = $clean_emp; // ابقِها نصاً رقمياً (التحويل ل int لاحقاً عند bind)
+            }
+        }
 
         $sql = "SELECT o.*, c.company_name AS client_name, c.phone as client_phone, e.name AS designer_name, 
                 COALESCE(GROUP_CONCAT(p.name SEPARATOR ', '), 'لا يوجد منتجات') as products_summary,

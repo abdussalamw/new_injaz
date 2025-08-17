@@ -29,7 +29,17 @@ if (Permissions::has_permission('dashboard_reports_view', $conn)) {
     }
 }
 
-$filter_employee = $_GET['employee'] ?? '';
+// فلتر رقم الموظف (تنقية لحل مشكلة محتملة على الاستضافة إذا أُرسل معرّف يحتوي محارف مخفية)
+$filter_employee_raw = $_GET['employee'] ?? '';
+if (is_string($filter_employee_raw)) {
+    $filter_employee_raw = trim($filter_employee_raw);
+}
+// نقبل أرقام صحيحة فقط، وأي شيء آخر يُهمل حتى لا يرتبط الاستعلام بقيمة 0 خطأً
+if ($filter_employee_raw !== '' && preg_match('/^\d+$/u', $filter_employee_raw)) {
+    $filter_employee = (int)$filter_employee_raw; // قيمة رقمية نظيفة
+} else {
+    $filter_employee = ''; // لا يوجد فلتر
+}
 
 // فلترة بسيطة للخط الزمني - يظهر جميع الطلبات (مكتملة وغير مكتملة)
 $where_clauses = [];
@@ -38,11 +48,11 @@ $types = "";
 
 if (Permissions::has_permission('dashboard_reports_view', $conn)) {
     // للمديرين - يمكنهم فلترة بأي موظف
-    if (!empty($filter_employee)) {
+    if ($filter_employee !== '') { // استخدمنا !== للحفاظ على تمييز 0 عن الفارغ
         // البحث في المصمم أو المعمل
         $where_clauses[] = "(o.designer_id = ? OR o.workshop_id = ?)";
-        $params[] = $filter_employee;
-        $params[] = $filter_employee;
+        $params[] = (int)$filter_employee;
+        $params[] = (int)$filter_employee;
         $types .= "ii";
     }
 } else {
