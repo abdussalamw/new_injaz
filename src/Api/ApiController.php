@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace App\Api;
 
 use App\Core\Permissions;
-use App\Core\Helpers;
+use App\Core\OrderUpdater; // Use the centralized updater
 
 class ApiController
 {
@@ -29,101 +29,67 @@ class ApiController
     public function changeOrderStatus(): void
     {
         $input = json_decode(file_get_contents('php://input'), true);
-        $order_id = $input['order_id'] ?? null;
+        $order_id = intval($input['order_id'] ?? 0);
         $new_status = $input['value'] ?? null;
 
         if (!$order_id || !$new_status) {
             $this->send_json_response(false, 'بيانات الطلب غير كافية.');
-            return;
         }
 
-        // Here you would add complex permission checks based on the new status
-        // For now, we'll just check for a general edit permission
         if (!Permissions::has_permission('order_edit', $this->conn)) {
             $this->send_json_response(false, 'ليس لديك الصلاحية لتغيير حالة الطلب.');
-            return;
         }
 
-        $stmt = $this->conn->prepare("UPDATE orders SET status = ? WHERE order_id = ?");
-        $stmt->bind_param("si", $new_status, $order_id);
-
-        if ($stmt->execute()) {
-            // Helpers::log_activity('status_change', $_SESSION['user_id'], $order_id, "Status changed to {$new_status}");
-            
-            // --- إرسال إشعار ---
-            $user_name = $_SESSION['user_name'] ?? 'النظام';
-            $notification_message = "قام {$user_name} بتغيير حالة الطلب #{$order_id} إلى '{$new_status}'";
-            $notification_link = "/new_injaz/dashboard"; // رابط موحد للوحة التحكم
-
-            // جلب معرفات المدراء
-            $managers_res = $this->conn->query("SELECT employee_id FROM employees WHERE role = 'مدير'");
-            $managers = $managers_res->fetch_all(MYSQLI_ASSOC);
-
-            if (!empty($managers)) {
-                $stmt_notify = $this->conn->prepare("INSERT INTO notifications (employee_id, message, link) VALUES (?, ?, ?)");
-                foreach ($managers as $manager) {
-                    // لا نرسل إشعار للشخص الذي قام بالإجراء
-                    if ($manager['employee_id'] != $_SESSION['user_id']) {
-                        $stmt_notify->bind_param("iss", $manager['employee_id'], $notification_message, $notification_link);
-                        $stmt_notify->execute();
-                    }
-                }
-                $stmt_notify->close();
+        try {
+            // Use the centralized updater. This handles timers and other related logic.
+            $result = OrderUpdater::updateStatus($this->conn, $order_id, $new_status);
+            if (!$result['success']) {
+                throw new \Exception($result['message']);
             }
-            // --- نهاية إرسال الإشعار ---
+            
+            // TODO: Notification logic should also be centralized inside the OrderUpdater if needed.
 
-            $this->send_json_response(true, 'تم تحديث حالة الطلب بنجاح.');
-        } else {
-            $this->send_json_response(false, 'فشل تحديث حالة الطلب.');
+            $this->send_json_response(true, $result['message']);
+        } catch (\Exception $e) {
+            $this->send_json_response(false, $e->getMessage());
         }
     }
 
     public function updatePayment(): void
     {
-        $order_id = $_POST['order_id'] ?? null;
-        $payment_amount = $_POST['payment_amount'] ?? null;
-        $payment_method = $_POST['payment_method'] ?? null;
-        $notes = $_POST['notes'] ?? '';
+        // استقبال البيانات دائماً عبر JSON
+        $input = json_decode(file_get_contents('php://input'), true);
+        $order_id = intval($input['order_id'] ?? 0);
+        $payment_amount = floatval($input['payment_amount'] ?? 0);
+        $payment_method = trim($input['payment_method'] ?? '');
+        $notes = trim($input['notes'] ?? '');
 
-        if (!$order_id || !$payment_amount || !$payment_method) {
+        if (!$order_id) {
             $this->send_json_response(false, 'بيانات الدفعة غير كاملة.');
-            return;
         }
-        
+        // يسمح بالدفع حتى لو كان المبلغ صفر أو طريقة الدفع فارغة (للتسوية اليدوية)
         if (!Permissions::has_permission('payment_edit', $this->conn)) {
             $this->send_json_response(false, 'ليس لديك الصلاحية لتحديث الدفعات.');
-            return;
         }
 
-        // We need to get the current deposit amount and add the new payment to it
-        $stmt = $this->conn->prepare("SELECT deposit_amount, total_amount FROM orders WHERE order_id = ?");
-        $stmt->bind_param("i", $order_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $order = $result->fetch_assoc();
+        try {
+            $result = OrderUpdater::addPayment(
+                $this->conn,
+                $order_id,
+                $payment_amount,
+                $payment_method,
+                $notes,
+                $_SESSION['user_id'],
+                $_SESSION['user_name']
+            );
 
-        if (!$order) {
-            $this->send_json_response(false, 'لم يتم العثور على الطلب.');
-            return;
-        }
+            if (!$result['success']) {
+                throw new \Exception($result['message']);
+            }
 
-        $new_deposit = (float)$order['deposit_amount'] + (float)$payment_amount;
-        $total_amount = (float)$order['total_amount'];
-        
-        $payment_status = 'مدفوع جزئياً';
-        if ($new_deposit >= $total_amount) {
-            $payment_status = 'مدفوع';
-        }
-
-        $update_stmt = $this->conn->prepare("UPDATE orders SET deposit_amount = ?, payment_status = ? WHERE order_id = ?");
-        $update_stmt->bind_param("dsi", $new_deposit, $payment_status, $order_id);
-
-        if ($update_stmt->execute()) {
-            // Optionally, log the payment
-            // Helpers::log_activity('payment_update', $_SESSION['user_id'], $order_id, "Payment of {$payment_amount} received.");
-            $this->send_json_response(true, 'تم تسجيل الدفعة بنجاح.');
-        } else {
-            $this->send_json_response(false, 'فشل في تسجيل الدفعة.');
+            $this->send_json_response(true, $result['message'], $result['data']);
+        } catch (\Exception $e) {
+            $this->send_json_response(false, $e->getMessage());
         }
     }
 
@@ -132,12 +98,10 @@ class ApiController
         $order_id = $_GET['id'] ?? null;
         if (!$order_id) {
             $this->send_json_response(false, 'لم يتم تحديد رقم الطلب.');
-            return;
         }
 
         if (!Permissions::has_permission('order_view_all', $this->conn) && !Permissions::has_permission('order_view_own', $this->conn)) {
             $this->send_json_response(false, 'ليس لديك الصلاحية لعرض تفاصيل الطلب.');
-            return;
         }
 
         $stmt = $this->conn->prepare("SELECT * FROM orders WHERE order_id = ?");
@@ -160,40 +124,23 @@ class ApiController
 
         if ($order_id <= 0) {
             $this->send_json_response(false, 'معرف الطلب غير صحيح');
-            return;
         }
 
         if (!Permissions::has_permission('order_edit_status', $this->conn)) {
             $this->send_json_response(false, 'ليس لديك الصلاحية لتأكيد التسليم.');
-            return;
         }
 
-        $this->conn->begin_transaction();
         try {
-            $stmt = $this->conn->prepare("SELECT payment_status FROM orders WHERE order_id = ?");
-            $stmt->bind_param("i", $order_id);
-            $stmt->execute();
-            $order = $stmt->get_result()->fetch_assoc();
-
-            if (!$order) {
-                throw new \Exception('الطلب غير موجود');
+            // The updater now handles setting the status and delivered_at timestamp.
+            $result = OrderUpdater::updateStatus($this->conn, $order_id, 'مكتمل');
+            if (!$result['success']) {
+                throw new \Exception($result['message']);
             }
 
-            $stmt = $this->conn->prepare("UPDATE orders SET delivered_at = NOW(), status = 'مكتمل', updated_at = NOW() WHERE order_id = ?");
-            $stmt->bind_param("i", $order_id);
-            $stmt->execute();
+            // You can add extra messages if needed, but the core logic is done.
+            $this->send_json_response(true, 'تم تأكيد استلام العميل بنجاح.');
 
-            $is_paid = ($order['payment_status'] === 'مدفوع');
-            if ($is_paid) {
-                $message = 'تم تأكيد الاستلام. سيتم إخفاء الطلب من لوحة المهام لأنه مكتمل ومدفوع.';
-            } else {
-                $message = 'تم تأكيد استلام العميل. سيبقى الطلب ظاهراً في المهام لحين تسوية الدفع.';
-            }
-
-            $this->conn->commit();
-            $this->send_json_response(true, $message);
         } catch (\Exception $e) {
-            $this->conn->rollback();
             $this->send_json_response(false, $e->getMessage());
         }
     }
@@ -205,52 +152,22 @@ class ApiController
 
         if ($order_id <= 0) {
             $this->send_json_response(false, 'معرف الطلب غير صحيح');
-            return;
         }
 
         if (!Permissions::has_permission('order_financial_settle', $this->conn)) {
             $this->send_json_response(false, 'ليس لديك الصلاحية لتسوية الطلبات مالياً.');
-            return;
         }
 
-        $this->conn->begin_transaction();
         try {
-            $stmt = $this->conn->prepare("SELECT total_amount, status FROM orders WHERE order_id = ?");
-            $stmt->bind_param("i", $order_id);
-            $stmt->execute();
-            $order = $stmt->get_result()->fetch_assoc();
-
-            if (!$order) {
-                throw new \Exception('الطلب غير موجود');
+            // Use the centralized payment settlement method.
+            $result = OrderUpdater::settlePayment($this->conn, $order_id);
+            if (!$result['success']) {
+                throw new \Exception($result['message']);
             }
 
-            $total_amount = $order['total_amount'];
-            // السماح بتأكيد الدفع حتى لو كان المبلغ غير محدد أو صفر
-            if (is_null($total_amount) || !is_numeric($total_amount)) {
-                $total_amount = 0;
-            }
+            $this->send_json_response(true, $result['message']);
 
-            $stmt = $this->conn->prepare("
-                UPDATE orders SET 
-                    deposit_amount = total_amount, 
-                    remaining_amount = 0,
-                    payment_status = 'مدفوع', 
-                    payment_settled_at = NOW(), 
-                    updated_at = NOW() 
-                WHERE order_id = ?");
-            $stmt->bind_param("i", $order_id);
-            $stmt->execute();
-
-            if ($order['status'] === 'مكتمل') {
-                $message = 'تم تأكيد الدفع الكامل. سيتم إخفاء الطلب من لوحة المهام لأنه مكتمل ومدفوع.';
-            } else {
-                $message = 'تم تأكيد الدفع الكامل وتسوية المبلغ بنجاح. سيبقى الطلب ظاهراً لحين تأكيد استلام العميل.';
-            }
-
-            $this->conn->commit();
-            $this->send_json_response(true, $message);
         } catch (\Exception $e) {
-            $this->conn->rollback();
             $this->send_json_response(false, $e->getMessage());
         }
     }

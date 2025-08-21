@@ -8,6 +8,9 @@ return [
     '/dashboard' => [
         'GET' => ['file' => 'src/View/dashboard.php', 'auth' => true]
     ],
+    '/gallery' => [
+        'GET' => ['file' => 'src/View/dashboard_action_styles.php', 'auth' => true]
+    ],
     '/login' => [
         'GET' => ['controller' => ['App\Auth\Login', 'show'], 'auth' => false],
         'POST' => ['controller' => ['App\Auth\Login', 'handle'], 'auth' => false]

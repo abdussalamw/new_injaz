@@ -159,7 +159,7 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
         width: 100% !important;
     }
     .dashboard-cards .col-md-6,
-    .dashboard-cards .col-lg-3 {
+    .dashboard-cards .col-lg-4 {
         padding-left: 0.5rem;
         padding-right: 0.5rem;
     }
@@ -171,6 +171,65 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
         width: 100%;
         max-width: 100%;
     }
+</style>
+<!-- أنماط الكبسولات (النمط 2) مفعلة هنا للوحة الرئيسية عند إضافة class إلى body -->
+<style>
+body.action-style-2 .task-actions .btn,
+body.action-style-2 .task-actions .btn-group>.btn { 
+    border-radius:12px !important; 
+    height:40px !important; 
+    font-size:12px; 
+    background:#fff !important; 
+    color:var(--c,#333) !important; 
+    border:1px solid var(--c,#0d6efd) !important; 
+    box-shadow:none !important; 
+    display:flex;align-items:center;justify-content:center; 
+}
+body.action-style-2 .task-actions .btn i { font-size:16px; }
+/* تحديد ألوان متغير --c حسب السياق (مطابق لمعرض الأزرار) */
+body.action-style-2 .task-actions .btn.btn-outline-primary { --c:#0d6efd; }
+body.action-style-2 .task-actions .btn.btn-warning { --c:#f7b731; }
+body.action-style-2 .task-actions .btn.btn-info { --c:#17a2b8; }
+body.action-style-2 .task-actions .btn.btn-success { --c:#25D366; }
+body.action-style-2 .task-actions .btn.btn-primary { --c:#0d6efd; }
+body.action-style-2 .task-actions .btn.btn-danger { --c:#dc3545; }
+body.action-style-2 .task-actions .btn.btn-outline-secondary { --c:#6c757d; }
+/* واتساب (أخضر لون خاص) + أزرار معطلة (رمادي) */
+body.action-style-2 .task-actions .btn[style*='background-color:#25D366'] { --c:#25D366; background:#fff !important; color:#25D366 !important; border:1px solid #25D366 !important; }
+body.action-style-2 .task-actions .btn.disabled,
+body.action-style-2 .task-actions .btn:disabled { --c:#6c757d; background:#f8f9fa !important; color:#6c757d !important; border:1px solid #dee2e6 !important; }
+body.action-style-2 .task-actions .btn:hover { background:var(--c,#0d6efd) !important; color:#fff !important; }
+/* إزالة الحواف المزدوجة لمنطقة dropdown */
+body.action-style-2 .task-actions .btn-group .dropdown-toggle { border-radius:12px !important; }
+/* تنسيق الصف لشبكة 2×2 مرتبة مثل المعرض */
+body.action-style-2 .task-actions .actions-row { 
+  display:flex; 
+  flex-wrap:wrap; 
+  gap:6px; 
+}
+body.action-style-2 .task-actions .actions-row .action-cell { 
+  flex:1 1 calc(50% - 3px); 
+  min-width:calc(50% - 3px); 
+  max-width:calc(50% - 3px); 
+}
+body.action-style-2 .task-actions .actions-row .action-cell .btn { 
+  width:100%; 
+}
+/* تحسين تراكب قائمة الحالة فوق النمط */
+body.action-style-2 .task-actions .dropdown-menu { border-radius:12px; font-size:13px; }
+body.action-style-2 .task-actions .dropdown-item { padding:.4rem .75rem; }
+/* تفاعل بصري طفيف */
+body.action-style-2 .task-actions .btn { transition:all .25s ease; }
+body.action-style-2 .task-actions .btn:hover { box-shadow:0 2px 6px rgba(0,0,0,.12); transform:translateY(-2px); }
+/* خريطة ألوان الدلالات (مطابقة للمعرض) */
+body.action-style-2 .task-actions .btn.btn-details { --c:#0d6efd; }
+body.action-style-2 .task-actions .btn.btn-whatsapp { --c:#25D366; }
+body.action-style-2 .task-actions .btn.btn-payment { --c:#f7b731; }
+body.action-style-2 .task-actions .btn.btn-status { --c:#17a2b8; }
+body.action-style-2 .task-actions .btn.btn-delivery { --c:#198754; }
+/* تهيئة زر واتساب (كان بخلفية ثابتة) */
+body.action-style-2 .task-actions .btn.btn-whatsapp { background:#fff !important; color:#25D366 !important; border-color:#25D366 !important; }
+body.action-style-2 .task-actions .btn.btn-whatsapp:hover { background:#25D366 !important; color:#fff !important; }
 </style>
 
 <div class="container-fluid">
@@ -251,7 +310,7 @@ $default_active_tab = $active_tab === 'stats' ? 'StatsReports' : ($active_tab ==
             <div class="row g-3 dashboard-cards" id="tasks-container">
                 <?php if($res && $res->num_rows > 0): ?>
                     <?php while($row = $res->fetch_assoc()): ?>
-                        <div class="col-md-6 col-lg-3">
+                        <div class="col-md-6 col-lg-4">
                             <?php 
                             $task_details = $row;
                             // تحديد الإجراءات المتاحة بناءً على حالة المهمة ودور المستخدم
@@ -620,4 +679,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
+</script>
+<script>
+// تفعيل النمط 2 (كبسولات) للوحة الرئيسية فقط هنا
+document.addEventListener('DOMContentLoaded',function(){ document.body.classList.add('action-style-2'); });
 </script>

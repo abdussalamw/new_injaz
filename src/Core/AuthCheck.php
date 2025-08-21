@@ -7,14 +7,14 @@ class AuthCheck
 {
     public static function isLoggedIn(\mysqli $conn): bool
     {
-        // التحقق مما إذا كان employee_id موجودًا في الجلسة
-        if (!isset($_SESSION['employee_id'])) {
+        // التحقق مما إذا كان user_id موجودًا في الجلسة
+        if (!isset($_SESSION['user_id'])) {
             return false;
         }
 
         // يمكنك إضافة منطق إضافي هنا للتحقق من صلاحية الجلسة
         // مثلاً، التحقق من صلاحية المستخدم في قاعدة البيانات إذا لزم الأمر
-        // For now, we assume if employee_id is set, they are logged in.
+        // For now, we assume if user_id is set, they are logged in.
         return true;
     }
 
@@ -27,23 +27,5 @@ class AuthCheck
         }
         header("Location: " . $path);
         exit;
-    }
-
-    /**
-     * التحقق من المصادقة للـ APIs - يعيد JSON بدلاً من إعادة التوجيه
-     */
-    public static function requireApiAuth(\mysqli $conn): bool
-    {
-        if (!self::isLoggedIn($conn)) {
-            http_response_code(401);
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode([
-                'error' => true,
-                'message' => 'Authentication required',
-                'redirect' => $_ENV['BASE_PATH'] . '/login'
-            ], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-        return true;
     }
 }

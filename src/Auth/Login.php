@@ -29,9 +29,9 @@ class Login
         $result = $stmt->get_result();
         if ($row = $result->fetch_assoc()) {
             if (password_verify($pass, $row['password'])) {
-                $_SESSION['employee_id'] = $row['employee_id'];
-                $_SESSION['name'] = $row['name'];
-                $_SESSION['role'] = $row['role'];
+                $_SESSION['user_id'] = $row['employee_id'];
+                $_SESSION['user_name'] = $row['name'];
+                $_SESSION['user_role'] = $row['role'];
                 unset($_SESSION['user_permissions']);
 
                 if ($row['role'] === 'مدير') {

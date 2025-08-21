@@ -304,6 +304,7 @@ if (isset($_GET['notif_id']) && isset($_SESSION['user_id'])) {
               </a>
             </li>
         <?php endif; ?>
+                <!-- تمت إزالة رابط معرض الأزرار من القائمة الجانبية مع الاحتفاظ بالصفحة تحت /gallery -->
         <?php if (\App\Core\Permissions::has_permission('order_view_all', $conn) || \App\Core\Permissions::has_permission('order_view_own', $conn)): ?>
             <li class="nav-item">
               <a class="nav-link<?= (str_starts_with($_SERVER['REQUEST_URI'], \App\Core\Helpers::url('/orders'))) ? ' active' : '' ?>" href="<?= \App\Core\Helpers::url('/orders') ?>">

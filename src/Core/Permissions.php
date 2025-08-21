@@ -66,8 +66,8 @@ class Permissions
 
     public static function has_permission(string $action, \mysqli $conn): bool
     {
-        $role = $_SESSION['role'] ?? 'guest';
-        $user_id = $_SESSION['employee_id'] ?? 0;
+        $role = $_SESSION['user_role'] ?? 'guest';
+        $user_id = $_SESSION['user_id'] ?? 0;
 
         if ($role === 'مدير') {
             return true;

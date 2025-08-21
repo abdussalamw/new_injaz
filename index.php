@@ -43,9 +43,7 @@ if (str_starts_with($request_uri_temp, $base_path_temp)) {
 if (empty($request_uri_temp)) {
     $request_uri_temp = '/';
 }
-// حدد إن كان الطلب API مبكراً
-$is_api_request = str_starts_with($request_uri_temp, '/api/');
-if ($request_uri_temp !== '/login' && !$is_api_request) {
+if ($request_uri_temp !== '/login' && !str_starts_with($request_uri_temp, '/api/')) {
     require_once __DIR__ . '/src/header.php';
 }
 
@@ -84,37 +82,19 @@ if (array_key_exists($request_uri, $routes)) {
         // Handle authentication
         if (isset($route_config['auth']) && $route_config['auth'] === true) {
             if (!\App\Core\AuthCheck::isLoggedIn($conn)) {
-                // للـ APIs، أرجع JSON بدلاً من إعادة التوجيه
-                if ($is_api_request) {
-                    http_response_code(401);
-                    header('Content-Type: application/json; charset=utf-8');
-                    echo json_encode([
-                        'error' => true,
-                        'message' => 'Authentication required',
-                        'redirect' => $_ENV['BASE_PATH'] . '/login'
-                    ], JSON_UNESCAPED_UNICODE);
-                    exit;
-                } else {
-                    \App\Core\AuthCheck::redirect('/login');
-                }
+                \App\Core\AuthCheck::redirect('/login');
             }
         }
 
         // Load the appropriate file or controller
         if (isset($route_config['file'])) {
             require_once __DIR__ . '/' . $route_config['file'];
-            if ($is_api_request) { // منع طباعة الفوتر أو أي مخرجات إضافية مع JSON
-                exit;
-            }
         } elseif (isset($route_config['controller'])) {
             $controller_class = $route_config['controller'][0];
             $controller_method = $route_config['controller'][1];
 
             $controller = new $controller_class($conn);
             $controller->$controller_method();
-            if ($is_api_request) {
-                exit;
-            }
         } else {
             http_response_code(500);
             echo "<h1>Internal Server Error: Route definition incomplete.</h1>";
@@ -137,7 +117,7 @@ if (!$route_found) {
     echo "</ul>";
 }
 
-// 4. Include footer فقط إذا لم يكن الطلب API
-if (!$is_api_request) {
+// 4. Include footer (تخطيه لطلبات API حتى لا يختلط الـ JSON مع HTML)
+if (!str_starts_with($request_uri, '/api/')) {
     require_once __DIR__ . '/src/footer.php';
 }

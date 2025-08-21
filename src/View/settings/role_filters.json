@@ -1,0 +1,185 @@
+{
+    "orders": {
+        "مدير": {
+            "enabled": false,
+            "filter_type": "show",
+            "stages": [
+                "قيد التصميم",
+                "قيد التنفيذ",
+                "جاهز للتسليم",
+                "تأكيد استلام العميل",
+                "مكتمل",
+                "ملغي"
+            ],
+            "status": "all",
+            "custom_statuses": []
+        },
+        "مصمم": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [
+                "قيد التصميم",
+                "قيد التنفيذ",
+                "جاهز للتسليم",
+                "تأكيد استلام العميل",
+                "مكتمل",
+                "ملغي"
+            ],
+            "status": "role_only",
+            "custom_statuses": []
+        },
+        "معمل": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [
+                "قيد التصميم",
+                "قيد التنفيذ",
+                "جاهز للتسليم",
+                "تأكيد استلام العميل",
+                "مكتمل",
+                "ملغي"
+            ],
+            "status": "all",
+            "custom_statuses": []
+        },
+        "محاسب": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [
+                "قيد التصميم",
+                "قيد التنفيذ",
+                "جاهز للتسليم",
+                "تأكيد استلام العميل",
+                "مكتمل",
+                "ملغي"
+            ],
+            "status": "all",
+            "custom_statuses": []
+        },
+        "موظف": {
+            "enabled": false,
+            "filter_type": "show",
+            "stages": [],
+            "status": "all",
+            "custom_statuses": []
+        }
+    },
+    "dashboard": {
+        "مدير": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [
+                "قيد التصميم",
+                "قيد التنفيذ",
+                "جاهز للتسليم",
+                "تأكيد استلام العميل"
+            ],
+            "status": "custom",
+            "custom_statuses": [
+                "active",
+                "pending",
+                "completed",
+                "waiting_payment"
+            ]
+        },
+        "مصمم": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [
+                "قيد التصميم"
+            ],
+            "status": "custom",
+            "custom_statuses": [
+                "active"
+            ]
+        },
+        "معمل": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [
+                "قيد التنفيذ",
+                "مكتمل"
+            ],
+            "status": "custom",
+            "custom_statuses": [
+                "active"
+            ]
+        },
+        "محاسب": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [
+                "جاهز للتسليم",
+                "تأكيد استلام العميل"
+            ],
+            "status": "active",
+            "custom_statuses": []
+        },
+        "موظف": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [],
+            "status": "all",
+            "custom_statuses": []
+        }
+    },
+    "reports": {
+        "مدير": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [
+                "قيد التصميم",
+                "قيد التنفيذ",
+                "جاهز للتسليم",
+                "تأكيد استلام العميل",
+                "مكتمل",
+                "ملغي"
+            ],
+            "status": "all",
+            "custom_statuses": []
+        },
+        "مصمم": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [
+                "قيد التصميم",
+                "قيد التنفيذ",
+                "جاهز للتسليم",
+                "تأكيد استلام العميل",
+                "مكتمل"
+            ],
+            "status": "role_only",
+            "custom_statuses": []
+        },
+        "معمل": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [
+                "قيد التصميم",
+                "قيد التنفيذ",
+                "جاهز للتسليم",
+                "تأكيد استلام العميل",
+                "مكتمل"
+            ],
+            "status": "role_only",
+            "custom_statuses": []
+        },
+        "محاسب": {
+            "enabled": true,
+            "filter_type": "show",
+            "stages": [
+                "تأكيد استلام العميل",
+                "مكتمل"
+            ],
+            "status": "all",
+            "custom_statuses": []
+        },
+        "موظف": {
+            "enabled": false,
+            "filter_type": "show",
+            "stages": [],
+            "status": "all",
+            "custom_statuses": []
+        }
+    }
+}

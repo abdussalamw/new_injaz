@@ -13,7 +13,7 @@ class RoleHelper
      */
     public static function getCurrentUserRole(): string
     {
-        return trim($_SESSION['role'] ?? 'guest');
+        return trim($_SESSION['user_role'] ?? 'guest');
     }
 
     /**
@@ -21,7 +21,7 @@ class RoleHelper
      */
     public static function getCurrentUserId(): int
     {
-        return (int)($_SESSION['employee_id'] ?? 0);
+        return (int)($_SESSION['user_id'] ?? 0);
     }
 
     /**

@@ -93,7 +93,6 @@ $notes = $order['notes'] ?? '';
                                 <option value="عاجل جداً" <?= ($priority == 'عاجل جداً') ? 'selected' : '' ?>>عاجل جداً</option>
                                 <option value="عالي" <?= ($priority == 'عالي') ? 'selected' : '' ?>>عالي</option>
                                 <option value="متوسط" <?= ($priority == 'متوسط') ? 'selected' : '' ?>>متوسط</option>
-                                <option value="منخفض" <?= ($priority == 'منخفض') ? 'selected' : '' ?>>منخفض</option>
                             </select>
                         </div>
                         <div class="col-md-4">

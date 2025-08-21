@@ -430,10 +430,6 @@
                             <strong><?= number_format($emp['completed_tasks'] ?? 0) ?></strong> مكتملة |
                             <strong><?= ($emp['total_tasks'] ?? 0) > 0 ? round(($emp['completed_tasks'] / $emp['total_tasks']) * 100, 1) : 0 ?>%</strong>
                         </small>
-                        <div class="mt-1">
-                            <a href="?tab=stats&debug_employee=<?= $emp['employee_id'] ?>&matrix_month=<?= urlencode($selected_matrix_month ?? '') ?><?= !empty($selected_week) ? '&week=' . urlencode($selected_week) : '' ?>" 
-                               style="font-size: 10px; color: #666; text-decoration: none;">🔍 تفاصيل</a>
-                        </div>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -446,16 +442,17 @@
         <div class="col-12 mb-4">
             <h3 class="mb-4 text-dark">🏆 أفضل العملاء</h3>
             <?php if (!empty($top_clients)): ?>
-                <div class="top-cards-grid-clients">
+                <div class="stats-grid">
                     <?php foreach ($top_clients as $index => $client): ?>
-                        <div class="top-mini-card">
-                            <div class="top-rank"><?= $index + 1 ?></div>
-                            <div class="top-content">
-                                <div class="top-name"><?= htmlspecialchars($client['company_name']) ?></div>
-                                <div class="top-stats">
-                                    <small><?= $client['orders_count'] ?> طلب</small>
-                                    <small><?= number_format($client['total_spent']) ?> ر.س</small>
-                                </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">🏆</span>
+                            <div class="stat-value" style="font-size: 1.1rem;"><?= htmlspecialchars($client['company_name']) ?></div>
+                            <div class="stat-label">المركز رقم <?= $index + 1 ?></div>
+                            <div class="employee-details mt-2">
+                                <small class="d-block">
+                                    <strong><?= $client['orders_count'] ?></strong> طلب | 
+                                    <strong><?= number_format($client['total_spent']) ?></strong> ر.س
+                                </small>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -467,16 +464,17 @@
         <div class="col-12 mb-4">
             <h3 class="mb-4 text-dark">🎯 أفضل المنتجات</h3>
             <?php if (!empty($top_products)): ?>
-                <div class="top-cards-grid-products">
+                <div class="stats-grid">
                     <?php foreach ($top_products as $index => $product): ?>
-                        <div class="top-mini-card">
-                            <div class="top-rank"><?= $index + 1 ?></div>
-                            <div class="top-content">
-                                <div class="top-name"><?= htmlspecialchars($product['name']) ?></div>
-                                <div class="top-stats">
-                                    <small><?= $product['orders_count'] ?> طلب</small>
-                                    <small><?= number_format($product['total_quantity']) ?> وحدة</small>
-                                </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">🎯</span>
+                            <div class="stat-value" style="font-size: 1.1rem;"><?= htmlspecialchars($product['name']) ?></div>
+                            <div class="stat-label">المركز رقم <?= $index + 1 ?></div>
+                            <div class="employee-details mt-2">
+                                <small class="d-block">
+                                    <strong><?= $product['orders_count'] ?></strong> طلب | 
+                                    <strong><?= number_format($product['total_quantity']) ?></strong> وحدة
+                                </small>
                             </div>
                         </div>
                     <?php endforeach; ?>

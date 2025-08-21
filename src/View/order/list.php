@@ -162,12 +162,28 @@ if (isset($is_ajax_request) && $is_ajax_request) {
                                     <div class="d-flex align-items-center gap-1">
                                         <label for="status_filter">الحالة</label>
                                         <select name="status" id="status_filter" class="form-select form-select-sm" <?= !empty($filter_employee) ? 'disabled' : '' ?>>
-                                            <option value="">الكل</option>
-                                            <option value="قيد التصميم" <?= $filter_status == 'قيد التصميم' ? 'selected' : '' ?>>قيد التصميم</option>
-                                            <option value="قيد التنفيذ" <?= $filter_status == 'قيد التنفيذ' ? 'selected' : '' ?>>قيد التنفيذ</option>
-                                            <option value="جاهز للتسليم" <?= $filter_status == 'جاهز للتسليم' ? 'selected' : '' ?>>جاهز للتسليم</option>
-                                            <option value="مكتمل" <?= $filter_status == 'مكتمل' ? 'selected' : '' ?>>مكتمل</option>
-                                            <option value="ملغي" <?= $filter_status == 'ملغي' ? 'selected' : '' ?>>ملغي</option>
+                                            <?php
+                                            // جلب الحالات من إعدادات الفلترة الموحدة
+                                            $statuses = [];
+                                            $settings_file = __DIR__ . '/../settings/role_filters.json';
+                                            if (file_exists($settings_file)) {
+                                                $json = file_get_contents($settings_file);
+                                                $filters = json_decode($json, true);
+                                                foreach ($filters as $context => $roles) {
+                                                    foreach ($roles as $role => $data) {
+                                                        if (isset($data['stages']) && is_array($data['stages'])) {
+                                                            foreach ($data['stages'] as $st) {
+                                                                $statuses[$st] = true;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            echo '<option value="">الكل</option>';
+                                            foreach (array_keys($statuses) as $st) {
+                                                echo '<option value="' . htmlspecialchars($st) . '"' . ($filter_status == $st ? ' selected' : '') . '>' . htmlspecialchars($st) . '</option>';
+                                            }
+                                            ?>
                                         </select>
                                     </div>
                                 </div>

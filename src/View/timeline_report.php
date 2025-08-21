@@ -86,7 +86,7 @@
                                                 </a>
                                             </td>
                                             
-                                            <td><?= htmlspecialchars($row['designer_name'] ?? 'N/A') ?></td>
+                                            <td><?= htmlspecialchars($row['designer_name'] ?? 'غير محدد') ?></td>
                                             <td><small><?= !empty($row['order_date']) ? date('Y-m-d H:i', strtotime($row['order_date'])) : 'N/A' ?></small></td>
                                             <td><small><?= !empty($row['design_completed_at']) ? date('Y-m-d H:i', strtotime($row['design_completed_at'])) : '-' ?></small></td>
                                             <td><span class="badge bg-light text-dark"><?= $design_duration ?? '-' ?></span></td>
@@ -100,16 +100,13 @@
 
                                             <td>
                                                 <?php 
-                                                // عرض اسم المعمل مع معالجة أفضل للحالات المختلفة
+                                                // عرض اسم المعمل مع معالجة بسيطة وفعالة
                                                 if (!empty($row['design_completed_at']) && $row['status'] !== 'قيد التصميم') {
-                                                    if (!empty($row['workshop_name'])) {
-                                                        echo htmlspecialchars($row['workshop_name']);
-                                                    } elseif (!empty($row['workshop_id'])) {
-                                                        // إذا كان هناك workshop_id لكن الاسم غير موجود (مشكلة في البيانات)
-                                                        echo '<span class="text-warning">معمل غير معروف (ID: ' . htmlspecialchars($row['workshop_id']) . ')</span>';
-                                                    } else {
-                                                        // لا يوجد معمل معين
+                                                    $workshop_name = $row['workshop_name'] ?? '';
+                                                    if ($workshop_name === 'غير معين' || empty($workshop_name)) {
                                                         echo '<span class="text-muted">غير معين</span>';
+                                                    } else {
+                                                        echo htmlspecialchars($workshop_name);
                                                     }
                                                 } else {
                                                     echo '<span class="text-muted">-</span>';

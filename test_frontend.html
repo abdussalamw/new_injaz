@@ -1,163 +1,0 @@
-<!DOCTYPE html>
-<html dir="rtl" lang="ar">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>اختبار نظام المهام والبطاقات</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .test-card { margin: 10px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-        .success { background-color: #d4edda; border-color: #c3e6cb; }
-        .error { background-color: #f8d7da; border-color: #f5c6cb; }
-        .loading { background-color: #fff3cd; border-color: #ffeaa7; }
-    </style>
-</head>
-<body>
-    <div class="container mt-4">
-        <h2 class="text-center mb-4">🔍 اختبار نظام المهام والبطاقات بعد التوحيد</h2>
-        
-        <div class="row">
-            <div class="col-md-8 offset-md-2">
-                
-                <!-- اختبار تحميل الصفحة الرئيسية -->
-                <div class="test-card loading" id="test-dashboard">
-                    <h5>📋 اختبار 1: تحميل لوحة التحكم الرئيسية</h5>
-                    <p id="dashboard-result">جاري الاختبار...</p>
-                </div>
-
-                <!-- اختبار API المهام -->
-                <div class="test-card loading" id="test-api">
-                    <h5>🔗 اختبار 2: API المهام (ajax_tasks.php)</h5>
-                    <p id="api-result">جاري الاختبار...</p>
-                </div>
-
-                <!-- اختبار الفلترة -->
-                <div class="test-card loading" id="test-filters">
-                    <h5>🔍 اختبار 3: نظام الفلترة</h5>
-                    <p id="filters-result">جاري الاختبار...</p>
-                </div>
-
-                <!-- اختبار النظام الموحد -->
-                <div class="test-card loading" id="test-unified">
-                    <h5>⚙️ اختبار 4: النظام الموحد للأدوار</h5>
-                    <p id="unified-result">جاري الاختبار...</p>
-                </div>
-
-                <!-- نتيجة عامة -->
-                <div class="test-card" id="final-result" style="display: none;">
-                    <h4 class="text-center">📊 النتيجة النهائية</h4>
-                    <p id="final-message" class="text-center"></p>
-                </div>
-
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        const tests = [];
-        let completedTests = 0;
-
-        function updateTestResult(testId, success, message) {
-            const card = document.getElementById(testId);
-            const result = document.getElementById(testId.replace('test-', '') + '-result');
-            
-            card.classList.remove('loading');
-            if (success) {
-                card.classList.add('success');
-                result.innerHTML = '✅ ' + message;
-                tests.push({ name: testId, success: true });
-            } else {
-                card.classList.add('error');
-                result.innerHTML = '❌ ' + message;
-                tests.push({ name: testId, success: false });
-            }
-
-            completedTests++;
-            if (completedTests === 4) {
-                showFinalResult();
-            }
-        }
-
-        function showFinalResult() {
-            const successCount = tests.filter(t => t.success).length;
-            const finalCard = document.getElementById('final-result');
-            const finalMessage = document.getElementById('final-message');
-
-            finalCard.style.display = 'block';
-            
-            if (successCount === 4) {
-                finalCard.classList.add('success');
-                finalMessage.innerHTML = '🎉 ممتاز! جميع اختبارات المهام والبطاقات نجحت بعد التوحيد';
-            } else {
-                finalCard.classList.add('error');
-                finalMessage.innerHTML = `⚠️ ${successCount}/4 اختبارات نجحت. يحتاج بعض التحسينات.`;
-            }
-        }
-
-        // اختبار 1: تحميل لوحة التحكم
-        fetch('/dashboard.php')
-            .then(response => {
-                if (response.ok) {
-                    updateTestResult('test-dashboard', true, 'لوحة التحكم تحمل بنجاح');
-                } else {
-                    updateTestResult('test-dashboard', false, 'فشل في تحميل لوحة التحكم');
-                }
-            })
-            .catch(error => {
-                updateTestResult('test-dashboard', false, 'خطأ في الشبكة: ' + error.message);
-            });
-
-        // اختبار 2: API المهام
-        fetch('/api_tasks.php', {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-            .then(response => response.text())
-            .then(data => {
-                if (data.includes('لا توجد مهام') || data.includes('col-md-')) {
-                    updateTestResult('test-api', true, 'API المهام يعمل ويرجع بيانات صحيحة');
-                } else {
-                    updateTestResult('test-api', false, 'API المهام يرجع بيانات غير متوقعة');
-                }
-            })
-            .catch(error => {
-                updateTestResult('test-api', false, 'فشل في API المهام: ' + error.message);
-            });
-
-        // اختبار 3: الفلترة
-        fetch('/api_tasks.php?status=قيد التصميم&employee=&payment=&search=', {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-            .then(response => response.text())
-            .then(data => {
-                if (data.includes('لا توجد مهام') || data.includes('col-md-')) {
-                    updateTestResult('test-filters', true, 'نظام الفلترة يعمل بشكل صحيح');
-                } else {
-                    updateTestResult('test-filters', false, 'مشكلة في نظام الفلترة');
-                }
-            })
-            .catch(error => {
-                updateTestResult('test-filters', false, 'فشل في اختبار الفلترة: ' + error.message);
-            });
-
-        // اختبار 4: النظام الموحد
-        fetch('/test_tasks_cards_system.php')
-            .then(response => response.text())
-            .then(data => {
-                if (data.includes('🏆 خلاصة: جميع أنظمة المهام والبطاقات تعمل بنجاح')) {
-                    updateTestResult('test-unified', true, 'النظام الموحد يعمل بكامل طاقته');
-                } else {
-                    updateTestResult('test-unified', false, 'مشاكل في النظام الموحد');
-                }
-            })
-            .catch(error => {
-                updateTestResult('test-unified', false, 'فشل في اختبار النظام الموحد: ' + error.message);
-            });
-    </script>
-</body>
-</html>

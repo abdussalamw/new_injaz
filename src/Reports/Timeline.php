@@ -29,17 +29,7 @@ if (Permissions::has_permission('dashboard_reports_view', $conn)) {
     }
 }
 
-// فلتر رقم الموظف (تنقية لحل مشكلة محتملة على الاستضافة إذا أُرسل معرّف يحتوي محارف مخفية)
-$filter_employee_raw = $_GET['employee'] ?? '';
-if (is_string($filter_employee_raw)) {
-    $filter_employee_raw = trim($filter_employee_raw);
-}
-// نقبل أرقام صحيحة فقط، وأي شيء آخر يُهمل حتى لا يرتبط الاستعلام بقيمة 0 خطأً
-if ($filter_employee_raw !== '' && preg_match('/^\d+$/u', $filter_employee_raw)) {
-    $filter_employee = (int)$filter_employee_raw; // قيمة رقمية نظيفة
-} else {
-    $filter_employee = ''; // لا يوجد فلتر
-}
+$filter_employee = $_GET['employee'] ?? '';
 
 // فلترة بسيطة للخط الزمني - يظهر جميع الطلبات (مكتملة وغير مكتملة)
 $where_clauses = [];
@@ -48,11 +38,11 @@ $types = "";
 
 if (Permissions::has_permission('dashboard_reports_view', $conn)) {
     // للمديرين - يمكنهم فلترة بأي موظف
-    if ($filter_employee !== '') { // استخدمنا !== للحفاظ على تمييز 0 عن الفارغ
+    if (!empty($filter_employee)) {
         // البحث في المصمم أو المعمل
         $where_clauses[] = "(o.designer_id = ? OR o.workshop_id = ?)";
-        $params[] = (int)$filter_employee;
-        $params[] = (int)$filter_employee;
+        $params[] = $filter_employee;
+        $params[] = $filter_employee;
         $types .= "ii";
     }
 } else {
@@ -79,7 +69,6 @@ if (!empty($where_clauses)) {
 $sql = "SELECT o.order_id, o.order_date, o.status, o.design_completed_at, o.execution_completed_at,
                o.delivered_at, o.design_rating, o.execution_rating, c.company_name as client_name,
                e.name as designer_name, w.name as workshop_name,
-               o.designer_id, o.workshop_id, -- إضافة IDs للتشخيص
                o.total_amount, o.deposit_amount, o.payment_status,
                COALESCE(GROUP_CONCAT(DISTINCT p.name SEPARATOR ', '), 'لا يوجد منتجات') as products_summary
         FROM orders o
@@ -89,10 +78,7 @@ $sql = "SELECT o.order_id, o.order_date, o.status, o.design_completed_at, o.exec
         LEFT JOIN order_items oi ON o.order_id = oi.order_id
         LEFT JOIN products p ON oi.product_id = p.product_id
         $where_clause
-        GROUP BY o.order_id, o.order_date, o.status, o.design_completed_at, o.execution_completed_at,
-                 o.delivered_at, o.design_rating, o.execution_rating, c.company_name,
-                 e.name, w.name, o.designer_id, o.workshop_id,
-                 o.total_amount, o.deposit_amount, o.payment_status
+        GROUP BY o.order_id
         ORDER BY o.order_date DESC";
 
 $stmt = $conn->prepare($sql);

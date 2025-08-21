@@ -4,12 +4,17 @@ declare(strict_types=1);
 namespace App\Reports;
 
 use App\Core\RoleHelper;
-use App\Core\UnifiedRoleLogic;
 use DateTime;
 use DateInterval;
 
-// --- معالجة الفلاتر ---
+// --- معالجة الفلاتر والتواريخ ---
+$period = $_GET['period'] ?? 'monthly';
 $selected_employee = $_GET['stats_employee'] ?? '';
+$custom_date = $_GET['custom_date'] ?? date('Y-m-d');
+
+// --- إضافة معالجة فلاتر الشهور والأسابيع ---
+$selected_matrix_month = $_GET['matrix_month'] ?? '';
+$selected_week = $_GET['week'] ?? '';
 
 // تجهيز قائمة الأشهر المتاحة (آخر 12 شهر حسب البيانات + بعض الأشهر الإضافية)
 $matrix_available_months = [];
@@ -36,9 +41,6 @@ if (empty($matrix_available_months)) {
     $matrix_available_months[] = date('Y-m');
 }
 
-// الآن نحدد الشهر المختار - بعد تجهيز القائمة
-$selected_matrix_month = $_GET['matrix_month'] ?? '';
-
 // إذا لم يتم اختيار شهر، استخدم الشهر الحالي (افتراضي)
 if (empty($selected_matrix_month)) { 
     $selected_matrix_month = date('Y-m'); 
@@ -56,7 +58,6 @@ if (!in_array($selected_matrix_month, $matrix_available_months, true)) {
 }
 
 // --- معالجة فلتر الأسبوع ---
-$selected_week = $_GET['week'] ?? '';
 $weeks_list = [];
 
 // إنشاء قائمة أسابيع الشهر المختار
@@ -102,33 +103,60 @@ if (!empty($selected_matrix_month)) {
     }
 }
 
-// تحديد نطاق التواريخ للإحصائيات العامة
-if (!empty($selected_week) && !empty($weeks_list)) {
-    // البحث عن الأسبوع المختار
-    $selected_week_data = null;
-    foreach ($weeks_list as $week) {
-        if ($week['number'] == $selected_week) {
-            $selected_week_data = $week;
-            break;
+/**
+ * دالة لحساب تواريخ البدء والانتهاء بناءً على الفترة المحددة
+ * تدعم الأسبوع العربي (السبت - الخميس)
+ */
+if (!function_exists('calculatePeriodDates')) {
+    function calculatePeriodDates(string $period, string $custom_date): array {
+        $date = new DateTime($custom_date);
+        
+        switch ($period) {
+            case 'daily':
+                return [
+                    'start' => $date->format('Y-m-d'),
+                    'end' => $date->format('Y-m-d'),
+                    'label' => 'إحصائيات يوم ' . $date->format('Y-m-d')
+                ];
+                
+            case 'weekly':
+                $dayOfWeek = (int)$date->format('w'); // 0=الأحد, 6=السبت
+                $daysToSaturday = ($dayOfWeek === 6) ? 0 : ($dayOfWeek + 1);
+                $startDate = (clone $date)->sub(new DateInterval("P{$daysToSaturday}D"));
+                $endDate = (clone $startDate)->add(new DateInterval('P5D'));
+                
+                return [
+                    'start' => $startDate->format('Y-m-d'),
+                    'end' => $endDate->format('Y-m-d'),
+                    'label' => 'الأسبوع من ' . $startDate->format('d/m') . ' إلى ' . $endDate->format('d/m/Y')
+                ];
+                
+            case 'monthly':
+            default:
+                $startDate = new DateTime($date->format('Y-m-01'));
+                $endDate = new DateTime($date->format('Y-m-t'));
+                
+                return [
+                    'start' => $startDate->format('Y-m-d'),
+                    'end' => $endDate->format('Y-m-d'),
+                    'label' => 'شهر ' . $date->format('m/Y')
+                ];
         }
     }
-    
-    if ($selected_week_data) {
-        // فلترة حسب الأسبوع المختار
-        $start_date = $selected_week_data['start'];
-        $end_date = $selected_week_data['end'];
-        $period_label = $selected_week_data['label'] . ' - شهر ' . substr($selected_matrix_month,5,2) . '/' . substr($selected_matrix_month,0,4);
-    } else {
-        // إذا لم يوجد الأسبوع، استخدم كامل الشهر
-        $start_date = $selected_matrix_month . '-01';
-        $end_date = date('Y-m-t', strtotime($start_date));
-        $period_label = 'شهر ' . substr($selected_matrix_month,5,2) . '/' . substr($selected_matrix_month,0,4);
-    }
-} else {
-    // كامل الشهر (لم يتم اختيار أسبوع)
+}
+
+// تحديد التواريخ النهائية المستخدمة في الاستعلامات
+$period_data = calculatePeriodDates($period, $custom_date);
+$start_date = $period_data['start'];
+$end_date = $period_data['end'];
+$period_label = $period_data['label'];
+
+// في وضع الإحصاءات: المطلوب أن ترتبط جميع البطاقات والجدول بفلترة الشهر المختار
+// إذا وُجد selected_matrix_month صالح نلغي أي فترة أخرى ونستخدم حدوده الشهرية
+if (!empty($selected_matrix_month) && preg_match('/^\d{4}-\d{2}$/', $selected_matrix_month)) {
     $start_date = $selected_matrix_month . '-01';
     $end_date = date('Y-m-t', strtotime($start_date));
-    $period_label = 'شهر ' . substr($selected_matrix_month,5,2) . '/' . substr($selected_matrix_month,0,4);
+    $period_label = 'شهر ' . date('m/Y', strtotime($start_date));
 }
 
 
@@ -164,80 +192,27 @@ $stats = $stmt_stats->get_result()->fetch_assoc();
 
 
 /**
- * 2. استعلام إحصائيات الموظفين (منطق موحد محسن)
+ * 2. استعلام إحصائيات الموظفين
  */
-$employee_stats_query = UnifiedRoleLogic::buildEmployeeStatsQuery($start_date, $end_date);
+$employee_stats_query = "
+    SELECT 
+        e.employee_id,
+        e.name,
+        e.role,
+        COUNT(DISTINCT o.order_id) as total_tasks,
+        COUNT(DISTINCT CASE WHEN o.status = 'مكتمل' THEN o.order_id END) as completed_tasks,
+        COUNT(DISTINCT CASE WHEN o.status IN ('قيد التصميم', 'قيد التنفيذ', 'جاهز للتسليم') THEN o.order_id END) as active_tasks,
+        SUM(o.total_amount) as total_revenue
+    FROM employees e
+    LEFT JOIN orders o ON (e.employee_id = o.designer_id OR e.employee_id = o.workshop_id)
+    WHERE o.order_date BETWEEN ? AND ?
+    GROUP BY e.employee_id, e.name, e.role
+    ORDER BY completed_tasks DESC, total_revenue DESC";
 
 $stmt_emp = $conn->prepare($employee_stats_query);
 $stmt_emp->bind_param("ss", $start_date, $end_date);
 $stmt_emp->execute();
 $employee_stats = $stmt_emp->get_result()->fetch_all(MYSQLI_ASSOC);
-
-// تشخيص تفصيلي للموظف (إذا طُلب)
-if (isset($_GET['debug_employee']) && !empty($_GET['debug_employee'])) {
-    $debug_emp_id = (int)$_GET['debug_employee'];
-    
-    echo "<div style='background: #f0f8ff; padding: 15px; margin: 10px; border: 2px solid #007cba; border-radius: 5px;'>";
-    echo "<h4 style='color: #007cba;'>🔍 تشخيص مفصل للموظف:</h4>";
-    
-    // جلب تفاصيل الموظف
-    $emp_name_query = "SELECT name, role FROM employees WHERE employee_id = ?";
-    $emp_stmt = $conn->prepare($emp_name_query);
-    $emp_stmt->bind_param("i", $debug_emp_id);
-    $emp_stmt->execute();
-    $emp_info = $emp_stmt->get_result()->fetch_assoc();
-    
-    if ($emp_info) {
-        echo "<strong>الموظف:</strong> " . htmlspecialchars($emp_info['name']) . " (" . htmlspecialchars($emp_info['role']) . ")<br>";
-        echo "<strong>الفترة:</strong> " . htmlspecialchars($period_label) . "<br>";
-        
-        // إظهار منطق الدور الموحد
-        $role_info = UnifiedRoleLogic::getRoleInfo($emp_info['role']);
-        
-        echo "<strong>نوع المهام:</strong> " . htmlspecialchars($role_info['relationship_description']) . "<br>";
-        echo "<strong>منطق المهام المكتملة:</strong> " . htmlspecialchars($role_info['completed_tasks_description']) . "<br>";
-        echo "<strong>منطق المهام النشطة:</strong> " . htmlspecialchars($role_info['active_tasks_description']) . "<br>";
-        echo "<hr>";
-        
-        // جلب الطلبات التفصيلية
-        $debug_query = "SELECT order_id, status, designer_id, workshop_id, created_by, 
-                              CASE 
-                                WHEN designer_id = ? THEN 'مصمم'
-                                WHEN workshop_id = ? THEN 'ورشة'  
-                                WHEN created_by = ? THEN 'منشئ'
-                                ELSE 'غير محدد'
-                              END as role_type
-                       FROM orders 
-                       WHERE (designer_id = ? OR workshop_id = ? OR created_by = ?)
-                       AND order_date BETWEEN ? AND ?
-                       ORDER BY status, order_id";
-        
-        $debug_stmt = $conn->prepare($debug_query);
-        $debug_stmt->bind_param("iiiiiiiss", $debug_emp_id, $debug_emp_id, $debug_emp_id, 
-                                $debug_emp_id, $debug_emp_id, $debug_emp_id, $start_date, $end_date);
-        $debug_stmt->execute();
-        $debug_orders = $debug_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        
-        $status_counts = [];
-        foreach ($debug_orders as $order) {
-            $status_counts[$order['status']] = ($status_counts[$order['status']] ?? 0) + 1;
-        }
-        
-        echo "<strong>إحصائيات الحالات:</strong><br>";
-        foreach ($status_counts as $status => $count) {
-            $icon = ($status === 'مكتمل') ? '✅' : (in_array($status, ['قيد التصميم', 'قيد التنفيذ', 'جاهز للتسليم']) ? '🔄' : '❌');
-            echo "- $icon $status: $count طلب<br>";
-        }
-        
-        $total = count($debug_orders);
-        $completed = $status_counts['مكتمل'] ?? 0;
-        $percentage = $total > 0 ? round(($completed / $total) * 100) : 0;
-        
-        echo "<hr><strong>الخلاصة:</strong><br>";
-        echo "إجمالي المهام: $total | مكتملة: $completed | النسبة: $percentage%";
-    }
-    echo "</div>";
-}
 
 
 /**
@@ -290,31 +265,33 @@ $employees_query = "SELECT employee_id, name FROM employees WHERE role IN ('مص
 $employees_result = $conn->query($employees_query);
 $employees_list = $employees_result->fetch_all(MYSQLI_ASSOC);
 
-// ================== الجدول المفصل حسب الشهر المختار ==================
+// ====== بناء مصفوفة الشهر التفصيلية (compact matrix) ======
+$compact_columns = [];
+$compact_matrix = [];
+$compact_totals = [];
+$is_current_month = false;
+$current_week_row = '';
 
-$compact_columns = $compact_matrix = $compact_totals = [];
-
-if ($selected_matrix_month !== '') {
-    // نطاق الشهر المختار
+if (!empty($selected_matrix_month)) {
     $matrix_month_start = $selected_matrix_month . '-01';
     $matrix_month_end = date('Y-m-t', strtotime($matrix_month_start));
 
-    // الطلبات النشطة (غير مكتمل وغير ملغي) داخل الشهر المختار
     $active_orders_stmt = $conn->prepare("SELECT order_id, order_date, status, designer_id, workshop_id, created_by FROM orders WHERE status NOT IN ('مكتمل','ملغي') AND order_date BETWEEN ? AND ?");
-    $active_orders_stmt->bind_param('ss', $matrix_month_start, $matrix_month_end);
-    $active_orders_stmt->execute();
-    $active_orders = $active_orders_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($active_orders_stmt) {
+        $active_orders_stmt->bind_param('ss', $matrix_month_start, $matrix_month_end);
+        $active_orders_stmt->execute();
+        $active_orders = $active_orders_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    } else { $active_orders = []; }
 
-    // جميع طلبات الشهر (عدا الملغي)
     $month_orders_stmt = $conn->prepare("SELECT order_id, order_date, status, designer_id, workshop_id, created_by FROM orders WHERE order_date BETWEEN ? AND ? AND status != 'ملغي'");
-    $month_orders_stmt->bind_param('ss', $matrix_month_start, $matrix_month_end);
-    $month_orders_stmt->execute();
-    $month_orders = $month_orders_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    if ($month_orders_stmt) {
+        $month_orders_stmt->bind_param('ss', $matrix_month_start, $matrix_month_end);
+        $month_orders_stmt->execute();
+        $month_orders = $month_orders_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    } else { $month_orders = []; }
 
-    // تحديد أي أسبوع نحن فيه حالياً لتمييزه بصرياً
-    $today = new \DateTime();
+    $today = new DateTime();
     $is_current_month = ($today->format('Y-m') === $selected_matrix_month);
-    $current_week_row = '';
     if ($is_current_month) {
         $today_day = (int)$today->format('j');
         if ($today_day <= 7) { $current_week_row = 'الأسبوع الأول'; }
@@ -324,43 +301,31 @@ if ($selected_matrix_month !== '') {
         else { $current_week_row = 'الأسبوع الخامس'; }
     }
 
-    // الأعمدة (الموظفون) حسب الأدوار
-    $designers_res = $conn->query("SELECT employee_id, name FROM employees WHERE role='مصمم' ORDER BY name LIMIT 2");
-    if ($designers_res) {
-        while ($d = $designers_res->fetch_assoc()) { $compact_columns[$d['employee_id']] = ['label' => $d['name'], 'role' => 'مصمم']; }
+    $col_res = $conn->query("SELECT employee_id, name, role FROM employees WHERE role IN ('مصمم','معمل','مدير','محاسب') ORDER BY role, name");
+    if ($col_res) {
+        while ($emp = $col_res->fetch_assoc()) {
+            $compact_columns[$emp['employee_id']] = [ 'label' => $emp['name'], 'role' => $emp['role'] ];
+        }
     }
-    $workshop_res = $conn->query("SELECT employee_id, name FROM employees WHERE role IN ('معمل','معمل التنفيذ','المعمل التنفيذي') ORDER BY name LIMIT 1");
-    if ($workshop_res && ($w = $workshop_res->fetch_assoc())) { $compact_columns[$w['employee_id']] = ['label' => $w['name'], 'role' => 'معمل']; }
-    $accountant_res = $conn->query("SELECT employee_id, name FROM employees WHERE role='محاسب' ORDER BY name LIMIT 1");
-    if ($accountant_res && ($a = $accountant_res->fetch_assoc())) { $compact_columns[$a['employee_id']] = ['label' => $a['name'], 'role' => 'محاسب']; }
-    $manager_res = $conn->query("SELECT employee_id, name FROM employees WHERE role='مدير' ORDER BY name LIMIT 1");
-    if ($manager_res && ($m = $manager_res->fetch_assoc())) { $compact_columns[$m['employee_id']] = ['label' => $m['name'], 'role' => 'مدير']; }
 
     if (!function_exists('compact_order_matches_employee')) {
         function compact_order_matches_employee(array $order, int $empId, string $role): bool {
             if ($role === 'مصمم') { return (int)($order['designer_id'] ?? 0) === $empId; }
-            if ($role === 'معمل') { return (int)($order['workshop_id'] ?? 0) === $empId; }
-            if ($role === 'محاسب' || $role === 'مدير') {
-                return (int)($order['designer_id'] ?? 0) === $empId || (int)($order['workshop_id'] ?? 0) === $empId || (int)($order['created_by'] ?? 0) === $empId;
-            }
+            if ($role === 'معمل' || $role === 'معمل التنفيذ' || $role === 'المعمل التنفيذي') { return (int)($order['workshop_id'] ?? 0) === $empId; }
+            if ($role === 'مدير' || $role === 'محاسب') { return (int)($order['designer_id'] ?? 0) === $empId || (int)($order['workshop_id'] ?? 0) === $empId || (int)($order['created_by'] ?? 0) === $empId; }
             return false;
         }
     }
 
-    // إعداد الصفوف الأساسية (قد نضيف الأسبوع الرابع والخامس لاحقاً)
-    $compact_matrix = [
-        'نشطة' => [],
-    ];
+    $compact_matrix = [ 'نشطة' => [] ];
     $compact_matrix['الأسبوع الأول'] = [];
     $compact_matrix['الأسبوع الثاني'] = [];
     $compact_matrix['الأسبوع الثالث'] = [];
-    // سنضيف 'الأسبوع الرابع' و 'الأسبوع الخامس' إذا احتجنا حسب عدد الأيام
     $days_in_month = (int)date('t', strtotime($matrix_month_start));
     if ($days_in_month >= 22) { $compact_matrix['الأسبوع الرابع'] = []; }
     if ($days_in_month >= 29) { $compact_matrix['الأسبوع الخامس'] = []; }
     $compact_matrix['الشهر'] = [];
 
-    // صف نشطة (الشهر المختار فقط)
     foreach ($active_orders as $o) {
         foreach ($compact_columns as $empId => $meta) {
             if (compact_order_matches_employee($o, (int)$empId, $meta['role'])) {
@@ -369,7 +334,6 @@ if ($selected_matrix_month !== '') {
         }
     }
 
-    // بقية الصفوف (الشهر الكامل + تقسيم الأسابيع)
     foreach ($month_orders as $o) {
         $od = $o['order_date'];
         $dayInMonth = (int)date('j', strtotime($od));
@@ -389,21 +353,19 @@ if ($selected_matrix_month !== '') {
         }
     }
 
-    // إزالة الأعمدة الفارغة
     $empHasAny = [];
     foreach ($compact_matrix as $row => $vals) {
         foreach ($vals as $empId => $cnt) { if ($cnt > 0) { $empHasAny[$empId] = true; } }
     }
     foreach (array_keys($compact_columns) as $empId) { if (!isset($empHasAny[$empId])) { unset($compact_columns[$empId]); } }
 
-    // إجماليات الصفوف
-    $compact_totals = [];
     foreach ($compact_matrix as $row => $vals) {
-        $sum = 0; foreach ($compact_columns as $empId => $_) { $sum += $vals[$empId] ?? 0; }
+        $sum = 0; foreach ($compact_columns as $empId => $_meta) { $sum += $vals[$empId] ?? 0; }
         $compact_totals[$row] = $sum;
     }
 }
-// ================== نهاية الجدول المفصل ==================
+
+// ====== نهاية بناء المصفوفة ======
 
 // --- تضمين ملف العرض ---
 require_once __DIR__ . '/../View/stats_report.php';

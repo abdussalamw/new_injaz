@@ -14,10 +14,10 @@ class Helpers
             case 'عاجل جداً': return 'border-danger';
             case 'عالي': return 'border-warning';
             case 'متوسط': return 'border-info';
-            case 'منخفض': return 'border-secondary';
             default: return 'border-light';
         }
     }
+
 
     public static function get_status_class(string $status): string
     {
@@ -350,5 +350,21 @@ class Helpers
 
     public static function js($filename) {
         return self::url('/public/js/' . $filename);
+    }
+    /**
+     * Display a clear error message with error log details
+     * @param string $userMessage
+     * @param string|null $errorLogPath
+     */
+    public static function showErrorWithLog($userMessage, $errorLogPath = null) {
+        echo '<div style="background:#f8d7da;color:#721c24;padding:15px;border-radius:5px;margin:10px 0;border:1px solid #f5c6cb;">';
+        echo '<strong>خطأ فني!</strong> ' . htmlspecialchars($userMessage);
+        if ($errorLogPath && file_exists($errorLogPath)) {
+            echo '<br><details style="margin-top:10px;"><summary>عرض سجل الأخطاء</summary>';
+            echo '<pre style="background:#fff;border:1px solid #ccc;padding:10px;max-height:300px;overflow:auto;">';
+            echo htmlspecialchars(file_get_contents($errorLogPath));
+            echo '</pre></details>';
+        }
+        echo '</div>';
     }
 }
