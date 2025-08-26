@@ -12,14 +12,16 @@ class InitialTasksQuery
         $user_id = $_SESSION['user_id'] ?? 0;
         $user_role = $_SESSION['user_role'] ?? 'guest';
 
-        $sql = "SELECT o.*, c.company_name AS client_name, c.phone as client_phone, e.name AS designer_name, 
-                COALESCE(GROUP_CONCAT(p.name SEPARATOR ', '), 'لا يوجد منتجات') as products_summary,
-                o.design_completed_at, o.execution_completed_at, o.design_started_at, o.execution_started_at, c.client_id
-                FROM orders o
-                JOIN clients c ON o.client_id = c.client_id
-                LEFT JOIN order_items oi ON o.order_id = oi.order_id
-                LEFT JOIN products p ON oi.product_id = p.product_id
-                LEFT JOIN employees e ON o.designer_id = e.employee_id";
+    $sql = "SELECT o.*, c.company_name AS client_name, c.phone as client_phone, 
+        ed.name AS designer_name, ew.name AS workshop_name,
+        COALESCE(GROUP_CONCAT(p.name SEPARATOR ', '), 'لا يوجد منتجات') as products_summary,
+        o.design_completed_at, o.execution_completed_at, o.design_started_at, o.execution_started_at, c.client_id
+        FROM orders o
+        JOIN clients c ON o.client_id = c.client_id
+        LEFT JOIN order_items oi ON o.order_id = oi.order_id
+        LEFT JOIN products p ON oi.product_id = p.product_id
+        LEFT JOIN employees ed ON o.designer_id = ed.employee_id
+        LEFT JOIN employees ew ON o.workshop_id = ew.employee_id";
 
         // منطق الفلترة الجديد
         $conditions = RoleBasedQuery::buildRoleBasedConditions(
@@ -38,8 +40,8 @@ class InitialTasksQuery
         }
         
         // ترتيب النتائج
-        $order_by_clause = self::getOrderByClause($sort_by);
-        $sql .= " GROUP BY o.order_id ORDER BY " . $order_by_clause;
+    $order_by_clause = self::getOrderByClause($sort_by);
+    $sql .= " GROUP BY o.order_id ORDER BY " . $order_by_clause;
 
         // تنفيذ الاستعلام
         $stmt = $conn->prepare($sql);

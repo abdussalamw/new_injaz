@@ -81,16 +81,46 @@ class RoleBasedQuery
             $include_combinations = $role_filter['include_combinations'] ?? [];
 
             // منطق الفلترة حسب نطاق العرض
-            if ($view_scope === 'all') {
-                // المدير يرى جميع المهام، لا حاجة لإضافة شروط إضافية
-            } elseif ($view_scope === 'role') {
-                $where_clauses[] = "e.role = ?";
+            // 'all' -> لا شرط
+            // 'role' -> حسب دور الموظف العام (e.role)
+            // 'self' -> حسب الحقول الخاصة بالأوامر: designer_id أو workshop_id أو employee_id
+            if ($view_scope === 'role') {
+                // عندما يكون النطاق حسب الدور، نطابق دور الموظف المرتبط بالحقلين المحتملين
+                // (ed: designer employee, ew: workshop employee) — هذا يتوافق مع استعلامات العرض التي تستخدم هذه الأسماء المستعارة
+                $where_clauses[] = "(ed.role = ? OR ew.role = ?)";
                 $params[] = $trimmed_role;
-                $types .= "s";
+                $params[] = $trimmed_role;
+                $types .= "ss";
             } elseif ($view_scope === 'self') {
-                $where_clauses[] = "e.employee_id = ?";
-                $params[] = $user_id;
-                $types .= "i";
+                // لن نضيف شرط على جدول الموظفين العام هنا لأن شروط الملكية الخاصة بكل دور
+                // تُضاف لاحقاً (مثل o.designer_id = ? أو o.workshop_id = ?). نترك المساحة فارغة.
+            }
+
+            // إضافة قواعد مخصصة لكل دور ترتبط بحقول الأوامر (ليظهر للمستخدم مهامه الخاصة بدوره)
+            // نفعل ذلك فقط عندما ليس لدى الدور صلاحية 'all' الكاملة أو إن كان المراد تقييد العرض بحسب الدور
+            if (!in_array($view_scope, ['all'])) {
+                switch ($trimmed_role) {
+                    case 'مصمم':
+                        // عرض المهام المخصصة للمصمم
+                        $where_clauses[] = "o.designer_id = ?";
+                        $params[] = $user_id;
+                        $types .= "i";
+                        break;
+                    case 'معمل':
+                    case 'معمل التنفيذ':
+                    case 'المعمل التنفيذي':
+                        $where_clauses[] = "o.workshop_id = ?";
+                        $params[] = $user_id;
+                        $types .= "i";
+                        break;
+                    case 'محاسب':
+                        // المحاسب يرى الفواتير/الطلبات غير المسددة
+                        $where_clauses[] = "o.payment_settled_at IS NULL AND o.total_amount > 0";
+                        break;
+                    default:
+                        // لا تغيير لباقي الأدوار
+                        break;
+                }
             }
             // 'all' لا يحتاج شرط إضافي
 

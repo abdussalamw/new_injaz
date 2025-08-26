@@ -33,10 +33,7 @@
                 "مكتمل",
                 "ملغي"
             ],
-            "view_scope": "role",
-            "payment_stages": [
-                "مدفوع"
-            ]
+            "view_scope": "role"
         },
         "محاسب": {
             "enabled": true,
