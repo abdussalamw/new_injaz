@@ -10,5 +10,8 @@
         "files": [
             "src/Core/Helpers.php"
         ]
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
     }
 }

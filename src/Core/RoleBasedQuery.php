@@ -48,32 +48,129 @@ class RoleBasedQuery
         $trimmed_role = trim($user_role);
         $role_filter = $filters[$context][$trimmed_role] ?? null;
 
-        // فلترة حسب الإعدادات الجديدة
-        if ($role_filter && $role_filter['enabled']) {
-            $stages = $role_filter['stages'] ?? [];
-            $filter_type = $role_filter['filter_type'] ?? 'show';
-            if (!empty($stages)) {
-                $placeholders = implode(',', array_fill(0, count($stages), '?'));
-                if ($filter_type === 'show') {
-                    $where_clauses[] = "o.status IN ($placeholders)";
-                } elseif ($filter_type === 'hide') {
-                    $where_clauses[] = "o.status NOT IN ($placeholders)";
+        // منطق الفلترة الجديد مع تخصيص view_scope لكل موظف
+        // تحديد نطاق العرض (view_scope)
+        $view_scope = null;
+        if ($conn && $user_id > 0) {
+            $stmt = $conn->prepare("SELECT view_scope FROM employees WHERE employee_id = ? LIMIT 1");
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $emp_scope = trim($row['view_scope'] ?? '');
+                if (in_array($emp_scope, ['all','role','self'])) {
+                    $view_scope = $emp_scope;
                 }
-                foreach ($stages as $st) {
-                    $params[] = $st;
-                    $types .= "s";
-                }
-            } else {
-                // إذا كانت قائمة المراحل فارغة، لا فلترة إضافية (يعرض الكل)
             }
-        } else {
-            // إذا كان الدور غير مفعل، لا يرى أي شيء
-            $where_clauses[] = "1=0";
+        }
+        if (!$view_scope && $role_filter) {
+            $view_scope = $role_filter['view_scope'] ?? 'self';
+        }
+        if (in_array($trimmed_role, ['مدير','admin'])) {
+            $view_scope = 'all';
         }
 
-        // فلترة حسب الموظف إذا تم تحديده
-        if (!empty($filter_employee) && $conn) {
-            $is_manager = in_array(trim($user_role), ['مدير', 'admin']) || trim($user_role) === '';
+        // إذا كان الدور غير مفعل، لا يرى أي شيء
+        if (!($role_filter && $role_filter['enabled'])) {
+            $where_clauses[] = "1=0";
+        } else {
+            $stages = $role_filter['stages'] ?? [];
+            $filter_type = $role_filter['filter_type'] ?? 'show';
+            $payment_stages = $role_filter['payment_stages'] ?? [];
+            $exclude_combinations = $role_filter['exclude_combinations'] ?? [];
+            $include_combinations = $role_filter['include_combinations'] ?? [];
+
+            // منطق الفلترة حسب نطاق العرض
+            if ($view_scope === 'all') {
+                // المدير يرى جميع المهام، لا حاجة لإضافة شروط إضافية
+            } elseif ($view_scope === 'role') {
+                $where_clauses[] = "e.role = ?";
+                $params[] = $trimmed_role;
+                $types .= "s";
+            } elseif ($view_scope === 'self') {
+                $where_clauses[] = "e.employee_id = ?";
+                $params[] = $user_id;
+                $types .= "i";
+            }
+            // 'all' لا يحتاج شرط إضافي
+
+            // منطق الفلترة المركب
+            if (!empty($include_combinations)) {
+                $include_sql = [];
+                foreach ($include_combinations as $comb) {
+                    if (isset($comb['status']) && isset($comb['payment_status'])) {
+                        $include_sql[] = "(o.status = ? AND o.payment_status = ?)";
+                        $params[] = $comb['status'];
+                        $types .= "s";
+                        $params[] = $comb['payment_status'];
+                        $types .= "s";
+                    } elseif (isset($comb['status'])) {
+                        $include_sql[] = "(o.status = ?)";
+                        $params[] = $comb['status'];
+                        $types .= "s";
+                    } elseif (isset($comb['payment_status'])) {
+                        $include_sql[] = "(o.payment_status = ?)";
+                        $params[] = $comb['payment_status'];
+                        $types .= "s";
+                    }
+                }
+                if (!empty($include_sql)) {
+                    $where_clauses[] = "(" . implode(" OR ", $include_sql) . ")";
+                }
+            } elseif (!empty($exclude_combinations)) {
+                $exclude_sql = [];
+                foreach ($exclude_combinations as $comb) {
+                    if (isset($comb['status']) && isset($comb['payment_status'])) {
+                        $exclude_sql[] = "(o.status = ? AND o.payment_status = ?)";
+                        $params[] = $comb['status'];
+                        $types .= "s";
+                        $params[] = $comb['payment_status'];
+                        $types .= "s";
+                    } elseif (isset($comb['status'])) {
+                        $exclude_sql[] = "(o.status = ?)";
+                        $params[] = $comb['status'];
+                        $types .= "s";
+                    } elseif (isset($comb['payment_status'])) {
+                        $exclude_sql[] = "(o.payment_status = ?)";
+                        $params[] = $comb['payment_status'];
+                        $types .= "s";
+                    }
+                }
+                if (!empty($exclude_sql)) {
+                    $where_clauses[] = "NOT (" . implode(" OR ", $exclude_sql) . ")";
+                }
+            } else {
+                // منطق الفلترة العادي
+                if (!empty($stages)) {
+                    $placeholders = implode(',', array_fill(0, count($stages), '?'));
+                    if ($filter_type === 'hide') {
+                        $where_clauses[] = "o.status NOT IN ($placeholders)";
+                    } else {
+                        $where_clauses[] = "o.status IN ($placeholders)";
+                    }
+                    foreach ($stages as $st) {
+                        $params[] = $st;
+                        $types .= "s";
+                    }
+                }
+                if (!empty($payment_stages)) {
+                    $pay_placeholders = implode(',', array_fill(0, count($payment_stages), '?'));
+                    if ($filter_type === 'hide') {
+                        $where_clauses[] = "o.payment_status NOT IN ($pay_placeholders)";
+                    } else {
+                        $where_clauses[] = "o.payment_status IN ($pay_placeholders)";
+                    }
+                    foreach ($payment_stages as $pst) {
+                        $params[] = $pst;
+                        $types .= "s";
+                    }
+                }
+            }
+        }
+
+        // فلترة حسب الموظف إذا تم تحديده (تجاهل للمدير بدون موظف محدد)
+        $is_manager = in_array(trim($user_role), ['مدير', 'admin']) || trim($user_role) === '';
+        if (!empty($filter_employee) && $conn && !$is_manager) {
             return self::buildEmployeeFilterConditions($filter_employee, $filter_status, $filter_payment, $search_query, $conn, $is_manager);
         }
 
@@ -118,8 +215,11 @@ class RoleBasedQuery
         $params = [];
         $types = "";
         
-    // منع ظهور أي مهمة مكتملة ومدفوعة بالكامل أو ملغية في الداش بورد بشكل قاطع
-    $where_clauses[] = "NOT (TRIM(o.status) = 'مكتمل' AND TRIM(o.payment_status) = 'مدفوع') AND TRIM(o.status) != 'ملغي'";
+    // للمدير، لا نمنع أي حالة من الحالات المحددة في ملف الفلترة
+    if (!$is_manager) {
+        // منع ظهور أي مهمة مكتملة ومدفوعة بالكامل أو ملغية في الداش بورد للموظفين فقط
+        $where_clauses[] = "NOT (TRIM(o.status) = 'مكتمل' AND TRIM(o.payment_status) = 'مدفوع') AND TRIM(o.status) != 'ملغي'";
+    }
 
         $employee_role_query = $conn->prepare("SELECT role FROM employees WHERE employee_id = ?");
         $employee_role_query->bind_param("i", $filter_employee);
@@ -127,6 +227,7 @@ class RoleBasedQuery
         $employee_role_result = $employee_role_query->get_result();
         $employee_role = trim($employee_role_result->fetch_assoc()['role'] ?? '');
 
+        // تحديث منطق الفلترة لإضافة الشروط المفقودة
         switch ($employee_role) {
             case 'مصمم':
                 $where_clauses[] = "o.designer_id = ? AND TRIM(o.status) = 'قيد التصميم'";
@@ -136,11 +237,7 @@ class RoleBasedQuery
             case 'معمل':
             case 'معمل التنفيذ':
             case 'المعمل التنفيذي':
-                if ($is_manager) {
-                    $where_clauses[] = "o.workshop_id = ?";
-                } else {
-                    $where_clauses[] = "((o.workshop_id = ?) OR (o.workshop_id IS NULL AND TRIM(o.status) = 'قيد التنفيذ')) AND TRIM(o.status) IN ('قيد التنفيذ', 'جاهز للتسليم')";
-                }
+                $where_clauses[] = "o.workshop_id = ?";
                 $params[] = $filter_employee;
                 $types .= "i";
                 break;

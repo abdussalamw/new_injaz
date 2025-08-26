@@ -21,51 +21,16 @@ class InitialTasksQuery
                 LEFT JOIN products p ON oi.product_id = p.product_id
                 LEFT JOIN employees e ON o.designer_id = e.employee_id";
 
-        // استخدام الفئة الموحدة لبناء شروط الفلترة
-        if (Permissions::has_permission('order_view_all', $conn)) {
-            // للمستخدمين الذين يمكنهم رؤية جميع الطلبات (مثل المدير)
-            if (!empty($filter_employee)) {
-                // إذا كان هناك فلتر لموظف محدد
-                $conditions = RoleBasedQuery::buildRoleBasedConditions(
-                    '', // دور فارغ لاستخدام منطق فلترة الموظف المحدد
-                    $user_id,
-                    $filter_employee,
-                    $filter_status,
-                    $filter_payment,
-                    $search_query,
-                    $conn
-                );
-            } else {
-                // رؤية جميع الطلبات بدون فلتر موظف محدد
-                $conditions = RoleBasedQuery::buildRoleBasedConditions(
-                    'مدير',
-                    $user_id,
-                    '',
-                    $filter_status,
-                    $filter_payment,
-                    $search_query,
-                    $conn
-                );
-            }
-        } elseif (Permissions::has_permission('order_view_own', $conn)) {
-            // المستخدم يرى طلباته فقط حسب دوره
-            $conditions = RoleBasedQuery::buildRoleBasedConditions(
-                $user_role,
-                $user_id,
-                '', // لا نمرر filter_employee لأنه يرى طلباته فقط
-                $filter_status,
-                $filter_payment,
-                $search_query,
-                $conn
-            );
-        } else {
-            // لا يملك أي صلاحية
-            $conditions = [
-                'where_clauses' => ['1=0'],
-                'params' => [],
-                'types' => ''
-            ];
-        }
+        // منطق الفلترة الجديد
+        $conditions = RoleBasedQuery::buildRoleBasedConditions(
+            $user_role,
+            $user_id,
+            $filter_employee,
+            $filter_status,
+            $filter_payment,
+            $search_query,
+            $conn
+        );
 
         // بناء الاستعلام
         if (!empty($conditions['where_clauses'])) {

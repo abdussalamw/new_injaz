@@ -1,18 +1,15 @@
 {
     "orders": {
         "مدير": {
-            "enabled": false,
+            "enabled": true,
             "filter_type": "show",
             "stages": [
                 "قيد التصميم",
                 "قيد التنفيذ",
-                "جاهز للتسليم",
-                "تأكيد استلام العميل",
                 "مكتمل",
                 "ملغي"
             ],
-            "status": "all",
-            "custom_statuses": []
+            "view_scope": "all"
         },
         "مصمم": {
             "enabled": true,
@@ -22,11 +19,9 @@
                 "قيد التنفيذ",
                 "جاهز للتسليم",
                 "تأكيد استلام العميل",
-                "مكتمل",
-                "ملغي"
+                "مكتمل"
             ],
-            "status": "role_only",
-            "custom_statuses": []
+            "view_scope": "role"
         },
         "معمل": {
             "enabled": true,
@@ -35,51 +30,48 @@
                 "قيد التصميم",
                 "قيد التنفيذ",
                 "جاهز للتسليم",
-                "تأكيد استلام العميل",
                 "مكتمل",
                 "ملغي"
             ],
-            "status": "all",
-            "custom_statuses": []
+            "view_scope": "role",
+            "payment_stages": [
+                "مدفوع"
+            ]
         },
         "محاسب": {
+            "enabled": true,
+            "filter_type": "hide",
+            "stages": [
+                "مكتمل"
+            ],
+            "view_scope": "self",
+            "payment_stages": [
+                "مدفوع"
+            ]
+        },
+        "موظف": {
             "enabled": true,
             "filter_type": "show",
             "stages": [
                 "قيد التصميم",
                 "قيد التنفيذ",
                 "جاهز للتسليم",
-                "تأكيد استلام العميل",
                 "مكتمل",
                 "ملغي"
             ],
-            "status": "all",
-            "custom_statuses": []
-        },
-        "موظف": {
-            "enabled": false,
-            "filter_type": "show",
-            "stages": [],
-            "status": "all",
-            "custom_statuses": []
+            "view_scope": "self"
         }
     },
     "dashboard": {
         "مدير": {
             "enabled": true,
-            "filter_type": "show",
+            "filter_type": "hide",
             "stages": [
-                "قيد التصميم",
-                "قيد التنفيذ",
-                "جاهز للتسليم",
-                "تأكيد استلام العميل"
+                "مكتمل"
             ],
-            "status": "custom",
-            "custom_statuses": [
-                "active",
-                "pending",
-                "completed",
-                "waiting_payment"
+            "view_scope": "all",
+            "payment_stages": [
+                "مدفوع"
             ]
         },
         "مصمم": {
@@ -88,39 +80,38 @@
             "stages": [
                 "قيد التصميم"
             ],
-            "status": "custom",
-            "custom_statuses": [
-                "active"
-            ]
+            "view_scope": "role"
         },
         "معمل": {
             "enabled": true,
             "filter_type": "show",
             "stages": [
+                "قيد التصميم",
                 "قيد التنفيذ",
-                "مكتمل"
+                "جاهز للتسليم"
             ],
-            "status": "custom",
-            "custom_statuses": [
-                "active"
-            ]
+            "view_scope": "role"
         },
         "محاسب": {
             "enabled": true,
             "filter_type": "show",
             "stages": [
-                "جاهز للتسليم",
-                "تأكيد استلام العميل"
+                "تأكيد استلام العميل",
+                "مكتمل"
             ],
-            "status": "active",
-            "custom_statuses": []
+            "view_scope": "self"
         },
         "موظف": {
             "enabled": true,
             "filter_type": "show",
-            "stages": [],
-            "status": "all",
-            "custom_statuses": []
+            "stages": [
+                "قيد التصميم",
+                "قيد التنفيذ",
+                "جاهز للتسليم",
+                "مكتمل",
+                "ملغي"
+            ],
+            "view_scope": "self"
         }
     },
     "reports": {
@@ -131,12 +122,10 @@
                 "قيد التصميم",
                 "قيد التنفيذ",
                 "جاهز للتسليم",
-                "تأكيد استلام العميل",
                 "مكتمل",
                 "ملغي"
             ],
-            "status": "all",
-            "custom_statuses": []
+            "view_scope": "all"
         },
         "مصمم": {
             "enabled": true,
@@ -145,11 +134,9 @@
                 "قيد التصميم",
                 "قيد التنفيذ",
                 "جاهز للتسليم",
-                "تأكيد استلام العميل",
                 "مكتمل"
             ],
-            "status": "role_only",
-            "custom_statuses": []
+            "view_scope": "role"
         },
         "معمل": {
             "enabled": true,
@@ -159,10 +146,10 @@
                 "قيد التنفيذ",
                 "جاهز للتسليم",
                 "تأكيد استلام العميل",
-                "مكتمل"
+                "مكتمل",
+                "ملغي"
             ],
-            "status": "role_only",
-            "custom_statuses": []
+            "view_scope": "role"
         },
         "محاسب": {
             "enabled": true,
@@ -171,15 +158,19 @@
                 "تأكيد استلام العميل",
                 "مكتمل"
             ],
-            "status": "all",
-            "custom_statuses": []
+            "view_scope": "self"
         },
         "موظف": {
-            "enabled": false,
+            "enabled": true,
             "filter_type": "show",
-            "stages": [],
-            "status": "all",
-            "custom_statuses": []
+            "stages": [
+                "قيد التصميم",
+                "قيد التنفيذ",
+                "جاهز للتسليم",
+                "مكتمل",
+                "ملغي"
+            ],
+            "view_scope": "self"
         }
     }
 }

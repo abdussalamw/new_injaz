@@ -78,27 +78,46 @@ if (file_exists($settings_file)) {
 // معالجة زر التشغيل/التعطيل
 
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['role'], $_POST['context'])) {
-    $role = $_POST['role'];
-    $context = $_POST['context'];
-    if (isset($default_filters[$context][$role])) {
-        // زر التشغيل/التعطيل
-        if (isset($_POST['toggle'])) {
-            $default_filters[$context][$role]['enabled'] = !$default_filters[$context][$role]['enabled'];
-            $message = "تم تحديث الفلتر لدور $role في $context بنجاح!";
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // تحديث إعدادات الدور
+    if (isset($_POST['role'], $_POST['context'])) {
+        $role = $_POST['role'];
+        $context = $_POST['context'];
+        if (isset($default_filters[$context][$role])) {
+            // زر التشغيل/التعطيل
+            if (isset($_POST['toggle'])) {
+                $default_filters[$context][$role]['enabled'] = !$default_filters[$context][$role]['enabled'];
+                $message = "تم تحديث الفلتر لدور $role في $context بنجاح!";
+            }
+            // تغيير نوع الفلترة
+            if (isset($_POST['filter_type'])) {
+                $default_filters[$context][$role]['filter_type'] = $_POST['filter_type'];
+                $message = "تم تحديث نوع الفلترة لدور $role في $context بنجاح!";
+            }
+            // تغيير المراحل
+            if (isset($_POST['stages']) && is_array($_POST['stages'])) {
+                $default_filters[$context][$role]['stages'] = $_POST['stages'];
+                $message = "تم تحديث المراحل لدور $role في $context بنجاح!";
+            }
+            // تغيير حالات الدفع
+            if (isset($_POST['payment_stages']) && is_array($_POST['payment_stages'])) {
+                $default_filters[$context][$role]['payment_stages'] = $_POST['payment_stages'];
+                $message = "تم تحديث حالات الدفع لدور $role في $context بنجاح!";
+            }
+            // حفظ التغيير في الملف
+            file_put_contents($settings_file, json_encode($default_filters, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
         }
-        // تغيير نوع الفلترة
-        if (isset($_POST['filter_type'])) {
-            $default_filters[$context][$role]['filter_type'] = $_POST['filter_type'];
-            $message = "تم تحديث نوع الفلترة لدور $role في $context بنجاح!";
+    }
+    // تحديث view_scope للموظف
+    if (isset($_POST['set_employee_scope'], $_POST['employee_id'], $_POST['view_scope'])) {
+        $emp_id = (int)$_POST['employee_id'];
+        $scope = $_POST['view_scope'];
+        if (in_array($scope, ['all','role','self'])) {
+            $stmt = $conn->prepare("UPDATE employees SET view_scope = ? WHERE employee_id = ? LIMIT 1");
+            $stmt->bind_param("si", $scope, $emp_id);
+            $stmt->execute();
+            $message = "تم تحديث طريقة عرض المهام للموظف بنجاح!";
         }
-        // تغيير المراحل
-        if (isset($_POST['stages']) && is_array($_POST['stages'])) {
-            $default_filters[$context][$role]['stages'] = $_POST['stages'];
-            $message = "تم تحديث المراحل لدور $role في $context بنجاح!";
-        }
-        // حفظ التغيير في الملف
-        file_put_contents($settings_file, json_encode($default_filters, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     }
 }
 ?>
@@ -211,23 +230,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['role'], $_POST['conte
                                     <option value="show" <?= $default_filters[$context][$role]['filter_type'] === 'show' ? 'selected' : '' ?>>يعرض فقط المراحل التالية</option>
                                     <option value="hide" <?= $default_filters[$context][$role]['filter_type'] === 'hide' ? 'selected' : '' ?>>يخفي فقط المراحل التالية</option>
                                 </select>
-                                <div style="margin-top:5px;">
-                                    <?php
-                                    // الحالات التي يجب إخفاؤها من واجهة الإعدادات فقط
-                                    foreach ($all_statuses as $skey => $slabel) {
+                                <div style="margin-top:5px;display:flex;gap:30px;">
+                                    <div>
+                                        <strong style="font-size:13px;">حالات الطلب:</strong>
+                                        <?php
+                                        foreach ($all_statuses as $skey => $slabel) {
+                                            ?>
+                                            <label style="display:block;font-size:13px;">
+                                                <input type="checkbox" name="stages[]" value="<?= $skey ?>" <?= in_array($skey, $default_filters[$context][$role]['stages']) ? 'checked' : '' ?> onchange="this.form.submit()">
+                                                <?= htmlspecialchars($slabel) ?>
+                                            </label>
+                                        <?php }
                                         ?>
-                                        <label style="display:block;font-size:13px;">
-                                            <input type="checkbox" name="stages[]" value="<?= $skey ?>" <?= in_array($skey, $default_filters[$context][$role]['stages']) ? 'checked' : '' ?> onchange="this.form.submit()">
-                                            <?= htmlspecialchars($slabel) ?>
-                                        </label>
-                                    <?php }
-                                    ?>
+                                    </div>
+                                    <div>
+                                        <strong style="font-size:13px;">حالات الدفع:</strong>
+                                        <?php
+                                        $payment_statuses = [
+                                            'غير مدفوع' => 'غير مدفوع',
+                                            'مدفوع' => 'مدفوع',
+                                            'مدفوع جزئياً' => 'مدفوع جزئياً'
+                                        ];
+                                        foreach ($payment_statuses as $pkey => $plabel) {
+                                            ?>
+                                            <label style="display:block;font-size:13px;">
+                                                <input type="checkbox" name="payment_stages[]" value="<?= $pkey ?>" <?= isset($default_filters[$context][$role]['payment_stages']) && in_array($pkey, $default_filters[$context][$role]['payment_stages']) ? 'checked' : '' ?> onchange="this.form.submit()">
+                                                <?= htmlspecialchars($plabel) ?>
+                                            </label>
+                                        <?php }
+                                        ?>
+                                    </div>
                                 </div>
                             </form>
                         </td>
                     <?php endforeach; ?>
                 </tr>
             <?php endforeach; ?>
+        </table>
+
+        <hr>
+        <h4 style="color:#D44759;margin-top:40px;">تخصيص عرض المهام لكل موظف</h4>
+        <table class="table table-bordered table-sm" style="margin-top:20px;">
+            <tr>
+                <th>الموظف</th>
+                <th>الدور</th>
+                <th>عرض المهام</th>
+            </tr>
+            <?php
+            $employees_res = $conn->query("SELECT employee_id, name, role, view_scope FROM employees ORDER BY name");
+            while ($emp = $employees_res->fetch_assoc()):
+            ?>
+            <tr>
+                <td><?= htmlspecialchars($emp['name']) ?></td>
+                <td><?= htmlspecialchars($emp['role']) ?></td>
+                <td>
+                    <form method="post" style="display:inline;">
+                        <input type="hidden" name="set_employee_scope" value="1">
+                        <input type="hidden" name="employee_id" value="<?= (int)$emp['employee_id'] ?>">
+                        <select name="view_scope" onchange="this.form.submit()" class="form-select form-select-sm" style="width:140px;display:inline-block;">
+                            <option value="all" <?= $emp['view_scope'] === 'all' ? 'selected' : '' ?>>جميع الموظفين</option>
+                            <option value="role" <?= $emp['view_scope'] === 'role' ? 'selected' : '' ?>>جميع موظفي الدور</option>
+                            <option value="self" <?= $emp['view_scope'] === 'self' ? 'selected' : '' ?>>مهامه فقط</option>
+                        </select>
+                    </form>
+                </td>
+            </tr>
+            <?php endwhile; ?>
         </table>
         <p style="text-align:center;color:#888;font-size:13px;">هذه الصفحة مخفية ولا يمكن الوصول إليها إلا من الرابط المباشر، وتظهر فقط للمدير أو الأدمن.</p>
     </div>
