@@ -113,7 +113,7 @@ class OrderController
                 $types .= "s";
             }
         } elseif (Permissions::has_permission('order_view_own', $this->conn)) {
-            $role_conditions = \App\Core\RoleBasedQuery::buildRoleBasedConditions($user_role, $user_id, '', $filter_status, $filter_payment, $search_query, $this->conn, true);
+            $role_conditions = \App\Core\RoleBasedQuery::buildRoleBasedConditions($user_role, $user_id, '', $filter_status, $filter_payment, $search_query, $this->conn, true, 'orders', true, true);
             $where_clauses = array_merge($where_clauses, $role_conditions['where_clauses']);
             $params = array_merge($params, $role_conditions['params']);
             $types .= $role_conditions['types'];

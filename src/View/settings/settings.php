@@ -8,7 +8,8 @@ if (!isset($_SESSION['user_role']) || !in_array($_SESSION['user_role'], ['مدي
 }
 $page_title = 'إعدادات النظام';
 $tabs = [
-    'role_filters' => 'فلترة الأدوار',
+    'role_filters_new' => 'فلترة الأدوار الجديدة',
+    'role_filters' => 'فلترة الأدوار (القديمة)',
     'mabs' => 'ماب',
     'data-guide' => 'جالاري',
     'test' => 'اختبار شامل'
@@ -43,6 +44,7 @@ $current_tab = isset($_GET['tab']) && isset($tabs[$_GET['tab']]) ? $_GET['tab'] 
             <?php
             // تضمين محتوى كل تبويب حسب الملف
             $tab_files = [
+                'role_filters_new' => 'role_filters_new.php',
                 'role_filters' => 'role_filters.php',
                 'mabs' => 'mabs.php',
                 'data-guide' => 'data-guide.php',

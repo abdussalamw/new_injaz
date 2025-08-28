@@ -1,6 +1,18 @@
 <?php
 $page_title = 'لوحة التحكم';
 
+// تهيئة التطبيق
+require_once __DIR__ . '/../Bootstrap.php';
+\App\Bootstrap\Bootstrap::initialize();
+
+// الحصول على اتصال قاعدة البيانات
+$conn = \App\Bootstrap\Bootstrap::getDatabaseConnection();
+
+// فحص التوثيق
+if (!\App\Bootstrap\Bootstrap::checkAuthentication()) {
+    \App\Bootstrap\Bootstrap::redirectToLogin();
+}
+
 // دالة لجلب بيانات الرسوم البيانية (تأكد من أنها معرفة مرة واحدة فقط)
 if (!function_exists('get_chart_data')) {
     function get_chart_data($type, $conn) {
@@ -97,7 +109,7 @@ $initial_filter_payment = $_GET['payment'] ?? '';
 $initial_filter_search = $_GET['search'] ?? '';
 $initial_sort_by = $_GET['sort_by'] ?? 'latest';
 
-$res = \App\Core\InitialTasksQuery::fetch_tasks($conn, $initial_filter_status, $initial_filter_employee, $initial_filter_payment, $initial_filter_search, $initial_sort_by);
+$res = \App\Core\InitialTasksQuery::fetch_tasks($conn, $initial_filter_status, $initial_filter_employee, $initial_filter_payment, $initial_filter_search, $initial_sort_by, 'dashboard', true);
 
 // 5. تحديد العنوان والتبويب النشط
 $dashboard_title = \App\Core\RoleHelper::getDashboardTitle($conn);

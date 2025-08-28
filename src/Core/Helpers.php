@@ -90,7 +90,7 @@ class Helpers
 
     public static function get_next_actions(array $order, string $user_role, int $user_id, \mysqli $conn, string $context = 'dashboard'): array
     {
-        
+
         if ($context === 'orders_page') {
             return [];
         }
@@ -98,7 +98,22 @@ class Helpers
         $actions = [];
         $status = trim($order['status'] ?? '');
         $is_delivered = !empty($order['delivered_at']);
-        $is_paid = !empty($order['payment_settled_at']);
+
+        // حساب حالة الدفع بنفس منطق get_payment_status_display
+        $total_amount = (float)($order['total_amount'] ?? 0);
+        $deposit_amount = (float)($order['deposit_amount'] ?? 0);
+        $payment_settled_at = $order['payment_settled_at'] ?? null;
+
+        $is_paid = false;
+        // إذا كان الطلب مكتمل وله تاريخ تسوية الدفع، فهو مدفوع
+        if (!empty($payment_settled_at) && trim($order['status'] ?? '') === 'مكتمل') {
+            $is_paid = true;
+        }
+        // أو إذا كان له مبالغ صحيحة وتم دفع المبلغ الكامل
+        elseif ($total_amount > 0 && $deposit_amount >= $total_amount) {
+            $is_paid = true;
+        }
+
         $is_creator = ($order['created_by'] == $user_id);
         $is_designer = ($order['designer_id'] == $user_id);
 

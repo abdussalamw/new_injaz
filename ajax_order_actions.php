@@ -104,6 +104,14 @@ try {
             }
 
             $is_paid = ($order['payment_status'] === 'مدفوع');
+            // تحديث: استخدام منطق حساب حالة الدفع الجديد (نفس البطاقات)
+            $total_amount = (float)($order['total_amount'] ?? 0);
+            $deposit_amount = (float)($order['deposit_amount'] ?? 0);
+            $is_paid = ($total_amount > 0 && $deposit_amount >= $total_amount);
+            // تحديث: التحقق من payment_settled_at للحالات الخاصة
+            if (!$is_paid && !empty($order['payment_settled_at']) && trim($order['status']) === 'مكتمل') {
+                $is_paid = true;
+            }
             if ($is_paid) {
                 $message = 'تم تأكيد الاستلام. سيتم إخفاء الطلب من لوحة المهام لأنه مكتمل ومدفوع.';
             } else {

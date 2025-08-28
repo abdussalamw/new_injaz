@@ -31,54 +31,13 @@ class RoleBasedQuery
         string $search_query = '',
         \mysqli $conn = null,
         bool $ignore_default_status_filters = false,
-        string $context = 'orders',
-        bool $use_new_system = false,
-        bool $use_json_settings = true
+        string $context = 'orders'
     ): array {
         $where_clauses = [];
         $params = [];
         $types = "";
 
-        // التحقق من استخدام النظام الجديد
-        if ($use_new_system) {
-            if ($use_json_settings) {
-                // استخدام النظام الجديد المبني على ملفات JSON
-                self::applyNewFilterSettingsFromJSON($where_clauses, $params, $types, $user_role, $user_id, $context);
-            } else {
-                // استخدام النظام الجديد المبني على قاعدة البيانات
-                self::applyNewFilterSettings($where_clauses, $params, $types, $user_role, $user_id, $context, $conn);
-            }
-
-            // تطبيق الفلاتر الإضافية
-            if (!empty($filter_status)) {
-                $where_clauses[] = "o.status = ?";
-                $params[] = $filter_status;
-                $types .= "s";
-            }
-
-            if (!empty($filter_payment)) {
-                $where_clauses[] = "o.payment_status = ?";
-                $params[] = $filter_payment;
-                $types .= "s";
-            }
-
-            if (!empty($search_query)) {
-                $where_clauses[] = "(o.order_id LIKE ? OR c.company_name LIKE ? OR p.name LIKE ?)";
-                $search_param = "%$search_query%";
-                $params[] = $search_param;
-                $params[] = $search_param;
-                $params[] = $search_param;
-                $types .= "sss";
-            }
-
-            return [
-                'where_clauses' => $where_clauses,
-                'params' => $params,
-                'types' => $types
-            ];
-        }
-
-        // النظام القديم (الكود الأصلي)
+        // تحميل إعدادات الفلترة من ملف JSON
         $settings_file = __DIR__ . '/../View/settings/role_filters.json';
         $filters = [];
         if (file_exists($settings_file)) {
@@ -275,13 +234,7 @@ class RoleBasedQuery
     // للمدير، لا نمنع أي حالة من الحالات المحددة في ملف الفلترة
     if (!$is_manager) {
         // منع ظهور أي مهمة مكتملة ومدفوعة بالكامل أو ملغية في الداش بورد للموظفين فقط
-        // استخدام منطق حساب حالة الدفع الجديد (نفس البطاقات)
-        $where_clauses[] = "NOT (
-            (TRIM(o.status) = 'مكتمل' AND (
-                (o.total_amount > 0 AND o.deposit_amount >= o.total_amount) OR
-                (o.payment_settled_at IS NOT NULL)
-            ))
-        ) AND TRIM(o.status) != 'ملغي'";
+        $where_clauses[] = "NOT (TRIM(o.status) = 'مكتمل' AND TRIM(o.payment_status) = 'مدفوع') AND TRIM(o.status) != 'ملغي'";
     }
 
         $employee_role_query = $conn->prepare("SELECT role FROM employees WHERE employee_id = ?");
@@ -374,138 +327,6 @@ class RoleBasedQuery
                 
             default:
                 return [];
-        }
-    }
-
-    /**
-     * قراءة وتطبيق الإعدادات الجديدة من ملف JSON
-     */
-    public static function applyNewFilterSettingsFromJSON(
-        array &$where_clauses,
-        array &$params,
-        string &$types,
-        string $user_role,
-        int $user_id,
-        string $context,
-        string $settings_file_path = null
-    ): void {
-        if (!$settings_file_path) {
-            $settings_file_path = __DIR__ . '/../View/settings/employee_filter_settings_new.json';
-        }
-
-        // قراءة الإعدادات من ملف JSON
-        if (!file_exists($settings_file_path)) {
-            return; // لا يوجد ملف إعدادات
-        }
-
-        $json = file_get_contents($settings_file_path);
-        $all_settings = json_decode($json, true);
-
-        if (!$all_settings || !isset($all_settings['employees'][$user_id])) {
-            return; // لا توجد إعدادات لهذا الموظف
-        }
-
-        $employee_settings = $all_settings['employees'][$user_id];
-        $settings = $employee_settings['settings'][$context] ?? [];
-
-        if (empty($settings)) {
-            return; // لا توجد إعدادات لهذه الصفحة
-        }
-
-        // تطبيق نطاق العرض
-        $view_scope = $settings['view_scope'] ?? 'self';
-
-        if ($view_scope === 'all') {
-            // لا حاجة لإضافة شروط إضافية
-        } elseif ($view_scope === 'role') {
-            // منطق الفلترة حسب الدور الفعلي
-            if (in_array($user_role, ['مصمم'])) {
-                $where_clauses[] = "o.designer_id = ?";
-                $params[] = $user_id;
-                $types .= "i";
-            } elseif (in_array($user_role, ['معمل', 'معمل التنفيذ', 'المعمل التنفيذي'])) {
-                $where_clauses[] = "o.workshop_id = ?";
-                $params[] = $user_id;
-                $types .= "i";
-            } elseif ($user_role === 'محاسب') {
-                $where_clauses[] = "o.payment_settled_at IS NULL AND o.total_amount > 0";
-            } else {
-                $where_clauses[] = "o.status IN ('جديد', 'قيد التصميم', 'قيد التنفيذ', 'جاهز للتسليم')";
-            }
-        } elseif ($view_scope === 'self') {
-            // منطق الفلترة للمهام الخاصة
-            if (in_array($user_role, ['مصمم'])) {
-                $where_clauses[] = "o.designer_id = ?";
-                $params[] = $user_id;
-                $types .= "i";
-            } elseif (in_array($user_role, ['معمل', 'معمل التنفيذ', 'المعمل التنفيذي'])) {
-                $where_clauses[] = "o.workshop_id = ?";
-                $params[] = $user_id;
-                $types .= "i";
-            } elseif ($user_role === 'محاسب') {
-                $where_clauses[] = "o.payment_settled_at IS NULL AND o.total_amount > 0";
-            } else {
-                $where_clauses[] = "e.employee_id = ?";
-                $params[] = $user_id;
-                $types .= "i";
-            }
-        }
-
-        // تطبيق فلاتر العرض
-        if (!empty($settings['show_stages'])) {
-            $placeholders = implode(',', array_fill(0, count($settings['show_stages']), '?'));
-            $where_clauses[] = "o.status IN ($placeholders)";
-            foreach ($settings['show_stages'] as $stage) {
-                $params[] = $stage;
-                $types .= "s";
-            }
-        }
-
-        // تطبيق فلاتر الإخفاء
-        if (!empty($settings['hide_stages'])) {
-            $placeholders = implode(',', array_fill(0, count($settings['hide_stages']), '?'));
-            $where_clauses[] = "o.status NOT IN ($placeholders)";
-            foreach ($settings['hide_stages'] as $stage) {
-                $params[] = $stage;
-                $types .= "s";
-            }
-        }
-
-        // تطبيق فلاتر الدفع
-        if (!empty($settings['show_payment_stages'])) {
-            $placeholders = implode(',', array_fill(0, count($settings['show_payment_stages']), '?'));
-            $where_clauses[] = "o.payment_status IN ($placeholders)";
-            foreach ($settings['show_payment_stages'] as $stage) {
-                $params[] = $stage;
-                $types .= "s";
-            }
-        }
-
-        if (!empty($settings['hide_payment_stages'])) {
-            $placeholders = implode(',', array_fill(0, count($settings['hide_payment_stages']), '?'));
-            $where_clauses[] = "o.payment_status NOT IN ($placeholders)";
-            foreach ($settings['hide_payment_stages'] as $stage) {
-                $params[] = $stage;
-                $types .= "s";
-            }
-        }
-
-        // تطبيق التركيبات المستبعدة
-        if (!empty($settings['exclude_combinations'])) {
-            $exclude_conditions = [];
-            foreach ($settings['exclude_combinations'] as $comb) {
-                if (!empty($comb['status']) && !empty($comb['payment_status'])) {
-                    $exclude_conditions[] = "(o.status = ? AND o.payment_status = ?)";
-                    $params[] = $comb['status'];
-                    $types .= "s";
-                    $params[] = $comb['payment_status'];
-                    $types .= "s";
-                }
-            }
-
-            if (!empty($exclude_conditions)) {
-                $where_clauses[] = "NOT (" . implode(" OR ", $exclude_conditions) . ")";
-            }
         }
     }
 }

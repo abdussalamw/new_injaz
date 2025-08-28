@@ -49,7 +49,7 @@ $filter_search = $_GET['search'] ?? '';
 $sort_by = $_GET['sort_by'] ?? 'latest';
 
 // Fetch tasks
-$res = \App\Core\InitialTasksQuery::fetch_tasks($conn, $filter_status, $filter_employee, $filter_payment, $filter_search, $sort_by);
+$res = \App\Core\InitialTasksQuery::fetch_tasks($conn, $filter_status, $filter_employee, $filter_payment, $filter_search, $sort_by, 'dashboard', true);
 
 if ($res && $res->num_rows > 0) {
     while ($row = $res->fetch_assoc()) {
