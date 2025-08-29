@@ -80,6 +80,21 @@
                     "show_payment_stages": [],
                     "hide_payment_stages": [],
                     "exclude_combinations": []
+                },
+                "orders": {
+                    "view_scope": "self",
+                    "show_stages": [
+                        "قيد التصميم",
+                        "قيد التنفيذ",
+                        "جاهز للتسليم",
+                        "تأكيد استلام العميل",
+                        "مكتمل",
+                        "ملغي"
+                    ],
+                    "hide_stages": [],
+                    "show_payment_stages": [],
+                    "hide_payment_stages": [],
+                    "exclude_combinations": []
                 }
             }
         },
@@ -196,7 +211,7 @@
             }
         }
     },
-    "last_updated": "2025-08-28 18:26:44",
+    "last_updated": "2025-08-28 20:49:09",
     "version": "2.0",
     "description": "ملف إعدادات الفلترة الموحد - يشمل جميع الموظفين"
 }
