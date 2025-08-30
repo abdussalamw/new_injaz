@@ -128,56 +128,29 @@ if (!function_exists('get_current_responsible')) {
                         <?php
                         if (!function_exists('render_timeline_b_compact')) {
                                 function render_timeline_b_compact(array $t): string {
+                                        // استخدام الدالة الموحدة لحساب التوقيت
+                                        $timeline = \App\Core\Helpers::calculate_order_timeline($t);
+                                        
                                         $now = new DateTime();
                                         $orderStart = !empty($t['order_date']) ? new DateTime($t['order_date']) : $now;
-                                        $designStart = !empty($t['design_started_at']) ? new DateTime($t['design_started_at']) : null;
-                                        $designEnd = !empty($t['design_completed_at']) ? new DateTime($t['design_completed_at']) : null;
-                                        $execStart = !empty($t['execution_started_at']) ? new DateTime($t['execution_started_at']) : null;
-                                        $execEnd = !empty($t['execution_completed_at']) ? new DateTime($t['execution_completed_at']) : null;
+                                        $designStart = $timeline['design_start'];
+                                        $designEnd = $timeline['design_end'];
+                                        $execStart = $timeline['execution_start'];
+                                        $execEnd = $timeline['execution_end'];
                                         $status = $t['status'] ?? '';
                                         $role = \App\Core\RoleHelper::getCurrentUserRole();
                                         $isDesigner = \App\Core\RoleHelper::isDesigner();
                                         $isWorkshop = \App\Core\RoleHelper::isWorkshop();
 
-                                        // Durations from database or calculated live
-                                        $designDur = !empty($t['design_duration']) ? (int)$t['design_duration'] : null;
-                                        $execDur = !empty($t['execution_duration']) ? (int)$t['execution_duration'] : null;
-                                        $totalDur = !empty($t['total_duration']) ? (int)$t['total_duration'] : null;
+                                        // استخدام المدد من الدالة الموحدة
+                                        $designDur = $timeline['design_duration'];
+                                        $execDur = $timeline['execution_duration'];
+                                        $totalDur = $timeline['total_duration'];
 
-                                        // Live calculation for active timers
-                                        if ($designDur === null) {
-                                            if ($designEnd && $designStart) {
-                                                $designDur = $designEnd->getTimestamp() - $designStart->getTimestamp();
-                                            } elseif (!$designEnd && $status === 'قيد التصميم' && $designStart) {
-                                                $designDur = $now->getTimestamp() - $designStart->getTimestamp();
-                                            }
-                                        }
-                                        if ($execDur === null) {
-                                            if ($execEnd && $execStart) {
-                                                $execDur = $execEnd->getTimestamp() - $execStart->getTimestamp();
-                                            } elseif ($status === 'قيد التنفيذ' && $execStart) {
-                                                $execDur = $now->getTimestamp() - $execStart->getTimestamp();
-                                            }
-                                        }
-                                        if ($totalDur === null) {
-                                            if ($execEnd) {
-                                                $totalDur = $execEnd->getTimestamp() - $orderStart->getTimestamp();
-                                            } else {
-                                                $totalDur = $now->getTimestamp() - $orderStart->getTimestamp();
-                                            }
-                                        }
-
-                                        $fmtDur = function($sec){
-                                            if($sec===null) return '0د';
-                                            if($sec < 60) return '1د';
-                                            $d=floor($sec/86400);
-                                            $h=floor(($sec%86400)/3600);
-                                            $m=floor(($sec%3600)/60);
-                                            $parts=[];
-                                            if($d>0)$parts[]=$d.'ي';
-                                            if($h>0)$parts[]=$h.'س';
-                                            if($m>0 && $d==0)$parts[]=$m.'د';
-                                            return implode(' ',array_slice($parts,0,2));
+                                        $fmtDur = function($sec) use ($isDesigner, $isWorkshop) {
+                                            // استخدام التنسيق التفصيلي للمصممين والمعامل
+                                            $isDetailed = $isDesigner || $isWorkshop;
+                                            return \App\Core\Helpers::format_duration_by_role($sec, $isDetailed);
                                         };
                                         // صيغ نصية للمدد
                                         $designDurTxt = $designDur!==null ? $fmtDur($designDur) : (($status==='قيد التصميم') ? 'لم يبدأ' : '—');
@@ -272,21 +245,36 @@ if (!function_exists('get_current_responsible')) {
                                         <?php if(!defined('TIMELINE_B_COMPACT_JS')): define('TIMELINE_B_COMPACT_JS', true); ?>
                                         <script>
                                         (function(){
-                                            function fmtPhase(sec){
+                                            function fmtPhaseDetailed(sec){
                                                 if(sec<0) sec=0;
-                                                if(sec<60) return (sec<=1?1:sec)+'ث'; // ثوانٍ
-                                                if(sec<3600){ // أقل من ساعة
+                                                if(sec<60) return (sec<=1?1:sec)+'ث';
+                                                var d=Math.floor(sec/86400);
+                                                var hTotal=Math.floor(sec/3600);
+                                                var hDay=Math.floor((sec%86400)/3600);
+                                                var mRem=Math.floor((sec%3600)/60);
+                                                var sRem=sec%60;
+                                                if(d>0){
+                                                    return d+'ي '+(hDay>0? hDay+'س ':'')+(mRem>0? mRem+'د ':'')+(sRem>0 && hDay==0? sRem+'ث':'');
+                                                }
+                                                if(hTotal>0){
+                                                    return hTotal+'س '+(mRem>0? mRem+'د ':'')+(sRem>0? sRem+'ث':'');
+                                                }
+                                                return mRem+'د '+(sRem>0? sRem+'ث':'');
+                                            }
+                                            function fmtPhaseCompact(sec){
+                                                if(sec<0) sec=0;
+                                                if(sec<60) return (sec<=1?1:sec)+'ث';
+                                                if(sec<3600){
                                                     var m=Math.floor(sec/60);
                                                     return m+'د';
                                                 }
                                                 var d=Math.floor(sec/86400);
                                                 var hTotal=Math.floor(sec/3600);
-                                                var hDay=Math.floor((sec%86400)/3600); // ساعات داخل اليوم الحالي
+                                                var hDay=Math.floor((sec%86400)/3600);
                                                 var mRem=Math.floor((sec%3600)/60);
-                                                if(d>0){ // يوم فأكثر: يوم + ساعات اليوم
+                                                if(d>0){
                                                     return d+'ي '+(hDay>0? hDay+'س':'');
                                                 }
-                                                // من ساعة إلى أقل من يوم: ساعات + (دقائق إن وُجدت)
                                                 return hTotal+'س'+(mRem>0? ' '+mRem+'د':'');
                                             }
                                             function fmtTotal(sec){
@@ -306,9 +294,11 @@ if (!function_exists('get_current_responsible')) {
                                                 document.querySelectorAll('.timeline-b-compact .live-dur').forEach(function(el){
                                                     var start=parseInt(el.getAttribute('data-start'),10); if(!start) return; var sec=Math.floor((now-start)/1000);
                                                     var isTotal = el.getAttribute('data-format')==='total';
-                                                    var txt = isTotal ? fmtTotal(sec) : fmtPhase(sec);
+                                                    // التحقق من الدور لاختيار التنسيق المناسب
+                                                    var isDesignerOrWorkshop = el.closest('.timeline-b-compact').querySelector('.phase.design') !== null ||
+                                                                             el.closest('.timeline-b-compact').querySelector('.phase.exec') !== null;
+                                                    var txt = isTotal ? fmtTotal(sec) : (isDesignerOrWorkshop ? fmtPhaseDetailed(sec) : fmtPhaseCompact(sec));
                                                     el.textContent='منذ '+txt;
-                                                    // تلميح تفصيلي hh:mm:ss + إجمالي الثواني
                                                     var hh=Math.floor(sec/3600), mm=Math.floor((sec%3600)/60), ss=sec%60;
                                                     el.title = (isTotal? 'إجمالي' : 'المدة')+': '+(hh<10?'0'+hh:hh)+':' + (mm<10?'0'+mm:mm)+':' + (ss<10?'0'+ss:ss)+' ('+sec+'ث)';
                                                 });

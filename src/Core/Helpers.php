@@ -232,15 +232,96 @@ class Helpers
         }
     }
 
+    /**
+     * دالة موحدة لحساب توقيت الطلب بالكامل
+     * تستخدم الحقول الصحيحة مع الرجوع للبدائل
+     */
+    public static function calculate_order_timeline(array $order): array
+    {
+        $timeline = [
+            'design_duration' => null,
+            'execution_duration' => null,
+            'total_duration' => null,
+            'design_start' => null,
+            'design_end' => null,
+            'execution_start' => null,
+            'execution_end' => null,
+            'is_current_design' => false,
+            'is_current_execution' => false
+        ];
+
+        try {
+            $now = new DateTime();
+            $order_date = !empty($order['order_date']) ? new DateTime($order['order_date']) : $now;
+            $status = $order['status'] ?? '';
+
+            // تحديد بداية التصميم (موحدة على order_date)
+            $design_start = null;
+            if (!empty($order['order_date'])) {
+                $design_start = new DateTime($order['order_date']);
+            }
+
+            // تحديد نهاية التصميم
+            $design_end = !empty($order['design_completed_at']) ? new DateTime($order['design_completed_at']) : null;
+
+            // تحديد بداية التنفيذ (مع الأولوية للحقل الفعلي)
+            $execution_start = null;
+            if (!empty($order['execution_started_at'])) {
+                $execution_start = new DateTime($order['execution_started_at']);
+            } elseif (!empty($order['design_completed_at'])) {
+                $execution_start = new DateTime($order['design_completed_at']);
+            }
+
+            // تحديد نهاية التنفيذ
+            $execution_end = !empty($order['execution_completed_at']) ? new DateTime($order['execution_completed_at']) : null;
+
+            // حساب مدة التصميم
+            if ($design_start && $design_end) {
+                $timeline['design_duration'] = $design_end->getTimestamp() - $design_start->getTimestamp();
+            } elseif ($design_start && $status === 'قيد التصميم') {
+                $timeline['design_duration'] = $now->getTimestamp() - $design_start->getTimestamp();
+                $timeline['is_current_design'] = true;
+            }
+
+            // حساب مدة التنفيذ
+            if ($execution_start && $execution_end) {
+                $timeline['execution_duration'] = $execution_end->getTimestamp() - $execution_start->getTimestamp();
+            } elseif ($execution_start && $status === 'قيد التنفيذ') {
+                $timeline['execution_duration'] = $now->getTimestamp() - $execution_start->getTimestamp();
+                $timeline['is_current_execution'] = true;
+            }
+
+            // حساب المدة الإجمالية
+            if ($execution_end) {
+                $timeline['total_duration'] = $execution_end->getTimestamp() - $order_date->getTimestamp();
+            } else {
+                $timeline['total_duration'] = $now->getTimestamp() - $order_date->getTimestamp();
+            }
+
+            // حفظ التواريخ للاستخدام في العرض
+            $timeline['design_start'] = $design_start;
+            $timeline['design_end'] = $design_end;
+            $timeline['execution_start'] = $execution_start;
+            $timeline['execution_end'] = $execution_end;
+
+        } catch (Exception $e) {
+            // في حالة خطأ، نعيد القيم الافتراضية
+        }
+
+        return $timeline;
+    }
+
     public static function generate_timeline_bar(array $order): string
     {
         try {
-            $order_date = new DateTime($order['order_date']);
+            // استخدام الدالة الموحدة لحساب التوقيت
+            $timeline = self::calculate_order_timeline($order);
             $now = new DateTime();
             $stages = [];
 
-            if ($order['status'] === 'قيد التنفيذ' && empty($order['design_completed_at'])) {
-                $duration = $now->getTimestamp() - $order_date->getTimestamp();
+            // التعامل مع الطلبات القديمة التي لا تحتوي على بيانات المراحل
+            if ($order['status'] === 'قيد التنفيذ' && empty($order['design_completed_at']) && empty($order['design_started_at'])) {
+                $duration = $timeline['total_duration'];
                 $label = 'إجمالي الوقت: ' . self::format_duration($duration);
                 $title = 'بيانات المراحل غير متوفرة لهذا الطلب القديم';
                 return '<div class="progress" style="height: 18px; font-size: 0.7rem;">'
@@ -248,34 +329,26 @@ class Helpers
                      . '</div>';
             }
 
-            if (!empty($order['design_completed_at'])) {
-                $design_end = new DateTime($order['design_completed_at']);
-                $duration = $design_end->getTimestamp() - $order_date->getTimestamp();
-                if ($duration > 0) {
-                    $stages[] = ['label' => 'تصميم: ' . self::format_duration($duration), 'duration' => $duration, 'class' => 'bg-info', 'title' => 'مرحلة التصميم: ' . self::format_duration($duration)];
-                }
-            } elseif ($order['status'] === 'قيد التصميم') {
-                $duration = $now->getTimestamp() - $order_date->getTimestamp();
-                if ($duration > 0) {
-                    $stages[] = ['label' => 'تصميم (حالي): ' . self::format_duration($duration), 'duration' => $duration, 'class' => 'bg-info', 'title' => 'المرحلة الحالية (تصميم): ' . self::format_duration($duration)];
-                }
+            // مرحلة التصميم
+            if ($timeline['design_duration'] !== null) {
+                $label_suffix = $timeline['is_current_design'] ? ' (حالي)' : '';
+                $stages[] = [
+                    'label' => 'تصميم' . $label_suffix . ': ' . self::format_duration($timeline['design_duration']),
+                    'duration' => $timeline['design_duration'],
+                    'class' => 'bg-info',
+                    'title' => 'مرحلة التصميم' . $label_suffix . ': ' . self::format_duration($timeline['design_duration'])
+                ];
             }
 
-            if (!empty($order['design_completed_at'])) {
-                $design_end = new DateTime($order['design_completed_at']);
-
-                if (!empty($order['execution_completed_at'])) {
-                    $exec_end = new DateTime($order['execution_completed_at']);
-                    $duration = $exec_end->getTimestamp() - $design_end->getTimestamp();
-                    if ($duration > 0) {
-                        $stages[] = ['label' => 'تنفيذ: ' . self::format_duration($duration), 'duration' => $duration, 'class' => 'bg-primary', 'title' => 'مرحلة التنفيذ: ' . self::format_duration($duration)];
-                    }
-                } elseif ($order['status'] === 'قيد التنفيذ') {
-                    $duration = $now->getTimestamp() - $design_end->getTimestamp();
-                    if ($duration > 0) {
-                        $stages[] = ['label' => 'تنفيذ (حالي): ' . self::format_duration($duration), 'duration' => $duration, 'class' => 'bg-primary', 'title' => 'المرحلة الحالية (تنفيذ): ' . self::format_duration($duration)];
-                    }
-                }
+            // مرحلة التنفيذ
+            if ($timeline['execution_duration'] !== null) {
+                $label_suffix = $timeline['is_current_execution'] ? ' (حالي)' : '';
+                $stages[] = [
+                    'label' => 'تنفيذ' . $label_suffix . ': ' . self::format_duration($timeline['execution_duration']),
+                    'duration' => $timeline['execution_duration'],
+                    'class' => 'bg-primary',
+                    'title' => 'مرحلة التنفيذ' . $label_suffix . ': ' . self::format_duration($timeline['execution_duration'])
+                ];
             }
 
             if (empty($stages)) {
@@ -381,5 +454,61 @@ class Helpers
             echo '</pre></details>';
         }
         echo '</div>';
+    }
+
+    /**
+     * تنسيق المدة بالتفصيل (للمصممين والمعامل)
+     * @param int|null $seconds
+     * @return string
+     */
+    public static function format_duration_detailed(?int $seconds): string {
+        if ($seconds === null) return '0د';
+        if ($seconds < 60) return '1د'; // أقل من دقيقة نعرض دقيقة واحدة
+
+        $d = floor($seconds / 86400);
+        $h = floor(($seconds % 86400) / 3600);
+        $m = floor(($seconds % 3600) / 60);
+        $s = $seconds % 60;
+
+        $parts = [];
+        if ($d > 0) $parts[] = $d . 'ي';
+        if ($h > 0) $parts[] = $h . 'س';
+        if ($m > 0 || ($d == 0 && $h == 0)) $parts[] = $m . 'د';
+        if ($s > 0 && $d == 0 && $h == 0) $parts[] = $s . 'ث';
+
+        return implode(' ', array_slice($parts, 0, 4)); // عرض حتى 4 أجزاء كحد أقصى
+    }
+
+    /**
+     * تنسيق المدة المختصر (للمديرين والآخرين)
+     * @param int|null $seconds
+     * @return string
+     */
+    public static function format_duration_compact(?int $seconds): string {
+        if ($seconds === null) return '0د';
+        if ($seconds < 60) return '1د'; // أقل من دقيقة نعرض دقيقة واحدة
+
+        $d = floor($seconds / 86400);
+        $h = floor(($seconds % 86400) / 3600);
+        $m = floor(($seconds % 3600) / 60);
+
+        $parts = [];
+        if ($d > 0) $parts[] = $d . 'ي';
+        if ($h > 0) $parts[] = $h . 'س';
+        if ($m > 0 && $d == 0) $parts[] = $m . 'د';
+
+        return implode(' ', array_slice($parts, 0, 2)); // عرض جزئين كحد أقصى
+    }
+
+    /**
+     * تنسيق المدة حسب الدور
+     * @param int|null $seconds
+     * @param bool $isDesignerOrWorkshop
+     * @return string
+     */
+    public static function format_duration_by_role(?int $seconds, bool $isDesignerOrWorkshop = false): string {
+        return $isDesignerOrWorkshop
+            ? self::format_duration_detailed($seconds)
+            : self::format_duration_compact($seconds);
     }
 }

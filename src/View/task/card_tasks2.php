@@ -86,52 +86,31 @@ if (!empty($_GET['debug_icons'])) {
       <?php
       if (!function_exists('render_timeline_b_compact')) {
       function render_timeline_b_compact(array $t): string {
-              // توابع مساعدة محلية
-              $fmtTime = function($dtStr) {
-                  if (empty($dtStr)) return '...';
-                  try { $d=new DateTime($dtStr); return $d->format('d/m H:i'); } catch(Exception $e){ return '...'; }
-              };
-        // تحديد الدور الحالي لعرض مراحل مخصصة
-        $role = \App\Core\RoleHelper::getCurrentUserRole();
-        $isDesigner = \App\Core\RoleHelper::isDesigner();
-        $isWorkshop = \App\Core\RoleHelper::isWorkshop();
+              // استخدام الدالة الموحدة لحساب التوقيت
+              $timeline = \App\Core\Helpers::calculate_order_timeline($t);
+              
+              // تحديد الدور الحالي لعرض مراحل مخصصة
+              $role = \App\Core\RoleHelper::getCurrentUserRole();
+              $isDesigner = \App\Core\RoleHelper::isDesigner();
+              $isWorkshop = \App\Core\RoleHelper::isWorkshop();
 
               $now = new DateTime();
               $orderStart = !empty($t['order_date']) ? new DateTime($t['order_date']) : $now; // بداية المهمة العامة
-              $designStart = !empty($t['design_started_at']) ? new DateTime($t['design_started_at']) : null; // بداية التصميم فقط إن وُجد ختم
-              $designEnd = !empty($t['design_completed_at']) ? new DateTime($t['design_completed_at']) : null;
-              $execStart = !empty($t['execution_started_at']) ? new DateTime($t['execution_started_at']) : null;
-              $execEnd = !empty($t['execution_completed_at']) ? new DateTime($t['execution_completed_at']) : null;
+              $designStart = $timeline['design_start']; // بداية التصميم
+              $designEnd = $timeline['design_end'];
+              $execStart = $timeline['execution_start'];
+              $execEnd = $timeline['execution_end'];
               $status = $t['status'] ?? '';
-              // مدد (بالثواني)
-              $designDur = null; $execDur = null; $totalDur = null;
-              if ($designEnd && $designStart) {
-                  $designDur = $designEnd->getTimestamp() - $designStart->getTimestamp();
-              } elseif ($status === 'قيد التصميم' && $designStart) {
-                  $designDur = $now->getTimestamp() - $designStart->getTimestamp();
-              }
-              if ($execEnd && $execStart) {
-                  $execDur = $execEnd->getTimestamp() - $execStart->getTimestamp();
-              } elseif ($status === 'قيد التنفيذ' && $execStart) {
-                  $execDur = $now->getTimestamp() - $execStart->getTimestamp();
-              }
-              if ($execEnd) {
-                  $totalDur = $execEnd->getTimestamp() - $orderStart->getTimestamp();
-              } else {
-                  $totalDur = $now->getTimestamp() - $orderStart->getTimestamp();
-              }
+              
+              // استخدام المدد من الدالة الموحدة
+              $designDur = $timeline['design_duration'];
+              $execDur = $timeline['execution_duration'];
+              $totalDur = $timeline['total_duration'];
               // تنسيقات مدة
-          $fmtDur = function($sec){
-            if($sec===null) return '0د';
-            if($sec < 60) return '1د'; // أقل من دقيقة نعرض دقيقة واحدة
-            $d=floor($sec/86400);
-            $h=floor(($sec%86400)/3600);
-            $m=floor(($sec%3600)/60);
-            $parts=[];
-            if($d>0) $parts[]=$d.'ي';
-            if($h>0) $parts[]=$h.'س';
-            if($m>0 && $d==0) $parts[]=$m.'د';
-            return implode(' ',array_slice($parts,0,2));
+          $fmtDur = function($sec) use ($isDesigner, $isWorkshop) {
+            // استخدام التنسيق التفصيلي للمصممين والمعامل
+            $isDetailed = $isDesigner || $isWorkshop;
+            return \App\Core\Helpers::format_duration_by_role($sec, $isDetailed);
           };
               $designDurTxt = $designDur!==null ? $fmtDur($designDur) : (($status==='قيد التصميم') ? 'لم يبدأ' : '—');
               $execDurTxt   = $execDur!==null ? $fmtDur($execDur) : (($status==='قيد التنفيذ') ? 'لم يبدأ' : '—');
@@ -245,7 +224,23 @@ if (!empty($_GET['debug_icons'])) {
               <?php if(!defined('TIMELINE_B_COMPACT_JS')): define('TIMELINE_B_COMPACT_JS', true); ?>
               <script>
               (function(){
-                function fmtPhase(sec){
+                function fmtPhaseDetailed(sec){
+                  if(sec<0) sec=0;
+                  if(sec<60) return (sec<=1?1:sec)+'ث';
+                  var d=Math.floor(sec/86400);
+                  var hTotal=Math.floor(sec/3600);
+                  var hDay=Math.floor((sec%86400)/3600);
+                  var mRem=Math.floor((sec%3600)/60);
+                  var sRem=sec%60;
+                  if(d>0){
+                    return d+'ي '+(hDay>0? hDay+'س ':'')+(mRem>0? mRem+'د ':'')+(sRem>0 && hDay==0? sRem+'ث':'');
+                  }
+                  if(hTotal>0){
+                    return hTotal+'س '+(mRem>0? mRem+'د ':'')+(sRem>0? sRem+'ث':'');
+                  }
+                  return mRem+'د '+(sRem>0? sRem+'ث':'');
+                }
+                function fmtPhaseCompact(sec){
                   if(sec<0) sec=0;
                   if(sec<60) return (sec<=1?1:sec)+'ث';
                   if(sec<3600){
@@ -279,7 +274,10 @@ if (!empty($_GET['debug_icons'])) {
                   nodes.forEach(function(el){
                     var start=parseInt(el.getAttribute('data-start'),10); if(!start) return; var sec=Math.floor((now-start)/1000);
                     var isTotal = el.getAttribute('data-format')==='total';
-                    var txt = isTotal ? fmtTotal(sec) : fmtPhase(sec);
+                    // التحقق من الدور لاختيار التنسيق المناسب
+                    var isDesignerOrWorkshop = el.closest('.timeline-b-compact').querySelector('.phase.design') !== null ||
+                                             el.closest('.timeline-b-compact').querySelector('.phase.exec') !== null;
+                    var txt = isTotal ? fmtTotal(sec) : (isDesignerOrWorkshop ? fmtPhaseDetailed(sec) : fmtPhaseCompact(sec));
                     el.textContent='منذ '+txt;
                     var hh=Math.floor(sec/3600), mm=Math.floor((sec%3600)/60), ss=sec%60;
                     el.title = (isTotal? 'إجمالي' : 'المدة')+': '+(hh<10?'0'+hh:hh)+':' + (mm<10?'0'+mm:mm)+':' + (ss<10?'0'+ss:ss)+' ('+sec+'ث)';

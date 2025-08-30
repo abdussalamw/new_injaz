@@ -64,19 +64,18 @@
                                 <?php if ($result && $result->num_rows > 0): ?>
                                     <?php while($row = $result->fetch_assoc()): ?>
                                         <?php
-                                        $design_duration_seconds = \App\Core\Helpers::calculate_stage_duration($row['order_date'], $row['design_completed_at']);
-                                        $execution_duration_seconds = \App\Core\Helpers::calculate_stage_duration($row['design_completed_at'], $row['execution_completed_at']);
+                                        // استخدام الدالة الموحدة لحساب التوقيت
+                                        $timeline = \App\Core\Helpers::calculate_order_timeline($row);
                                         
-                                        $design_duration = $design_duration_seconds ? \App\Core\Helpers::format_duration($design_duration_seconds) : null;
-                                        $execution_duration = $execution_duration_seconds ? \App\Core\Helpers::format_duration($execution_duration_seconds) : null;
+                                        $design_duration = $timeline['design_duration'] ? \App\Core\Helpers::format_duration($timeline['design_duration']) : null;
+                                        $execution_duration = $timeline['execution_duration'] ? \App\Core\Helpers::format_duration($timeline['execution_duration']) : null;
                                         
                                         $total_duration = null;
                                         if ($row['status'] === 'مكتمل' && !empty($row['delivered_at'])) {
                                             $total_duration_seconds = \App\Core\Helpers::calculate_stage_duration($row['order_date'], $row['delivered_at']);
                                             $total_duration = $total_duration_seconds ? \App\Core\Helpers::format_duration($total_duration_seconds) : null;
                                         } else {
-                                            $total_duration_seconds = \App\Core\Helpers::calculate_current_stage_duration($row['order_date']);
-                                            $total_duration = $total_duration_seconds ? \App\Core\Helpers::format_duration($total_duration_seconds) : null;
+                                            $total_duration = $timeline['total_duration'] ? \App\Core\Helpers::format_duration($timeline['total_duration']) : null;
                                         }
                                         ?>
                                         <tr>
@@ -87,8 +86,8 @@
                                             </td>
                                             
                                             <td><?= htmlspecialchars($row['designer_name'] ?? 'غير محدد') ?></td>
-                                            <td><small><?= !empty($row['order_date']) ? date('Y-m-d H:i', strtotime($row['order_date'])) : 'N/A' ?></small></td>
-                                            <td><small><?= !empty($row['design_completed_at']) ? date('Y-m-d H:i', strtotime($row['design_completed_at'])) : '-' ?></small></td>
+                                            <td><small><?= !empty($timeline['design_start']) ? $timeline['design_start']->format('Y-m-d H:i') : 'N/A' ?></small></td>
+                                            <td><small><?= !empty($timeline['design_end']) ? $timeline['design_end']->format('Y-m-d H:i') : '-' ?></small></td>
                                             <td><span class="badge bg-light text-dark"><?= $design_duration ?? '-' ?></span></td>
                                             <td>
                                                 <div class="rating-stars" data-order-id="<?= $row['order_id'] ?>" data-stage="design">
@@ -101,7 +100,7 @@
                                             <td>
                                                 <?php 
                                                 // عرض اسم المعمل مع معالجة بسيطة وفعالة
-                                                if (!empty($row['design_completed_at']) && $row['status'] !== 'قيد التصميم') {
+                                                if (!empty($timeline['design_end']) && $row['status'] !== 'قيد التصميم') {
                                                     $workshop_name = $row['workshop_name'] ?? '';
                                                     if ($workshop_name === 'غير معين' || empty($workshop_name)) {
                                                         echo '<span class="text-muted">غير معين</span>';
@@ -116,9 +115,9 @@
                                             <td>
                                                 <small>
                                                     <?php 
-                                                    // عرض تاريخ بداية التنفيذ فقط إذا بدأت مرحلة التنفيذ فعلياً
-                                                    if (!empty($row['design_completed_at']) && $row['status'] !== 'قيد التصميم') {
-                                                        echo date('Y-m-d H:i', strtotime($row['design_completed_at']));
+                                                    // عرض تاريخ بداية التنفيذ
+                                                    if (!empty($timeline['execution_start'])) {
+                                                        echo $timeline['execution_start']->format('Y-m-d H:i');
                                                     } else {
                                                         echo '-';
                                                     }
@@ -128,9 +127,9 @@
                                             <td>
                                                 <small>
                                                     <?php 
-                                                    // عرض تاريخ نهاية التنفيذ فقط إذا انتهت مرحلة التنفيذ فعلياً
-                                                    if (!empty($row['execution_completed_at'])) {
-                                                        echo date('Y-m-d H:i', strtotime($row['execution_completed_at']));
+                                                    // عرض تاريخ نهاية التنفيذ
+                                                    if (!empty($timeline['execution_end'])) {
+                                                        echo $timeline['execution_end']->format('Y-m-d H:i');
                                                     } else {
                                                         echo '-';
                                                     }
@@ -139,11 +138,11 @@
                                             </td>
                                             <td>
                                                 <span class="badge bg-light text-dark">
-                                                    <?= (!empty($row['design_completed_at']) && $row['status'] !== 'قيد التصميم') ? ($execution_duration ?? '-') : '-' ?>
+                                                    <?= $execution_duration ?? '-' ?>
                                                 </span>
                                             </td>
                                             <td>
-                                                <?php if (!empty($row['design_completed_at']) && $row['status'] !== 'قيد التصميم'): ?>
+                                                <?php if (!empty($timeline['execution_start'])): ?>
                                                     <div class="rating-stars" data-order-id="<?= $row['order_id'] ?>" data-stage="execution">
                                                         <?php for ($i = 1; $i <= 5; $i++): ?>
                                                             <span class="star <?= $i <= ($row['execution_rating'] / 2) ? 'active' : '' ?>" data-rating="<?= $i ?>" title="<?= $i ?>/5">★</span>
