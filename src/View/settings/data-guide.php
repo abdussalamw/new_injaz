@@ -1,445 +1,741 @@
 <!DOCTYPE html>
+<?php
+// التحقق من الجلسة والصلاحيات
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+if (!isset($_SESSION['user_role']) || !in_array($_SESSION['user_role'], ['مدير', 'admin'])) {
+    http_response_code(403);
+    echo '<h2 style="color:red;text-align:center;margin-top:50px">غير مصرح لك بالدخول لهذه الصفحة</h2>';
+    exit;
+}
+?>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>دليل البيانات والنسخ الاحتياطي - نظام إنجاز الإعلامية</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap RTL -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+
+    <!-- Font Awesome & Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
-        body { 
-            font-family: 'Tajawal', Arial, sans-serif; 
-            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-            min-height: 100vh;
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --warning-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            --danger-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
         }
-        .main-header {
-            background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
-            color: white;
-            padding: 60px 0;
-            text-align: center;
-            margin-bottom: 40px;
+
+        body {
+            font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            direction: rtl;
+            line-height: 1.6;
         }
-        .card {
-            border: none;
+
+        .content-wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .page-header {
+            background: white;
             border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-            transition: all 0.3s ease;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border: 1px solid #e9ecef;
+            text-align: center;
         }
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+
+        .page-title {
+            color: #2c3e50;
+            font-weight: 700;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
         }
+
+        .page-subtitle {
+            color: #6c757d;
+            font-size: 1.1rem;
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border: 1px solid #e9ecef;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .section-icon {
+            background: var(--primary-gradient);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-left: 1rem;
+        }
+
         .section-title {
-            color: #1565c0;
-            border-bottom: 3px solid #42a5f5;
-            padding-bottom: 10px;
-            margin-bottom: 25px;
+            color: #2c3e50;
+            font-weight: 600;
+            font-size: 1.5rem;
+            margin: 0;
         }
+
+        .section-description {
+            color: #6c757d;
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
         .data-box {
-            background: #fff;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 15px 0;
-            border-left: 5px solid #42a5f5;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
         }
+
+        .data-box-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .data-icon {
+            background: var(--success-gradient);
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 1rem;
+            font-size: 1rem;
+        }
+
+        .data-title {
+            color: #2c3e50;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
         .warning-box {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 15px 0;
-            border-left: 5px solid #f39c12;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 1px solid #f39c12;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
         }
+
+        .warning-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .warning-icon {
+            background: #f39c12;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 0.75rem;
+        }
+
+        .warning-title {
+            color: #8b4513;
+            font-weight: 600;
+            margin: 0;
+        }
+
         .danger-box {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 15px 0;
-            border-left: 5px solid #dc3545;
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            border: 1px solid #dc3545;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
         }
+
+        .danger-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .danger-icon {
+            background: #dc3545;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 0.75rem;
+        }
+
+        .danger-title {
+            color: #721c24;
+            font-weight: 600;
+            margin: 0;
+        }
+
         .success-box {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 15px 0;
-            border-left: 5px solid #28a745;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border: 1px solid #28a745;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
         }
+
+        .success-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .success-icon {
+            background: #28a745;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 0.75rem;
+        }
+
+        .success-title {
+            color: #155724;
+            font-weight: 600;
+            margin: 0;
+        }
+
         .code-block {
             background: #2c3e50;
             color: #ecf0f1;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            margin: 10px 0;
-        }
-        .table-name {
-            background: #3498db;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            display: inline-block;
-            margin: 5px;
-            font-size: 14px;
-        }
-        .file-type {
-            background: #e74c3c;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            display: inline-block;
-            margin: 2px;
-            font-size: 12px;
-        }
-        .backup-step {
-            background: #fff;
+            padding: 1.5rem;
             border-radius: 10px;
-            padding: 20px;
-            margin: 15px 0;
-            border-left: 5px solid #27ae60;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin: 1rem 0;
+            border: 1px solid #34495e;
+            overflow-x: auto;
         }
-        .frequency {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 15px;
-            font-size: 12px;
-            margin: 3px;
+
+        .table-responsive {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
         }
-        .daily { background: #e74c3c; color: white; }
-        .weekly { background: #f39c12; color: white; }
-        .monthly { background: #3498db; color: white; }
-        .critical { background: #2c3e50; color: white; }
+
+        .table {
+            margin: 0;
+        }
+
+        .table th {
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            padding: 1rem;
+            font-weight: 600;
+        }
+
+        .table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: middle;
+        }
+
+        .table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .step-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .step-number {
+            background: var(--primary-gradient);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-left: 1rem;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-description {
+            color: #6c757d;
+            margin: 0;
+        }
+
+        .backup-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .backup-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .backup-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 1.5rem;
+        }
+
+        .backup-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .backup-description {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .btn-custom {
+            background: var(--primary-gradient);
+            border: none;
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+
+        .footer-custom {
+            background: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 2rem 0;
+            margin-top: 3rem;
+            border-radius: 15px 15px 0 0;
+        }
+
+        @media (max-width: 768px) {
+            .content-wrapper {
+                padding: 1rem;
+            }
+
+            .backup-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .step-item {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .step-number {
+                margin-left: 0;
+                margin-bottom: 1rem;
+            }
+
+            .section-header {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .section-icon {
+                margin-left: 0;
+                margin-bottom: 1rem;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="main-header">
-        <div class="container">
-            <h1><i class="bi bi-database"></i> دليل البيانات والنسخ الاحتياطي</h1>
-            <p class="lead">دليل شامل لفهم كيفية حفظ وإدارة البيانات في النظام</p>
+    <div class="content-wrapper">
+        <!-- هيكل قاعدة البيانات -->
+        <div class="info-section">
+            <div class="section-header">
+                <div class="section-icon">
+                    <i class="bi bi-table"></i>
+                </div>
+                <div>
+                    <h3 class="section-title">
+                        <i class="bi bi-diagram-3 me-2"></i>
+                        هيكل قاعدة البيانات
+                    </h3>
+                    <p class="section-description">
+                        الجداول الأساسية والعلاقات بينها في النظام
+                    </p>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>الجدول</th>
+                            <th>الوصف</th>
+                            <th>الحقول المهمة</th>
+                            <th>الاستخدام</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>users</code></td>
+                            <td>بيانات المستخدمين والموظفين</td>
+                            <td>id, name, email, role, password</td>
+                            <td>إدارة المستخدمين والصلاحيات</td>
+                        </tr>
+                        <tr>
+                            <td><code>orders</code></td>
+                            <td>بيانات الطلبات</td>
+                            <td>id, client_id, designer_id, status, payment_status</td>
+                            <td>إدارة الطلبات والمتابعة</td>
+                        </tr>
+                        <tr>
+                            <td><code>clients</code></td>
+                            <td>بيانات العملاء</td>
+                            <td>id, name, phone, email, address</td>
+                            <td>إدارة بيانات العملاء</td>
+                        </tr>
+                        <tr>
+                            <td><code>notifications</code></td>
+                            <td>الإشعارات</td>
+                            <td>id, user_id, message, type, read_status</td>
+                            <td>نظام الإشعارات</td>
+                        </tr>
+                        <tr>
+                            <td><code>order_history</code></td>
+                            <td>تاريخ الطلبات</td>
+                            <td>id, order_id, action, user_id, timestamp</td>
+                            <td>تتبع التغييرات</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
 
-    <div class="container">
-        <!-- البيانات المحفوظة في قاعدة البيانات -->
-        <div class="card">
-            <div class="card-body">
-                <h2 class="section-title"><i class="bi bi-server"></i> البيانات المحفوظة في قاعدة البيانات MySQL</h2>
-                
-                <div class="danger-box">
-                    <h5><i class="bi bi-exclamation-triangle"></i> تحذير مهم!</h5>
-                    <p><strong>هذه البيانات حيوية ويجب نسخها احتياطياً بشكل دوري!</strong></p>
-                    <p>فقدان قاعدة البيانات يعني فقدان جميع بيانات النظام.</p>
+        <!-- النسخ الاحتياطي -->
+        <div class="info-section">
+            <div class="section-header">
+                <div class="section-icon">
+                    <i class="bi bi-shield-check"></i>
                 </div>
+                <div>
+                    <h3 class="section-title">
+                        <i class="bi bi-shield me-2"></i>
+                        النسخ الاحتياطي
+                    </h3>
+                    <p class="section-description">
+                        طرق وحلول حماية البيانات
+                    </p>
+                </div>
+            </div>
 
-                <div class="row">
-                    <div class="col-md-6">
-                        <h5>الجداول الأساسية:</h5>
-                        <span class="table-name">orders</span> - الطلبات والمشاريع
-                        <span class="table-name">clients</span> - بيانات العملاء
-                        <span class="table-name">employees</span> - بيانات الموظفين
-                        <span class="table-name">products</span> - المنتجات والخدمات
-                        <span class="table-name">tasks</span> - المهام اليومية
+            <div class="backup-grid">
+                <div class="backup-card">
+                    <div class="backup-icon" style="background: var(--success-gradient);">
+                        <i class="bi bi-cloud-upload"></i>
                     </div>
-                    <div class="col-md-6">
-                        <h5>الجداول المساعدة:</h5>
-                        <span class="table-name">notifications</span> - الإشعارات
-                        <span class="table-name">user_sessions</span> - جلسات المستخدمين
-                        <span class="table-name">order_history</span> - تاريخ الطلبات
-                        <span class="table-name">employee_permissions</span> - الصلاحيات
-                        <span class="table-name">system_settings</span> - إعدادات النظام
+                    <h5 class="backup-title">النسخ التلقائي</h5>
+                    <p class="backup-description">
+                        نسخ احتياطي تلقائي يومي لقاعدة البيانات والملفات المهمة
+                    </p>
+                </div>
+
+                <div class="backup-card">
+                    <div class="backup-icon" style="background: var(--warning-gradient);">
+                        <i class="bi bi-hdd"></i>
                     </div>
+                    <h5 class="backup-title">التخزين المحلي</h5>
+                    <p class="backup-description">
+                        حفظ النسخ الاحتياطية على أقراص تخزين خارجية آمنة
+                    </p>
                 </div>
 
-                <div class="data-box">
-                    <h5>تفاصيل الجداول المهمة:</h5>
-                    <ul>
-                        <li><strong>orders:</strong> معلومات الطلبات، التسعير، الحالة، تواريخ التسليم</li>
-                        <li><strong>clients:</strong> أسماء العملاء، معلومات الاتصال، العناوين</li>
-                        <li><strong>employees:</strong> بيانات الموظفين، الأدوار، كلمات المرور</li>
-                        <li><strong>tasks:</strong> المهام اليومية، الموظف المخصص، التقييمات</li>
-                        <li><strong>notifications:</strong> الإشعارات، تواريخ الإرسال، حالة القراءة</li>
-                    </ul>
-                </div>
-
-                <div class="code-block">
-# أمر نسخ قاعدة البيانات احتياطياً
-mysqldump -u username -p database_name > backup_$(date +%Y%m%d).sql
-
-# أمر استعادة قاعدة البيانات
-mysql -u username -p database_name < backup_file.sql
+                <div class="backup-card">
+                    <div class="backup-icon" style="background: var(--danger-gradient);">
+                        <i class="bi bi-cloud"></i>
+                    </div>
+                    <h5 class="backup-title">التخزين السحابي</h5>
+                    <p class="backup-description">
+                        رفع النسخ الاحتياطية إلى خدمات التخزين السحابي
+                    </p>
                 </div>
             </div>
         </div>
 
-        <!-- الملفات المحفوظة في نظام الملفات -->
-        <div class="card">
-            <div class="card-body">
-                <h2 class="section-title"><i class="bi bi-folder"></i> الملفات المحفوظة في نظام الملفات</h2>
+        <!-- خطوات النسخ الاحتياطي -->
+        <div class="info-section">
+            <div class="section-header">
+                <div class="section-icon">
+                    <i class="bi bi-list-check"></i>
+                </div>
+                <div>
+                    <h3 class="section-title">
+                        <i class="bi bi-list-ol me-2"></i>
+                        خطوات النسخ الاحتياطي
+                    </h3>
+                    <p class="section-description">
+                        دليل خطوة بخطوة لإنشاء نسخة احتياطية
+                    </p>
+                </div>
+            </div>
 
-                <div class="data-box">
-                    <h5><i class="bi bi-file-earmark-text"></i> ملفات الإعدادات:</h5>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <ul>
-                                <li><span class="file-type">.env</span> إعدادات قاعدة البيانات</li>
-                                <li><span class="file-type">config.php</span> إعدادات النظام</li>
-                                <li><span class="file-type">composer.json</span> مكتبات PHP</li>
-                            </ul>
-                        </div>
-                        <div class="col-md-6">
-                            <ul>
-                                <li><span class="file-type">routes.php</span> مسارات النظام</li>
-                                <li><span class="file-type">.htaccess</span> إعدادات الخادم</li>
-                                <li><span class="file-type">database.sql</span> هيكل قاعدة البيانات</li>
-                            </ul>
+            <ul class="step-list">
+                <li class="step-item">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h5 class="step-title">إعداد مجلد النسخ الاحتياطي</h5>
+                        <p class="step-description">
+                            إنشاء مجلد آمن لحفظ النسخ الاحتياطية مع ضمان عدم الوصول العام إليه
+                        </p>
+                    </div>
+                </li>
+
+                <li class="step-item">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h5 class="step-title">نسخ قاعدة البيانات</h5>
+                        <p class="step-description">
+                            استخدام أدوات phpMyAdmin أو mysqldump لإنشاء نسخة من قاعدة البيانات
+                        </p>
+                        <div class="code-block">
+mysqldump -u username -p database_name > backup.sql
                         </div>
                     </div>
-                </div>
+                </li>
 
-                <div class="warning-box">
-                    <h5><i class="bi bi-exclamation-circle"></i> ملفات حساسة يجب حمايتها:</h5>
-                    <ul>
-                        <li><strong>.env</strong> - يحتوي على كلمات مرور قاعدة البيانات</li>
-                        <li><strong>src/Core/Database.php</strong> - إعدادات الاتصال</li>
-                        <li><strong>أي ملف يحتوي على مفاتيح API أو كلمات مرور</strong></li>
-                    </ul>
-                </div>
+                <li class="step-item">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h5 class="step-title">نسخ الملفات</h5>
+                        <p class="step-description">
+                            نسخ مجلد النظام والملفات المرفوعة والإعدادات المهمة
+                        </p>
+                        <div class="code-block">
+cp -r /path/to/new_injaz /path/to/backup/folder/
+                        </div>
+                    </div>
+                </li>
 
-                <div class="data-box">
-                    <h5><i class="bi bi-images"></i> ملفات الوسائط (إذا وجدت):</h5>
-                    <ul>
-                        <li><strong>uploads/</strong> - ملفات المرفوعة من المستخدمين</li>
-                        <li><strong>assets/images/</strong> - صور المنتجات والعملاء</li>
-                        <li><strong>documents/</strong> - مستندات وملفات PDF</li>
-                        <li><strong>backups/</strong> - النسخ الاحتياطية المحلية</li>
-                    </ul>
+                <li class="step-item">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h5 class="step-title">التحقق من النسخة</h5>
+                        <p class="step-description">
+                            التأكد من سلامة النسخة وإمكانية استعادتها عند الحاجة
+                        </p>
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <!-- تحذيرات مهمة -->
+        <div class="warning-box">
+            <div class="warning-header">
+                <div class="warning-icon">
+                    <i class="bi bi-exclamation-triangle"></i>
                 </div>
+                <h4 class="warning-title">تحذيرات مهمة</h4>
+            </div>
+            <ul style="margin: 0; padding-right: 2.5rem; color: #8b4513;">
+                <li>لا تقم بتعديل قاعدة البيانات مباشرة دون نسخ احتياطي</li>
+                <li>تأكد من تشفير كلمات المرور والمعلومات الحساسة</li>
+                <li>راقب استخدام المساحة التخزينية بانتظام</li>
+                <li>اختبر عملية الاستعادة قبل الاعتماد على النسخة الاحتياطية</li>
+            </ul>
+        </div>
+
+        <!-- في حالة الطوارئ -->
+        <div class="danger-box">
+            <div class="danger-header">
+                <div class="danger-icon">
+                    <i class="bi bi-exclamation-circle"></i>
+                </div>
+                <h4 class="danger-title">في حالة الطوارئ</h4>
+            </div>
+            <div style="color: #721c24;">
+                <p><strong>إذا حدث عطل في النظام:</strong></p>
+                <ol style="padding-right: 1.5rem;">
+                    <li>لا تقم بإعادة تشغيل الخادم فوراً</li>
+                    <li>تحقق من سجلات الأخطاء (error logs)</li>
+                    <li>استعد النسخة الاحتياطية الأخيرة</li>
+                    <li>اتصل بالدعم الفني إذا لزم الأمر</li>
+                </ol>
             </div>
         </div>
 
-        <!-- البيانات المحفوظة في المتصفح -->
-        <div class="card">
-            <div class="card-body">
-                <h2 class="section-title"><i class="bi bi-browser-chrome"></i> البيانات المحفوظة في المتصفح</h2>
-
-                <div class="data-box">
-                    <h5><i class="bi bi-cookie"></i> البيانات المؤقتة:</h5>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <ul>
-                                <li><strong>Cookies:</strong> معلومات تسجيل الدخول</li>
-                                <li><strong>Session Storage:</strong> بيانات الجلسة المؤقتة</li>
-                                <li><strong>Local Storage:</strong> إعدادات المستخدم</li>
-                            </ul>
-                        </div>
-                        <div class="col-md-6">
-                            <ul>
-                                <li><strong>Cache:</strong> ملفات CSS/JS المخزنة مؤقتاً</li>
-                                <li><strong>Service Worker:</strong> بيانات العمل دون إنترنت</li>
-                                <li><strong>IndexedDB:</strong> بيانات محلية متقدمة</li>
-                            </ul>
-                        </div>
-                    </div>
+        <!-- نصائح للأمان -->
+        <div class="success-box">
+            <div class="success-header">
+                <div class="success-icon">
+                    <i class="bi bi-check-circle"></i>
                 </div>
-
-                <div class="success-box">
-                    <h5><i class="bi bi-info-circle"></i> معلومة مهمة:</h5>
-                    <p>البيانات في المتصفح مؤقتة ولا تؤثر على النظام الأساسي. يمكن مسحها دون خوف.</p>
-                </div>
+                <h4 class="success-title">نصائح للأمان</h4>
+            </div>
+            <div style="color: #155724;">
+                <ul style="margin: 0; padding-right: 2.5rem;">
+                    <li>استخدم كلمات مرور قوية ومعقدة</li>
+                    <li>حدث النظام والمكتبات بانتظام</li>
+                    <li>راقب الوصول إلى النظام والأنشطة المشبوهة</li>
+                    <li>استخدم شهادات SSL لتشفير الاتصالات</li>
+                    <li>احتفظ بنسخ احتياطية متعددة في مواقع مختلفة</li>
+                </ul>
             </div>
         </div>
 
-        <!-- استراتيجية النسخ الاحتياطي -->
-        <div class="card">
-            <div class="card-body">
-                <h2 class="section-title"><i class="bi bi-shield-check"></i> استراتيجية النسخ الاحتياطي الموصى بها</h2>
-
-                <div class="backup-step">
-                    <h4><i class="bi bi-1-circle-fill text-primary"></i> النسخ الاحتياطي لقاعدة البيانات</h4>
-                    <p><span class="frequency daily">يومي</span> <span class="frequency critical">حرج جداً</span></p>
-                    <div class="code-block">
-# إنشاء نسخة احتياطية تلقائية يومية
-0 2 * * * mysqldump -u username -p database_name > /path/to/backups/daily_backup_$(date +\%Y\%m\%d).sql
-                    </div>
+        <!-- معلومات إضافية -->
+        <div class="info-section">
+            <div class="section-header">
+                <div class="section-icon">
+                    <i class="bi bi-info-circle"></i>
                 </div>
-
-                <div class="backup-step">
-                    <h4><i class="bi bi-2-circle-fill text-info"></i> نسخ ملفات النظام</h4>
-                    <p><span class="frequency weekly">أسبوعي</span></p>
-                    <div class="code-block">
-# نسخ جميع ملفات المشروع
-tar -czf project_backup_$(date +%Y%m%d).tar.gz /path/to/new_injaz/
-
-# نسخ الملفات المهمة فقط
-cp -r src/ config/ .env backups/important_files_$(date +%Y%m%d)/
-                    </div>
-                </div>
-
-                <div class="backup-step">
-                    <h4><i class="bi bi-3-circle-fill text-warning"></i> النسخ الاحتياطي السحابي</h4>
-                    <p><span class="frequency weekly">أسبوعي</span> <span class="frequency critical">مهم جداً</span></p>
-                    <ul>
-                        <li>رفع النسخ الاحتياطية إلى Google Drive أو Dropbox</li>
-                        <li>استخدام خدمات النسخ الاحتياطي التلقائي</li>
-                        <li>التأكد من تشفير الملفات الحساسة</li>
-                    </ul>
-                </div>
-
-                <div class="backup-step">
-                    <h4><i class="bi bi-4-circle-fill text-success"></i> النسخ الاحتياطي الشامل</h4>
-                    <p><span class="frequency monthly">شهري</span></p>
-                    <ul>
-                        <li>نسخة كاملة من قاعدة البيانات</li>
-                        <li>نسخة كاملة من جميع ملفات المشروع</li>
-                        <li>نسخة من إعدادات الخادم</li>
-                        <li>اختبار استعادة النسخة الاحتياطية</li>
-                    </ul>
+                <div>
+                    <h3 class="section-title">
+                        <i class="bi bi-info me-2"></i>
+                        معلومات إضافية
+                    </h3>
+                    <p class="section-description">
+                        روابط ومراجع مفيدة للمزيد من المعلومات
+                    </p>
                 </div>
             </div>
-        </div>
 
-        <!-- قائمة التحقق للنسخ الاحتياطي -->
-        <div class="card">
-            <div class="card-body">
-                <h2 class="section-title"><i class="bi bi-check2-square"></i> قائمة التحقق الشهرية</h2>
-
-                <div class="row">
-                    <div class="col-md-6">
-                        <h5>ما يجب فعله:</h5>
-                        <div class="success-box">
-                            <ul class="list-unstyled">
-                                <li><i class="bi bi-check-circle text-success"></i> فحص سلامة النسخ الاحتياطية</li>
-                                <li><i class="bi bi-check-circle text-success"></i> اختبار استعادة نسخة احتياطية</li>
-                                <li><i class="bi bi-check-circle text-success"></i> تنظيف النسخ القديمة (أكثر من 3 أشهر)</li>
-                                <li><i class="bi bi-check-circle text-success"></i> تحديث أمان كلمات المرور</li>
-                                <li><i class="bi bi-check-circle text-success"></i> فحص مساحة التخزين المتاحة</li>
-                            </ul>
-                        </div>
+            <div class="data-box">
+                <div class="data-box-header">
+                    <div class="data-icon">
+                        <i class="bi bi-github"></i>
                     </div>
-                    <div class="col-md-6">
-                        <h5>ما يجب تجنبه:</h5>
-                        <div class="danger-box">
-                            <ul class="list-unstyled">
-                                <li><i class="bi bi-x-circle text-danger"></i> الاعتماد على نسخة احتياطية واحدة فقط</li>
-                                <li><i class="bi bi-x-circle text-danger"></i> تخزين النسخ الاحتياطية في نفس الخادم</li>
-                                <li><i class="bi bi-x-circle text-danger"></i> إهمال اختبار استعادة النسخ</li>
-                                <li><i class="bi bi-x-circle text-danger"></i> تجاهل تحديث كلمات المرور</li>
-                                <li><i class="bi bi-x-circle text-danger"></i> نسخ الملفات الحساسة دون تشفير</li>
-                            </ul>
-                        </div>
-                    </div>
+                    <h5 class="data-title">المستودع على GitHub</h5>
                 </div>
+                <p>يمكنك العثور على آخر التحديثات والميزات الجديدة في المستودع الرسمي للمشروع.</p>
+                <a href="https://github.com/abdussalamw/new_injaz" class="btn-custom" target="_blank">
+                    <i class="bi bi-github"></i>
+                    زيارة المستودع
+                </a>
             </div>
-        </div>
 
-        <!-- أماكن التخزين الموصى بها -->
-        <div class="card">
-            <div class="card-body">
-                <h2 class="section-title"><i class="bi bi-cloud"></i> أماكن التخزين الموصى بها</h2>
-
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="data-box text-center">
-                            <i class="bi bi-cloud-upload text-primary" style="font-size: 3rem;"></i>
-                            <h5>التخزين السحابي</h5>
-                            <p>Google Drive, Dropbox, OneDrive</p>
-                            <span class="frequency critical">أولوية عالية</span>
-                        </div>
+            <div class="data-box">
+                <div class="data-box-header">
+                    <div class="data-icon">
+                        <i class="bi bi-diagram-3"></i>
                     </div>
-                    <div class="col-md-4">
-                        <div class="data-box text-center">
-                            <i class="bi bi-hdd text-warning" style="font-size: 3rem;"></i>
-                            <h5>القرص الصلب الخارجي</h5>
-                            <p>نسخ احتياطية محلية آمنة</p>
-                            <span class="frequency weekly">أسبوعي</span>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="data-box text-center">
-                            <i class="bi bi-server text-info" style="font-size: 3rem;"></i>
-                            <h5>خادم منفصل</h5>
-                            <p>نسخ احتياطية على خادم آخر</p>
-                            <span class="frequency monthly">شهري</span>
-                        </div>
-                    </div>
+                    <h5 class="data-title">خريطة الموقع</h5>
                 </div>
+                <p>دليل شامل لهيكل النظام وسير العمل والمسارات المهمة.</p>
+                <a href="mabs.php" class="btn-custom">
+                    <i class="bi bi-diagram-3"></i>
+                    عرض خريطة الموقع
+                </a>
             </div>
-        </div>
 
-        <!-- أوامر سريعة للطوارئ -->
-        <div class="card">
-            <div class="card-body">
-                <h2 class="section-title"><i class="bi bi-lightning"></i> أوامر سريعة للطوارئ</h2>
-
-                <div class="danger-box">
-                    <h5><i class="bi bi-exclamation-triangle"></i> في حالة الطوارئ - نسخة سريعة:</h5>
-                    <div class="code-block">
-# نسخة سريعة لقاعدة البيانات
-mysqldump -u username -p database_name > emergency_backup.sql
-
-# نسخة سريعة للملفات المهمة
-tar -czf emergency_files.tar.gz src/ .env composer.json
-
-# رفع سريع للسحابة (إذا كان متاح)
-scp emergency_backup.sql user@backup-server:/backups/
+            <div class="data-box">
+                <div class="data-box-header">
+                    <div class="data-icon">
+                        <i class="bi bi-house"></i>
                     </div>
+                    <h5 class="data-title">العودة للوحة التحكم</h5>
                 </div>
-
-                <div class="success-box">
-                    <h5><i class="bi bi-info-circle"></i> استعادة سريعة:</h5>
-                    <div class="code-block">
-# استعادة قاعدة البيانات
-mysql -u username -p database_name < backup_file.sql
-
-# استعادة الملفات
-tar -xzf backup_files.tar.gz
-
-# إعادة تشغيل الخدمات
-sudo systemctl restart apache2
-sudo systemctl restart mysql
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- روابط مهمة -->
-        <div class="card">
-            <div class="card-body">
-                <h2 class="section-title"><i class="bi bi-link-45deg"></i> روابط مفيدة</h2>
-                <div class="row">
-                    <div class="col-md-6">
-                        <a href="mabs.php" class="btn btn-primary mb-2 w-100">
-                            <i class="bi bi-diagram-3"></i> خريطة الموقع
-                        </a>
-                        <a href="dashboard.php" class="btn btn-success mb-2 w-100">
-                            <i class="bi bi-speedometer2"></i> لوحة التحكم
-                        </a>
-                    </div>
-                    <div class="col-md-6">
-                        <a href="https://github.com/abdussalamw/new_injaz" class="btn btn-dark mb-2 w-100" target="_blank">
-                            <i class="bi bi-github"></i> المشروع على GitHub
-                        </a>
-                        <a href="index.php" class="btn btn-info mb-2 w-100">
-                            <i class="bi bi-house"></i> الصفحة الرئيسية
-                        </a>
-                    </div>
-                </div>
+                <p>العودة للصفحة الرئيسية للنظام ولوحة التحكم الإدارية.</p>
+                <a href="dashboard.php" class="btn-custom">
+                    <i class="bi bi-house"></i>
+                    لوحة التحكم
+                </a>
             </div>
         </div>
     </div>
 
-    <footer class="text-center py-4 mt-5" style="background: #1565c0; color: white;">
+    <div class="footer-custom">
         <div class="container">
             <p class="mb-0">&copy; 2025 نظام إنجاز الإعلامية - دليل البيانات والنسخ الاحتياطي</p>
         </div>
-    </footer>
+    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
